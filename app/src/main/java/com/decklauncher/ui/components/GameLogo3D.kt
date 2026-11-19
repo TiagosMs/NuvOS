@@ -45,6 +45,12 @@ fun GameLogo3D(
     if (currentApp == null) return
 
     val density = LocalDensity.current.density
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
+
+    val maxLogoHeight = if (isCompactHeight) 75.dp else 140.dp
+    val maxLogoWidth = if (isCompactHeight) 280.dp else 420.dp
+    val fallbackFontSize = if (isCompactHeight) 20.sp else 32.sp
 
     // 1. Nintendo 3DS Idle Floating & 3D Tilt Oscillations
     val infiniteTransition = rememberInfiniteTransition(label = "3ds_float_loop")
@@ -61,7 +67,8 @@ fun GameLogo3D(
     )
 
     // Cálculo senoidal puro para fluidez orgânica estilo Nintendo
-    val floatY = (sin(floatProgress) * 9.dp.value).dp
+    val floatAmplitude = if (isCompactHeight) 5.dp.value else 9.dp.value
+    val floatY = (sin(floatProgress) * floatAmplitude).dp
     val tiltX = sin(floatProgress) * 4.5f
     val tiltY = sin(floatProgress + PI.toFloat() / 2f) * 6.5f
     val shadowScale = 1f - (sin(floatProgress) * 0.12f)
@@ -70,7 +77,7 @@ fun GameLogo3D(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = if (isCompactHeight) 12.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -89,15 +96,19 @@ fun GameLogo3D(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .wrapContentSize()
-                    .padding(vertical = 10.dp)
+                    .padding(vertical = if (isCompactHeight) 2.dp else 10.dp)
             ) {
                 // Sombra 3D projetada na base (encolhe e expande conforme o logo flutua)
+                val shadowWidth = if (isCompactHeight) (if (bmp != null) 150.dp else 130.dp) else (if (bmp != null) 240.dp else 220.dp)
+                val shadowOffset = if (isCompactHeight) 10.dp else 18.dp
+                val shadowHeight = if (isCompactHeight) 10.dp else 18.dp
+
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .offset(y = 18.dp)
-                        .width(if (bmp != null) 240.dp else 220.dp)
-                        .height(18.dp)
+                        .offset(y = shadowOffset)
+                        .width(shadowWidth)
+                        .height(shadowHeight)
                         .graphicsLayer {
                             scaleX = shadowScale
                             scaleY = shadowScale * 0.6f
@@ -133,9 +144,9 @@ fun GameLogo3D(
                             contentDescription = currentApp.label,
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .heightIn(max = 140.dp)
-                                .widthIn(max = 420.dp)
-                                .padding(horizontal = 12.dp)
+                                .heightIn(max = maxLogoHeight)
+                                .widthIn(max = maxLogoWidth)
+                                .padding(horizontal = 8.dp)
                         )
                     } else {
                         // Fallback 3DS: Tipografia 3D em relevo metálico com iluminação frontal
@@ -143,7 +154,7 @@ fun GameLogo3D(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                             modifier = Modifier
-                                .padding(horizontal = 24.dp, vertical = 8.dp)
+                                .padding(horizontal = 16.dp, vertical = if (isCompactHeight) 2.dp else 8.dp)
                         ) {
                             Text(
                                 text = currentApp.label.uppercase(),
@@ -151,9 +162,9 @@ fun GameLogo3D(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 style = TextStyle(
-                                    fontSize = 32.sp,
+                                    fontSize = fallbackFontSize,
                                     fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.5.sp,
+                                    letterSpacing = if (isCompactHeight) 1.sp else 1.5.sp,
                                     brush = Brush.verticalGradient(
                                         colors = listOf(
                                             Color.White,

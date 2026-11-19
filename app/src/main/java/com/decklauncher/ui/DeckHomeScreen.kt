@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -151,6 +152,8 @@ fun DeckHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
     val accentColor = remember(accentColorLong) { Color(accentColorLong) }
     val coroutineScope = rememberCoroutineScope()
     val carouselState = rememberLazyListState()
@@ -490,7 +493,10 @@ fun DeckHomeScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth()
-                                        .padding(top = 10.dp, bottom = 4.dp),
+                                        .padding(
+                                            top = if (isCompactHeight) 2.dp else 10.dp,
+                                            bottom = if (isCompactHeight) 2.dp else 4.dp
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     GameLogo3D(
@@ -505,9 +511,9 @@ fun DeckHomeScreen(
                                     flingBehavior = snapFlingBehavior,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(bottom = 12.dp),
-                                    contentPadding = PaddingValues(horizontal = 40.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        .padding(bottom = if (isCompactHeight) 4.dp else 12.dp),
+                                    contentPadding = PaddingValues(horizontal = if (isCompactHeight) 24.dp else 40.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 12.dp else 16.dp),
                                     verticalAlignment = Alignment.Bottom
                                 ) {
                                     itemsIndexed(
@@ -532,14 +538,17 @@ fun DeckHomeScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 40.dp, vertical = 12.dp),
+                                        .padding(
+                                            horizontal = if (isCompactHeight) 20.dp else 40.dp,
+                                            vertical = if (isCompactHeight) 4.dp else 12.dp
+                                        ),
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     LazyRow(
                                         state = folderRowState,
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(18.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 12.dp else 18.dp),
+                                        contentPadding = PaddingValues(horizontal = if (isCompactHeight) 6.dp else 8.dp)
                                     ) {
                                         itemsIndexed(
                                             items = folders,
@@ -559,12 +568,15 @@ fun DeckHomeScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 40.dp, vertical = 4.dp)
+                                        .padding(
+                                            horizontal = if (isCompactHeight) 20.dp else 40.dp,
+                                            vertical = if (isCompactHeight) 2.dp else 4.dp
+                                        )
                                     ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(bottom = 4.dp),
+                                            .padding(bottom = if (isCompactHeight) 2.dp else 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(
@@ -574,30 +586,35 @@ fun DeckHomeScreen(
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(Color(0xFF222222))
                                                 .clickable { onCloseFolder() }
-                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                                .padding(horizontal = 12.dp, vertical = if (isCompactHeight) 4.dp else 6.dp)
                                         ) {
-                                            Text(text = "◀ (B) Voltar", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(text = "◀ (B) Voltar", color = Color.White, fontSize = if (isCompactHeight) 11.sp else 12.sp, fontWeight = FontWeight.Bold)
                                             Text(text = "|", color = Color(0x44FFFFFF))
                                             Text(
                                                 text = "${activeFolder.title} (${activeFolder.apps.size})",
                                                 color = Color.White,
-                                                fontSize = 13.sp,
+                                                fontSize = if (isCompactHeight) 12.sp else 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
                                     }
 
-                                    // Compact Grid de 8 Colunas com Padding superior ampliado (sem corte de topo)
+                                    // Compact Grid de Colunas com Padding superior ampliado (sem corte de topo)
                                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                         LazyVerticalGrid(
-                                            columns = GridCells.Fixed(8),
+                                            columns = GridCells.Fixed(if (isCompactHeight) 6 else 8),
                                             state = gridState,
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxHeight(),
-                                            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp, start = 4.dp, end = 4.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                            contentPadding = PaddingValues(
+                                                top = if (isCompactHeight) 6.dp else 16.dp,
+                                                bottom = if (isCompactHeight) 8.dp else 16.dp,
+                                                start = 4.dp,
+                                                end = 4.dp
+                                            ),
+                                            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp)
                                         ) {
                                             itemsIndexed(
                                                 items = activeFolder.apps,

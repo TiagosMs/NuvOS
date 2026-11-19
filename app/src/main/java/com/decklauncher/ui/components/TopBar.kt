@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -72,6 +73,9 @@ fun TopBar(
 
     val tabs = listOf("Jogos", "Emuladores", "Apps")
 
+    val configuration = LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
+
     // Animações de cursor e foco para TopBar
     val isProfileFocused = isTopBarFocused && topBarIndex == 0
     val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.08f else 1.0f, label = "profile_scale")
@@ -89,26 +93,29 @@ fun TopBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 20.dp),
+            .padding(
+                horizontal = if (isCompactHeight) 20.dp else 32.dp,
+                vertical = if (isCompactHeight) 6.dp else 20.dp
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         // Canto superior esquerdo: Ícone de Perfil / Menu de Configurações do Launcher
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 10.dp),
             modifier = Modifier
                 .scale(profileScale)
                 .clip(RoundedCornerShape(20.dp))
                 .background(profileBg)
                 .border(profileBorderWidth, Color.White, RoundedCornerShape(20.dp))
                 .clickable { onOpenProfileSettings() }
-                .padding(vertical = 4.dp, horizontal = 10.dp)
+                .padding(vertical = if (isCompactHeight) 2.dp else 4.dp, horizontal = if (isCompactHeight) 6.dp else 10.dp)
         ) {
             // Avatar Circular com anel de destaque
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(if (isCompactHeight) 26.dp else 34.dp)
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
@@ -124,7 +131,7 @@ fun TopBar(
                 Text(
                     text = activePreset.initial,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    fontSize = if (isCompactHeight) 12.sp else 15.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -132,7 +139,7 @@ fun TopBar(
             Text(
                 text = profileName,
                 color = TextWhite,
-                fontSize = 13.sp,
+                fontSize = if (isCompactHeight) 11.sp else 13.sp,
                 fontWeight = if (isProfileFocused) FontWeight.ExtraBold else FontWeight.Bold
             )
 
@@ -140,7 +147,7 @@ fun TopBar(
                 // Ponto indicador de foco
                 Box(
                     modifier = Modifier
-                        .size(7.dp)
+                        .size(if (isCompactHeight) 5.dp else 7.dp)
                         .clip(CircleShape)
                         .background(Color.White)
                 )
@@ -157,13 +164,13 @@ fun TopBar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(LbRbPillBg)
-                    .padding(horizontal = 7.dp, vertical = 2.dp),
+                    .padding(horizontal = if (isCompactHeight) 5.dp else 7.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "LB",
                     color = LbRbPillText,
-                    fontSize = 9.sp,
+                    fontSize = if (isCompactHeight) 8.sp else 9.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -190,13 +197,16 @@ fun TopBar(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) { onTabSelected(index) }
-                        .padding(horizontal = 18.dp, vertical = 6.dp),
+                        .padding(
+                            horizontal = if (isCompactHeight) 12.dp else 18.dp,
+                            vertical = if (isCompactHeight) 4.dp else 6.dp
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = title,
                         color = if (isSelected) TextWhite else TabInactiveText,
-                        fontSize = 13.sp,
+                        fontSize = if (isCompactHeight) 11.sp else 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
                 }
@@ -207,13 +217,13 @@ fun TopBar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(LbRbPillBg)
-                    .padding(horizontal = 7.dp, vertical = 2.dp),
+                    .padding(horizontal = if (isCompactHeight) 5.dp else 7.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "RB",
                     color = LbRbPillText,
-                    fontSize = 9.sp,
+                    fontSize = if (isCompactHeight) 8.sp else 9.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -222,12 +232,12 @@ fun TopBar(
         // Right Status: Add Game + Discord Quick Icon + Signal + Battery + Time
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 14.dp)
         ) {
             // Botão Adicionar Jogo (+)
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(if (isCompactHeight) 26.dp else 34.dp)
                     .scale(addScale)
                     .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
                     .clip(CircleShape)
@@ -239,7 +249,7 @@ fun TopBar(
                 Text(
                     text = "+",
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = if (isCompactHeight) 15.sp else 18.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
@@ -248,14 +258,14 @@ fun TopBar(
             // Discord Quick Button
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(if (isCompactHeight) 26.dp else 34.dp)
                     .scale(discordScale)
                     .shadow(if (isDiscordFocused) 18.dp else 0.dp, CircleShape, spotColor = Color(0xFF5865F2))
                     .clip(CircleShape)
                     .background(Color(0xFF5865F2))
                     .border(discordBorderWidth, if (isDiscordFocused) Color.White else Color(0x44FFFFFF), CircleShape)
                     .clickable { onOpenDiscord() }
-                    .padding(5.dp),
+                    .padding(if (isCompactHeight) 4.dp else 5.dp),
                 contentAlignment = Alignment.Center
             ) {
                 DiscordClydeIcon(modifier = Modifier.fillMaxSize())
@@ -264,24 +274,30 @@ fun TopBar(
             // Signal + Battery + Time
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 10.dp),
                 modifier = Modifier.semantics {
                     contentDescription = "Bateria: $batteryPct%, Horário: $currentTime"
                 }
             ) {
                 SignalBarsIcon(
-                    modifier = Modifier.size(width = 16.dp, height = 12.dp)
+                    modifier = Modifier.size(
+                        width = if (isCompactHeight) 13.dp else 16.dp,
+                        height = if (isCompactHeight) 10.dp else 12.dp
+                    )
                 )
 
                 BatteryIcon(
                     percentage = batteryPct,
-                    modifier = Modifier.size(width = 22.dp, height = 11.dp)
+                    modifier = Modifier.size(
+                        width = if (isCompactHeight) 18.dp else 22.dp,
+                        height = if (isCompactHeight) 9.dp else 11.dp
+                    )
                 )
 
                 Text(
                     text = currentTime,
                     color = TextWhite,
-                    fontSize = 13.sp,
+                    fontSize = if (isCompactHeight) 11.sp else 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

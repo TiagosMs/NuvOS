@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +43,9 @@ fun AppFolderCard(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
+
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.05f else 0.97f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
@@ -60,12 +64,12 @@ fun AppFolderCard(
         label = "folder_shadow"
     )
 
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(if (isCompactHeight) 16.dp else 22.dp)
 
     Card(
         modifier = modifier
-            .width(160.dp)
-            .height(180.dp)
+            .width(if (isCompactHeight) 120.dp else 160.dp)
+            .height(if (isCompactHeight) 135.dp else 180.dp)
             .scale(scale)
             .shadow(shadowElevation, shape, spotColor = Color(0x40FFFFFF), ambientColor = Color(0x20FFFFFF))
             .clip(shape)
@@ -87,17 +91,17 @@ fun AppFolderCard(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF1E1E1E))
-                .padding(14.dp),
+                .padding(if (isCompactHeight) 10.dp else 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // 2x2 Mini Icons Container
             Box(
                 modifier = Modifier
-                    .size(92.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(if (isCompactHeight) 68.dp else 92.dp)
+                    .clip(RoundedCornerShape(if (isCompactHeight) 12.dp else 16.dp))
                     .background(Color(0xFF141414))
-                    .padding(8.dp),
+                    .padding(if (isCompactHeight) 5.dp else 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 val previewApps = folder.apps.take(4)
@@ -109,30 +113,30 @@ fun AppFolderCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        MiniAppIcon(previewApps.getOrNull(0))
-                        MiniAppIcon(previewApps.getOrNull(1))
+                        MiniAppIcon(previewApps.getOrNull(0), isCompactHeight)
+                        MiniAppIcon(previewApps.getOrNull(1), isCompactHeight)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        MiniAppIcon(previewApps.getOrNull(2))
-                        MiniAppIcon(previewApps.getOrNull(3))
+                        MiniAppIcon(previewApps.getOrNull(2), isCompactHeight)
+                        MiniAppIcon(previewApps.getOrNull(3), isCompactHeight)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             // Folder Title & Count (Without emojis)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
                 Text(
                     text = folder.title,
                     color = TextWhite,
-                    fontSize = 13.sp,
+                    fontSize = if (isCompactHeight) 11.sp else 13.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -140,7 +144,7 @@ fun AppFolderCard(
                 Text(
                     text = "${folder.apps.size} apps",
                     color = TabInactiveText,
-                    fontSize = 11.sp,
+                    fontSize = if (isCompactHeight) 9.sp else 11.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -149,11 +153,14 @@ fun AppFolderCard(
 }
 
 @Composable
-private fun MiniAppIcon(app: com.decklauncher.model.AppItem?) {
+private fun MiniAppIcon(
+    app: com.decklauncher.model.AppItem?,
+    isCompactHeight: Boolean = false
+) {
     Box(
         modifier = Modifier
-            .size(34.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .size(if (isCompactHeight) 25.dp else 34.dp)
+            .clip(RoundedCornerShape(if (isCompactHeight) 6.dp else 8.dp))
             .background(Color(0xFF262626)),
         contentAlignment = Alignment.Center
     ) {
@@ -163,14 +170,14 @@ private fun MiniAppIcon(app: com.decklauncher.model.AppItem?) {
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(2.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .padding(if (isCompactHeight) 1.dp else 2.dp)
+                    .clip(RoundedCornerShape(if (isCompactHeight) 4.dp else 6.dp))
             )
         } else if (app != null) {
             Text(
                 text = app.label.take(1).uppercase(),
                 color = TextWhite,
-                fontSize = 12.sp,
+                fontSize = if (isCompactHeight) 10.sp else 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }

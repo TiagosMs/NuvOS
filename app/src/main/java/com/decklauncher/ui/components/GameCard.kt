@@ -50,6 +50,18 @@ fun GameCard(
     accentColor: Color = Color.White,
     modifier: Modifier = Modifier
 ) {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
+
+    val cardWidth = if (isCompactHeight) 118.dp else 175.dp
+    val cardHeight = if (isCompactHeight) 168.dp else 250.dp
+    val shapeRadius = if (isCompactHeight) 16.dp else 22.dp
+    val shape = RoundedCornerShape(shapeRadius)
+    val labelFontSize = if (isCompactHeight) 11.sp else 13.sp
+    val pillWidth = if (isCompactHeight) 26.dp else 38.dp
+    val pillHeight = if (isCompactHeight) 3.dp else 3.5.dp
+    val fallbackIconSize = if (isCompactHeight) 70.dp else 110.dp
+
     // Ultra-smooth slower spring physics for fluid console feel
     val scale by animateFloatAsState(
         targetValue = if (isSelected) (if (isReorderMode) 1.09f else 1.07f) else 0.94f,
@@ -58,31 +70,29 @@ fun GameCard(
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 4.dp else 1.dp,
+        targetValue = if (isSelected) (if (isCompactHeight) 3.dp else 4.dp) else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "game_card_border"
     )
 
     val shadowElevation by animateDpAsState(
-        targetValue = if (isSelected) 28.dp else 2.dp,
+        targetValue = if (isSelected) (if (isCompactHeight) 14.dp else 28.dp) else 2.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "game_card_shadow"
     )
 
     val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else (if (isSelected) Color.White else accentColor)
 
-    val shape = RoundedCornerShape(22.dp)
-
     Column(
         modifier = modifier
-            .width(175.dp)
+            .width(cardWidth)
             .semantics { contentDescription = app.label },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
             modifier = Modifier
-                .width(175.dp)
-                .height(250.dp)
+                .width(cardWidth)
+                .height(cardHeight)
                 .scale(scale)
                 .shadow(
                     elevation = shadowElevation,
@@ -137,8 +147,8 @@ fun GameCard(
                             contentDescription = app.label,
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .size(110.dp)
-                                .clip(RoundedCornerShape(24.dp))
+                                .size(fallbackIconSize)
+                                .clip(RoundedCornerShape(if (isCompactHeight) 16.dp else 24.dp))
                         )
                     }
                 } else {
@@ -151,7 +161,7 @@ fun GameCard(
                         Text(
                             text = app.label.take(1).uppercase(),
                             color = TextWhite,
-                            fontSize = 42.sp,
+                            fontSize = if (isCompactHeight) 28.sp else 42.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -159,7 +169,7 @@ fun GameCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(if (isCompactHeight) 6.dp else 10.dp))
 
         // Indicator below selected card: Nome do jogo no cursor com barra nítida de foco ou [◀ MOVER ▶]
         AnimatedVisibility(
@@ -174,33 +184,33 @@ fun GameCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .background(Color(0xFFF59E0B))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "◀ MOVER ▶",
                         color = Color.Black,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
             } else {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = 2.dp)
                 ) {
                     // Pílula nítida e brilhante de cursor ativo
                     Box(
                         modifier = Modifier
-                            .width(38.dp)
-                            .height(3.5.dp)
+                            .width(pillWidth)
+                            .height(pillHeight)
                             .clip(RoundedCornerShape(2.dp))
                             .background(Color.White)
                     )
                     Text(
                         text = app.label,
                         color = TextWhite,
-                        fontSize = 13.sp,
+                        fontSize = labelFontSize,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
