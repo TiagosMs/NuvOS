@@ -28,17 +28,17 @@ object ThemeManager {
     private const val KEY_ACCENT_COLOR = "accent_color"
 
     val COLOR_PRESETS = listOf(
-        ThemeColorPreset("red", "Vermelho Vibrante", 0xFFFF1E1E),
-        ThemeColorPreset("yellow", "Amarelo Ouro", 0xFFFFEB00),
-        ThemeColorPreset("blue", "Azul Elétrico", 0xFF002BFF),
-        ThemeColorPreset("pink", "Magenta Neon", 0xFFFF007A),
-        ThemeColorPreset("white", "Branco Minimal", 0xFFFFFFFF),
-        ThemeColorPreset("black", "Preto Ônix", 0xFF141414),
-        ThemeColorPreset("purple", "Lilás Cósmico", 0xFF9D7BFF),
-        ThemeColorPreset("teal", "Verde Menta", 0xFF4EBA89),
-        ThemeColorPreset("forest", "Verde Musgo", 0xFF556B4A),
-        ThemeColorPreset("crimson", "Vermelho Carmesim", 0xFFD40000),
-        ThemeColorPreset("silver", "Cinza Prata", 0xFFD9D9D9)
+        ThemeColorPreset("red", "Red Classic", 0xFFFF0000),
+        ThemeColorPreset("yellow", "Yellow Bright", 0xFFFFE200),
+        ThemeColorPreset("blue", "Electric Blue", 0xFF000FFF),
+        ThemeColorPreset("pink", "Hot Pink", 0xFFFF0077),
+        ThemeColorPreset("white", "Pure White", 0xFFFFFFFF),
+        ThemeColorPreset("black", "Deep Black", 0xFF000000),
+        ThemeColorPreset("purple", "Soft Violet", 0xFF977CFF),
+        ThemeColorPreset("teal", "Jade Green", 0xFF429A73),
+        ThemeColorPreset("forest", "Olive / Forest Green", 0xFF627B56),
+        ThemeColorPreset("crimson", "Crimson Red", 0xFFE00000),
+        ThemeColorPreset("silver", "Slate Gray", 0xFFD9D9D9)
     )
 
     private var cachedWallpaper: Bitmap? = null
@@ -56,7 +56,7 @@ object ThemeManager {
 
     fun getAccentColorLong(context: Context): Long {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getLong(KEY_ACCENT_COLOR, 0xFF1A73E8)
+        return prefs.getLong(KEY_ACCENT_COLOR, 0xFF627B56)
     }
 
     fun getAccentColor(context: Context): Color {

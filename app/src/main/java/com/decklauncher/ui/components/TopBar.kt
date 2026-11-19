@@ -144,7 +144,7 @@ fun TopBar(
 
             Text(
                 text = profileName,
-                color = TextWhite,
+                color = TextPrimary,
                 fontSize = if (isCompactHeight) 11.sp else 13.sp,
                 fontWeight = if (isProfileFocused) FontWeight.ExtraBold else FontWeight.Bold
             )
@@ -185,7 +185,7 @@ fun TopBar(
             tabs.forEachIndexed { index, title ->
                 val isSelected = selectedTab == index
                 val tabBg by animateColorAsState(
-                    targetValue = if (isSelected) accentColor.copy(alpha = 0.35f) else Color.Transparent,
+                    targetValue = if (isSelected) TabActiveBg else Color.Transparent,
                     animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
                     label = "tab_bg"
                 )
@@ -196,7 +196,7 @@ fun TopBar(
                         .background(tabBg)
                         .border(
                             width = if (isSelected) 1.dp else 0.dp,
-                            color = if (isSelected) accentColor.copy(alpha = 0.6f) else Color.Transparent,
+                            color = if (isSelected) Color(0x33FFFFFF) else Color.Transparent,
                             shape = RoundedCornerShape(20.dp)
                         )
                         .clickable(
@@ -211,7 +211,7 @@ fun TopBar(
                 ) {
                     Text(
                         text = title,
-                        color = if (isSelected) TextWhite else TabInactiveText,
+                        color = if (isSelected) TextWhite else TextPrimary.copy(alpha = 0.65f),
                         fontSize = if (isCompactHeight) 11.sp else 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
@@ -288,7 +288,7 @@ fun TopBar(
 
                 Text(
                     text = currentTime,
-                    color = TextWhite,
+                    color = TextPrimary,
                     fontSize = if (isCompactHeight) 11.sp else 13.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -308,7 +308,7 @@ fun SignalBarsIcon(modifier: Modifier = Modifier) {
             val h = size.height * ((i + 1f) / totalBars)
             val left = i * (barWidth + gap)
             drawRect(
-                color = Color.White,
+                color = NeutralHigh,
                 topLeft = Offset(left, size.height - h),
                 size = Size(barWidth, h)
             )
@@ -326,7 +326,7 @@ fun BatteryIcon(percentage: Int, modifier: Modifier = Modifier) {
 
         // Battery outer shell
         drawRoundRect(
-            color = Color.White,
+            color = NeutralHigh,
             topLeft = Offset.Zero,
             size = Size(bodyWidth, bodyHeight),
             cornerRadius = CornerRadius(corner, corner),
@@ -335,7 +335,7 @@ fun BatteryIcon(percentage: Int, modifier: Modifier = Modifier) {
 
         // Positive terminal cap
         drawRoundRect(
-            color = Color.White,
+            color = NeutralHigh,
             topLeft = Offset(bodyWidth + 1.dp.toPx(), bodyHeight * 0.25f),
             size = Size(capWidth, bodyHeight * 0.5f),
             cornerRadius = CornerRadius(1.dp.toPx(), 1.dp.toPx())
@@ -347,7 +347,7 @@ fun BatteryIcon(percentage: Int, modifier: Modifier = Modifier) {
         val currentFill = (maxFillWidth * (percentage.coerceIn(0, 100) / 100f)).coerceAtLeast(1f)
 
         drawRoundRect(
-            color = if (percentage <= 20) Color(0xFFEF4444) else Color.White,
+            color = if (percentage <= 20) Color(0xFFDA1725) else NeutralHigh,
             topLeft = Offset(fillPadding, fillPadding),
             size = Size(currentFill, bodyHeight - fillPadding * 2),
             cornerRadius = CornerRadius(1.dp.toPx(), 1.dp.toPx())

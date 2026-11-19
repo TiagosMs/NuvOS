@@ -1,6 +1,7 @@
 package com.decklauncher.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,10 +28,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -44,15 +50,228 @@ import com.decklauncher.data.AppFolder
 import com.decklauncher.model.AppItem
 import com.decklauncher.ui.theme.DotGreen
 import com.decklauncher.ui.theme.TextWhite
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+
+/**
+ * Desenha símbolos vetoriais nítidos e reconhecíveis para cada categoria de aplicativo:
+ * - SYSTEM: Engrenagem / Cogwheel mecânico
+ * - MEDIA: Botão Play com arcos de áudio / onda sonora
+ * - SOCIAL: Balão de fala com 3 pontos de conversa
+ * - PRODUCTIVITY: Prancheta / Checklist com marcação de concluído
+ * - TOOLS: Chave de boca / ferramenta mecânica
+ * - CREATIVE: Paleta de pintura com orifício e tintas
+ * - OTHERS: Grid 2x2 de blocos de aplicativos
+ */
+fun DrawScope.drawCategorySymbol(
+    categoryId: String,
+    color: Color,
+    centerOffset: Offset = center,
+    symbolSize: Float = size.minDimension * 0.52f
+) {
+    val cx = centerOffset.x
+    val cy = centerOffset.y
+    val r = symbolSize * 0.5f
+
+    when (categoryId.lowercase()) {
+        "system" -> {
+            // Engrenagem mecânica precisa (8 dentes + furo central)
+            val numTeeth = 8
+            val outerR = r * 0.95f
+            val valleyR = r * 0.72f
+            val holeR = r * 0.35f
+
+            val gearPath = Path().apply {
+                for (i in 0 until numTeeth * 2) {
+                    val angle = (i * PI.toFloat() / numTeeth) - (PI.toFloat() / 2f)
+                    val rad = if (i % 2 == 0) outerR else valleyR
+                    val px = cx + cos(angle) * rad
+                    val py = cy + sin(angle) * rad
+                    if (i == 0) moveTo(px, py) else lineTo(px, py)
+                }
+                close()
+            }
+            drawPath(gearPath, color)
+            // Furo central com cor de contraste
+            drawCircle(Color(0xFF303030), radius = holeR, center = Offset(cx, cy))
+        }
+
+        "media" -> {
+            // Botão Play triangular estilizado + arco de som
+            val triPath = Path().apply {
+                val left = cx - r * 0.65f
+                val right = cx + r * 0.25f
+                val top = cy - r * 0.65f
+                val bottom = cy + r * 0.65f
+                moveTo(left, top)
+                lineTo(right, cy)
+                lineTo(left, bottom)
+                close()
+            }
+            drawPath(triPath, color)
+
+            // Arco de onda sonora à direita
+            drawArc(
+                color = color,
+                startAngle = -48f,
+                sweepAngle = 96f,
+                useCenter = false,
+                topLeft = Offset(cx - r * 0.1f, cy - r * 0.75f),
+                size = Size(r * 1.05f, r * 1.5f),
+                style = Stroke(width = r * 0.22f, cap = StrokeCap.Round)
+            )
+        }
+
+        "social" -> {
+            // Balão de chat arredondado com ponta
+            val bw = r * 1.75f
+            val bh = r * 1.35f
+            val bx = cx - bw * 0.5f
+            val by = cy - bh * 0.58f
+            val cr = bh * 0.32f
+
+            val bubblePath = Path().apply {
+                addRoundRect(RoundRect(Rect(bx, by, bx + bw, by + bh), CornerRadius(cr, cr)))
+                // Rabicho do balão no canto inferior esquerdo
+                moveTo(bx + bw * 0.22f, by + bh - 1f)
+                lineTo(bx + bw * 0.08f, by + bh + r * 0.42f)
+                lineTo(bx + bw * 0.42f, by + bh - 1f)
+                close()
+            }
+            drawPath(bubblePath, color)
+
+            // 3 pontos de conversa internos
+            val dotR = r * 0.13f
+            val dotY = by + bh * 0.5f
+            drawCircle(Color(0xFF303030), radius = dotR, center = Offset(cx - r * 0.42f, dotY))
+            drawCircle(Color(0xFF303030), radius = dotR, center = Offset(cx, dotY))
+            drawCircle(Color(0xFF303030), radius = dotR, center = Offset(cx + r * 0.42f, dotY))
+        }
+
+        "productivity" -> {
+            // Prancheta de tarefas com clipe superior e checkmark
+            val bw = r * 1.4f
+            val bh = r * 1.75f
+            val bx = cx - bw * 0.5f
+            val by = cy - bh * 0.48f
+            val cr = bw * 0.18f
+
+            // Corpo da prancheta
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(bx, by),
+                size = Size(bw, bh),
+                cornerRadius = CornerRadius(cr, cr),
+                style = Stroke(width = r * 0.22f)
+            )
+
+            // Clipe metálico no topo
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(cx - bw * 0.28f, by - r * 0.22f),
+                size = Size(bw * 0.56f, r * 0.38f),
+                cornerRadius = CornerRadius(cr * 0.6f, cr * 0.6f)
+            )
+
+            // Visto / Checkmark nítido central
+            val checkPath = Path().apply {
+                moveTo(cx - bw * 0.22f, cy + r * 0.05f)
+                lineTo(cx - bw * 0.04f, cy + r * 0.32f)
+                lineTo(cx + bw * 0.26f, cy - r * 0.18f)
+            }
+            drawPath(
+                path = checkPath,
+                color = color,
+                style = Stroke(width = r * 0.22f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+        }
+
+        "tools" -> {
+            // Chave de boca mecânica angulada
+            val wrenchPath = Path().apply {
+                // Cabeça circular da chave com abertura de garra
+                val headR = r * 0.72f
+                val hx = cx - r * 0.18f
+                val hy = cy - r * 0.18f
+
+                // Traço do cabo até o canto inferior direito
+                moveTo(hx + headR * 0.45f, hy + headR * 0.45f)
+                lineTo(cx + r * 0.75f, cy + r * 0.75f)
+                lineTo(cx + r * 0.58f, cy + r * 0.92f)
+                lineTo(hx + headR * 0.28f, hy + headR * 0.62f)
+
+                // Garra circular aberta
+                arcTo(
+                    rect = Rect(hx - headR, hy - headR, hx + headR, hy + headR),
+                    startAngleDegrees = 110f,
+                    sweepAngleDegrees = 260f,
+                    forceMoveTo = false
+                )
+                close()
+            }
+            drawPath(
+                path = wrenchPath,
+                color = color,
+                style = Stroke(width = r * 0.22f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+
+            // Abertura da chave
+            drawCircle(color, radius = r * 0.18f, center = Offset(cx + r * 0.66f, cy + r * 0.84f))
+        }
+
+        "creative" -> {
+            // Paleta de pintura de artista com furo para o polegar e manchas de cor
+            val pw = r * 1.8f
+            val ph = r * 1.5f
+            val px = cx - pw * 0.5f
+            val py = cy - ph * 0.52f
+
+            drawOval(
+                color = color,
+                topLeft = Offset(px, py),
+                size = Size(pw, ph)
+            )
+
+            // Orifício para o dedo
+            drawCircle(
+                color = Color(0xFF303030),
+                radius = r * 0.22f,
+                center = Offset(cx + pw * 0.26f, cy + ph * 0.14f)
+            )
+
+            // 3 pontos de tinta em baixo relevo
+            val dotR = r * 0.14f
+            drawCircle(Color(0xFF303030), radius = dotR, center = Offset(cx - pw * 0.24f, cy - ph * 0.15f))
+            drawCircle(Color(0xFF303030), radius = dotR, center = Offset(cx - pw * 0.04f, cy - ph * 0.24f))
+            drawCircle(Color(0xFF303030), radius = dotR, center = Offset(cx - pw * 0.32f, cy + ph * 0.12f))
+        }
+
+        else -> {
+            // OUTROS: Grid 2x2 com 4 pequenos cartuchos / blocos de apps
+            val sq = r * 0.62f
+            val gap = r * 0.24f
+            val cr = sq * 0.28f
+
+            drawRoundRect(color, Offset(cx - sq - gap * 0.5f, cy - sq - gap * 0.5f), Size(sq, sq), CornerRadius(cr, cr))
+            drawRoundRect(color, Offset(cx + gap * 0.5f, cy - sq - gap * 0.5f), Size(sq, sq), CornerRadius(cr, cr))
+            drawRoundRect(color, Offset(cx - sq - gap * 0.5f, cy + gap * 0.5f), Size(sq, sq), CornerRadius(cr, cr))
+            drawRoundRect(color, Offset(cx + gap * 0.5f, cy + gap * 0.5f), Size(sq, sq), CornerRadius(cr, cr))
+        }
+    }
+}
 
 /**
  * Gráfico vetorial preciso da pasta estilo console / OS moderno,
- * com aba superior chanfrada, cantos arredondados e suporte a sombra projetada.
+ * com aba superior chanfrada, cantos arredondados, símbolo individualizado da categoria
+ * e suporte a sombra projetada.
  */
 @Composable
 fun FolderIconGraphic(
     modifier: Modifier = Modifier,
+    folderId: String? = null,
     color: Color = Color(0xFFD6D6D6),
+    symbolColor: Color = Color(0xFF2A2E36),
     hasShadow: Boolean = false,
     shadowColor: Color = Color(0x77000000)
 ) {
@@ -93,12 +312,26 @@ fun FolderIconGraphic(
             )
         }
 
+        // Desenha a pasta base
         drawSingleFolder(offsetX = 0f, offsetY = 0f, fillColor = color)
+
+        // Se houver categoria, desenha o símbolo exclusivo centrado no corpo da pasta
+        if (folderId != null) {
+            val bodyCenterY = (tabH + h) * 0.5f
+            val symbolSize = (w * 0.42f).coerceAtMost((h - tabH) * 0.62f)
+            drawCategorySymbol(
+                categoryId = folderId,
+                color = symbolColor,
+                centerOffset = Offset(w * 0.5f, bodyCenterY),
+                symbolSize = symbolSize
+            )
+        }
     }
 }
 
 /**
- * Card da pasta no grid 3x3 à esquerda (Mockup da Aba Apps).
+ * Card da pasta no grid 3x3 à esquerda (Mockup da Aba Apps),
+ * agora com símbolo diferenciado para cada categoria e moldura de foco limpa.
  */
 @Composable
 fun AppFolderCard(
@@ -143,7 +376,7 @@ fun AppFolderCard(
             }
             .semantics { contentDescription = "Pasta ${folder.title}" },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF3A3A3A) else Color(0xFF303030)
+            containerColor = if (isSelected) Color(0xFF383838) else Color(0xFF303030)
         ),
         shape = shape
     ) {
@@ -155,10 +388,12 @@ fun AppFolderCard(
         ) {
             FolderIconGraphic(
                 modifier = Modifier.size(
-                    width = if (isCompactHeight) 44.dp else 60.dp,
-                    height = if (isCompactHeight) 32.dp else 44.dp
+                    width = if (isCompactHeight) 48.dp else 64.dp,
+                    height = if (isCompactHeight) 35.dp else 47.dp
                 ),
-                color = Color(0xFFD6D6D6)
+                folderId = folder.id,
+                color = if (isSelected) Color(0xFFE4E4E4) else Color(0xFFCBCBCB),
+                symbolColor = if (isSelected) Color(0xFF22262E) else Color(0xFF2D323B)
             )
         }
     }
@@ -214,12 +449,13 @@ private fun PeekAppCard(
 /**
  * Painel direito do launcher: Pasta 3D animada em perspectiva isométrica estilo Console,
  * com física flutuante contínua, cartões de apps peeking de dentro da pasta,
- * aba frontal em relevo metálico e sombra dinâmica no piso.
+ * aba frontal em relevo metálico com o brasão da categoria e sombra dinâmica no piso.
+ * Sem clipping durante a troca de seleção (SizeTransform clip = false).
  */
 @Composable
 fun FolderDetailPreview(
     folder: AppFolder,
-    accentColor: Color = Color(0xFF1A73E8),
+    accentColor: Color = Color(0xFF627B56),
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -289,11 +525,11 @@ fun FolderDetailPreview(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Palco da Pasta 3D + Sombra
+        // Palco da Pasta 3D + Sombra (amplo para impedir qualquer corte nas rotações)
         Box(
             modifier = Modifier
-                .width(folderWidth * 1.25f)
-                .height(folderHeight * 1.35f),
+                .width(folderWidth * 1.35f)
+                .height(folderHeight * 1.45f),
             contentAlignment = Alignment.Center
         ) {
             // 1. Sombra e Glow no Piso do Console
@@ -333,19 +569,22 @@ fun FolderDetailPreview(
                 )
             }
 
-            // 2. Pasta 3D Flutuante com troca animada de categoria
+            // 2. Pasta 3D Flutuante com troca animada de categoria sem corte de bordas
             AnimatedContent(
                 targetState = folder,
                 transitionSpec = {
                     (fadeIn(animationSpec = tween(380, easing = FastOutSlowInEasing)))
-                        .togetherWith(fadeOut(animationSpec = tween(240, easing = FastOutSlowInEasing)))
+                        .togetherWith(
+                            fadeOut(animationSpec = tween(240, easing = FastOutSlowInEasing))
+                        ) using SizeTransform(clip = false)
                 },
                 label = "folder_3d_switch"
             ) { activeFolder ->
                 Box(
                     modifier = Modifier
-                        .width(folderWidth)
-                        .height(folderHeight)
+                        .width(folderWidth * 1.15f)
+                        .height(folderHeight * 1.25f)
+                        .padding(top = 16.dp)
                         .graphicsLayer {
                             rotationX = tiltXAnim
                             rotationY = tiltYAnim
@@ -354,107 +593,30 @@ fun FolderDetailPreview(
                         },
                     contentAlignment = Alignment.BottomCenter
                 ) {
-                    // Camada Traseira: Chapa posterior da pasta com a aba (tab)
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val w = size.width
-                        val h = size.height
-                        val tabW = w * 0.34f
-                        val slopeW = w * 0.13f
-                        val tabH = h * 0.17f
-                        val r = w * 0.08f
-
-                        val backPath = Path().apply {
-                            moveTo(0f, r)
-                            quadraticBezierTo(0f, 0f, r, 0f)
-                            lineTo(tabW - r, 0f)
-                            quadraticBezierTo(tabW, 0f, tabW + r * 0.4f, r * 0.2f)
-                            lineTo(tabW + slopeW - r * 0.4f, tabH - r * 0.2f)
-                            quadraticBezierTo(tabW + slopeW, tabH, tabW + slopeW + r, tabH)
-                            lineTo(w - r, tabH)
-                            quadraticBezierTo(w, tabH, w, tabH + r)
-                            lineTo(w, h - r)
-                            quadraticBezierTo(w, h, w - r, h)
-                            lineTo(r, h)
-                            quadraticBezierTo(0f, h, 0f, h - r)
-                            close()
-                        }
-
-                        // Preenchimento acetinado grafite escuro da chapa traseira
-                        drawPath(
-                            path = backPath,
-                            brush = Brush.verticalGradient(
-                                listOf(Color(0xFF4A4E57), Color(0xFF23262D))
-                            )
-                        )
-
-                        // Borda chanfrada de luz na aba
-                        drawPath(
-                            path = backPath,
-                            brush = Brush.verticalGradient(
-                                listOf(Color(0x77FFFFFF), Color(0x18FFFFFF))
-                            ),
-                            style = Stroke(width = 1.6.dp.toPx())
-                        )
-                    }
-
-                    // Camada Intermediária: Cartões de Apps espiando de dentro da pasta
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.TopCenter)
-                            .padding(
-                                top = folderHeight * 0.05f,
-                                start = folderWidth * 0.12f,
-                                end = folderWidth * 0.12f
-                            ),
-                        horizontalArrangement = Arrangement.spacedBy(folderWidth * 0.04f),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        val previewApps = activeFolder.apps.take(3)
-                        val appsToRender = if (previewApps.isNotEmpty()) {
-                            previewApps
-                        } else {
-                            listOf(null)
-                        }
-
-                        appsToRender.forEachIndexed { i, app ->
-                            val cardElevation = if (i == 1) (-14).dp else (-5).dp
-                            val cardRotation = if (i == 0) (-6f) else if (i == 2) 7f else 1f
-
-                            PeekAppCard(
-                                app = app,
-                                modifier = Modifier
-                                    .offset(y = cardElevation)
-                                    .graphicsLayer {
-                                        rotationZ = cardRotation
-                                        cameraDistance = 16f * density
-                                    }
-                                    .weight(1f)
-                                    .height(folderHeight * 0.48f)
-                            )
-                        }
-                    }
-
-                    // Camada Frontal: Aba frontal da pasta em 3D (inclinada e em relevo prateado)
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(folderHeight * 0.74f)
-                            .graphicsLayer {
-                                rotationX = -5f
-                                cameraDistance = 16f * density
-                            }
+                            .width(folderWidth)
+                            .height(folderHeight),
+                        contentAlignment = Alignment.BottomCenter
                     ) {
+                        // Camada Traseira: Chapa posterior da pasta com a aba (tab)
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val w = size.width
                             val h = size.height
+                            val tabW = w * 0.34f
+                            val slopeW = w * 0.13f
+                            val tabH = h * 0.17f
                             val r = w * 0.08f
 
-                            val frontPath = Path().apply {
-                                moveTo(0f, r * 0.6f)
-                                quadraticBezierTo(0f, 0f, r * 0.6f, 0f)
-                                lineTo(w - r, 0f)
-                                quadraticBezierTo(w, 0f, w, r)
+                            val backPath = Path().apply {
+                                moveTo(0f, r)
+                                quadraticBezierTo(0f, 0f, r, 0f)
+                                lineTo(tabW - r, 0f)
+                                quadraticBezierTo(tabW, 0f, tabW + r * 0.4f, r * 0.2f)
+                                lineTo(tabW + slopeW - r * 0.4f, tabH - r * 0.2f)
+                                quadraticBezierTo(tabW + slopeW, tabH, tabW + slopeW + r, tabH)
+                                lineTo(w - r, tabH)
+                                quadraticBezierTo(w, tabH, w, tabH + r)
                                 lineTo(w, h - r)
                                 quadraticBezierTo(w, h, w - r, h)
                                 lineTo(r, h)
@@ -462,40 +624,131 @@ fun FolderDetailPreview(
                                 close()
                             }
 
-                            // Preenchimento estilo carcaça de console (alumínio satinado premium)
+                            // Preenchimento acetinado grafite escuro da chapa traseira
                             drawPath(
-                                path = frontPath,
+                                path = backPath,
                                 brush = Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xFFE8E8E8),
-                                        Color(0xFFD4D4D4),
-                                        Color(0xFFBEBEBE)
-                                    )
+                                    listOf(Color(0xFF4A4E57), Color(0xFF23262D))
                                 )
                             )
 
-                            // Linha de luz especular no topo da aba frontal
-                            drawLine(
-                                color = Color.White.copy(alpha = 0.9f),
-                                start = Offset(r * 0.6f, 1.2.dp.toPx()),
-                                end = Offset(w - r, 1.2.dp.toPx()),
-                                strokeWidth = 2.dp.toPx()
-                            )
-
-                            // Contorno suave em toda a borda
+                            // Borda chanfrada de luz na aba
                             drawPath(
-                                path = frontPath,
-                                color = Color(0x33000000),
-                                style = Stroke(width = 1.dp.toPx())
+                                path = backPath,
+                                brush = Brush.verticalGradient(
+                                    listOf(Color(0x77FFFFFF), Color(0x18FFFFFF))
+                                ),
+                                style = Stroke(width = 1.6.dp.toPx())
                             )
+                        }
 
-                            // Vinco / Detalhe de relevo sutil de console no canto inferior
-                            drawRoundRect(
-                                color = Color(0x18000000),
-                                topLeft = Offset(w * 0.12f, h * 0.32f),
-                                size = Size(w * 0.76f, 3.dp.toPx()),
-                                cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
-                            )
+                        // Camada Intermediária: Cartões de Apps espiando de dentro da pasta
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(
+                                    top = folderHeight * 0.05f,
+                                    start = folderWidth * 0.12f,
+                                    end = folderWidth * 0.12f
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(folderWidth * 0.04f),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            val previewApps = activeFolder.apps.take(3)
+                            val appsToRender = if (previewApps.isNotEmpty()) {
+                                previewApps
+                            } else {
+                                listOf(null)
+                            }
+
+                            appsToRender.forEachIndexed { i, app ->
+                                val cardElevation = if (i == 1) (-14).dp else (-5).dp
+                                val cardRotation = if (i == 0) (-6f) else if (i == 2) 7f else 1f
+
+                                PeekAppCard(
+                                    app = app,
+                                    modifier = Modifier
+                                        .offset(y = cardElevation)
+                                        .graphicsLayer {
+                                            rotationZ = cardRotation
+                                            cameraDistance = 16f * density
+                                        }
+                                        .weight(1f)
+                                        .height(folderHeight * 0.48f)
+                                )
+                            }
+                        }
+
+                        // Camada Frontal: Aba frontal da pasta em 3D com o brasão da categoria gravado
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(folderHeight * 0.74f)
+                                .graphicsLayer {
+                                    rotationX = -5f
+                                    cameraDistance = 16f * density
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val w = size.width
+                                val h = size.height
+                                val r = w * 0.08f
+
+                                val frontPath = Path().apply {
+                                    moveTo(0f, r * 0.6f)
+                                    quadraticBezierTo(0f, 0f, r * 0.6f, 0f)
+                                    lineTo(w - r, 0f)
+                                    quadraticBezierTo(w, 0f, w, r)
+                                    lineTo(w, h - r)
+                                    quadraticBezierTo(w, h, w - r, h)
+                                    lineTo(r, h)
+                                    quadraticBezierTo(0f, h, 0f, h - r)
+                                    close()
+                                }
+
+                                // Preenchimento estilo carcaça de console (alumínio satinado premium)
+                                drawPath(
+                                    path = frontPath,
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            Color(0xFFE8E8E8),
+                                            Color(0xFFD4D4D4),
+                                            Color(0xFFBEBEBE)
+                                        )
+                                    )
+                                )
+
+                                // Linha de luz especular no topo da aba frontal
+                                drawLine(
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    start = Offset(r * 0.6f, 1.2.dp.toPx()),
+                                    end = Offset(w - r, 1.2.dp.toPx()),
+                                    strokeWidth = 2.dp.toPx()
+                                )
+
+                                // Contorno suave em toda a borda
+                                drawPath(
+                                    path = frontPath,
+                                    color = Color(0x33000000),
+                                    style = Stroke(width = 1.dp.toPx())
+                                )
+
+                                // Brasão da categoria gravado no centro da aba frontal
+                                drawCategorySymbol(
+                                    categoryId = activeFolder.id,
+                                    color = Color(0x40000000),
+                                    centerOffset = Offset(w * 0.5f, h * 0.55f + 1f),
+                                    symbolSize = h * 0.46f
+                                )
+                                drawCategorySymbol(
+                                    categoryId = activeFolder.id,
+                                    color = Color(0xFF555B68),
+                                    centerOffset = Offset(w * 0.5f, h * 0.55f),
+                                    symbolSize = h * 0.46f
+                                )
+                            }
                         }
                     }
                 }
@@ -504,7 +757,7 @@ fun FolderDetailPreview(
 
         Spacer(modifier = Modifier.height(if (isCompactHeight) 10.dp else 18.dp))
 
-        // Título em destaque
+        // Título em destaque da categoria
         Text(
             text = folder.title,
             color = Color.White,

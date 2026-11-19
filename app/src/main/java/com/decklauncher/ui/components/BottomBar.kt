@@ -56,7 +56,7 @@ fun BottomBar(
                 )
                 ControllerActionPrompt(
                     buttonLetter = "B",
-                    buttonColor = Color(0xFFEF4444),
+                    buttonColor = BtnBRed,
                     actionLabel = "Concluir",
                     isCompactHeight = isCompactHeight
                 )
@@ -89,7 +89,7 @@ fun BottomBar(
                 if (isAppsTab && isInsideFolder) {
                     ControllerActionPrompt(
                         buttonLetter = "B",
-                        buttonColor = Color(0xFFEF4444),
+                        buttonColor = BtnBRed,
                         actionLabel = "Voltar",
                         isCompactHeight = isCompactHeight
                     )
@@ -121,7 +121,7 @@ fun ControllerActionPrompt(
             )
 
             val paint = Paint().apply {
-                color = android.graphics.Color.WHITE
+                color = android.graphics.Color.parseColor("#1C212A")
                 textSize = (if (isCompactHeight) 8.2.sp else 9.8.sp).toPx()
                 textAlign = Paint.Align.CENTER
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
@@ -134,7 +134,7 @@ fun ControllerActionPrompt(
 
         Text(
             text = actionLabel,
-            color = TextWhite,
+            color = TextPrimary,
             fontSize = if (isCompactHeight) 10.sp else 12.sp,
             fontWeight = FontWeight.Medium
         )

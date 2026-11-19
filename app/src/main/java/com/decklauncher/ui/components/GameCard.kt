@@ -194,27 +194,43 @@ fun GameCard(
                     )
                 }
             } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(horizontal = 2.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
-                    // Pílula nítida e brilhante de cursor ativo
+                    // Badge circular verde com triângulo Play preto (conforme GUIA_DE_DESIGN_LAUNCHER.md)
+                    val badgeSize = if (isCompactHeight) 10.dp else 14.dp
                     Box(
                         modifier = Modifier
-                            .width(pillWidth)
-                            .height(pillHeight)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(Color.White)
-                    )
+                            .size(badgeSize)
+                            .clip(CircleShape)
+                            .background(StatusPlaying),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier.size(if (isCompactHeight) 4.5.dp else 6.5.dp)
+                        ) {
+                            val path = androidx.compose.ui.graphics.Path().apply {
+                                moveTo(0f, 0f)
+                                lineTo(size.width, size.height * 0.5f)
+                                lineTo(0f, size.height)
+                                close()
+                            }
+                            drawPath(path, Color.Black)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(if (isCompactHeight) 4.dp else 6.dp))
+
                     Text(
                         text = app.label,
-                        color = TextWhite,
+                        color = TextPrimary,
                         fontSize = labelFontSize,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Start
                     )
                 }
             }
