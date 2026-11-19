@@ -105,7 +105,7 @@ object RomScanner {
         return null
     }
 
-    fun launchRom(context: Context, item: AppItem): Boolean {
+    fun launchRom(context: Context, item: AppItem, options: android.os.Bundle? = null): Boolean {
         val path = item.romPath ?: return false
         val file = File(path)
         if (!file.exists()) return false
@@ -121,7 +121,7 @@ object RomScanner {
                     setDataAndType(uri, "*/*")
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                 }
-                context.startActivity(intent)
+                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
                 return true
             }
 
@@ -131,29 +131,29 @@ object RomScanner {
                     setDataAndType(uri, "application/octet-stream")
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-                context.startActivity(intent)
+                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
                 return true
             }
 
-            if (item.packageName.contains("aethersx2")) {
+            if (item.packageName.contains("aethersx2") || item.packageName.contains("nether")) {
                 val intent = Intent().apply {
                     setPackage(item.packageName)
                     putExtra("bootPath", file.absolutePath)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-                context.startActivity(intent)
+                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
                 return true
             }
 
             // General ACTION_VIEW with fallback
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                if (item.packageName.startsWith("com.") || item.packageName.startsWith("org.")) {
+                if (item.packageName.startsWith("com.") || item.packageName.startsWith("org.") || item.packageName.startsWith("info.") || item.packageName.startsWith("io.") || item.packageName.startsWith("net.")) {
                     setPackage(item.packageName)
                 }
                 setDataAndType(uri, "*/*")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
-            context.startActivity(intent)
+            if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
             return true
         } catch (e: Exception) {
             e.printStackTrace()

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.decklauncher.data.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.*
@@ -777,7 +778,9 @@ fun LauncherSettingsDialog(
     onRequestPickWallpaper: () -> Unit = {},
     hasCustomWallpaper: Boolean = false,
     currentAccentColor: Long = 0xFF1A73E8,
-    onAccentColorSelected: (Long) -> Unit = {}
+    onAccentColorSelected: (Long) -> Unit = {},
+    currentLaunchTransition: LaunchTransitionType = LaunchTransitionType.FADE,
+    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activePreset = remember(avatarId) {
@@ -1076,6 +1079,60 @@ fun LauncherSettingsDialog(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Transição ao Abrir Jogos
+                Text(
+                    text = "TRANSIÇÃO AO ABRIR JOGOS",
+                    color = Color(0xFF6B7D8E),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    LaunchTransitionType.values().forEach { trans ->
+                        val isSelected = currentLaunchTransition == trans
+                        val accentCol = Color(currentAccentColor)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) accentCol.copy(alpha = 0.22f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) accentCol else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onLaunchTransitionSelected(trans) }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = trans.title,
+                                    color = TextWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = trans.description,
+                                    color = if (isSelected) Color(0xFF93C5FD) else SteamDeckTextMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (isSelected) {
+                                Text(
+                                    text = "Ativo",
+                                    color = accentCol,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))

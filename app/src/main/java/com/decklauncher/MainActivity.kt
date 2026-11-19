@@ -1,5 +1,6 @@
 package com.decklauncher
 
+import android.app.ActivityOptions
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -75,6 +76,8 @@ class MainActivity : ComponentActivity() {
     private var showInitialSetupDialogState = mutableStateOf(false)
     private var activeIntroPlayingState = mutableStateOf<ConsoleIntro?>(null)
     private var pendingLaunchAppState = mutableStateOf<AppItem?>(null)
+    private var launchTransitionState = mutableStateOf(LaunchTransitionType.FADE)
+    private var isLaunchingFadeState = mutableStateOf(false)
     private var romFolderNameState = mutableStateOf("")
     private var downloadFolderNameState = mutableStateOf("")
     private var apiKeyTextState = mutableStateOf("")
@@ -179,6 +182,7 @@ class MainActivity : ComponentActivity() {
         romFolderNameState.value = SetupManager.getRomFolderName(this)
         downloadFolderNameState.value = SetupManager.getDownloadFolderName(this)
         apiKeyTextState.value = SteamGridDbManager.getApiKey(this)
+        launchTransitionState.value = TransitionManager.getLaunchTransition(this)
 
         if (!SetupManager.isSetupCompleted(this)) {
             showInitialSetupDialogState.value = true
@@ -244,6 +248,12 @@ class MainActivity : ComponentActivity() {
                     accentColorLong = accentColorLongState.longValue,
                     customWallpaperBitmap = customWallpaperBitmapState.value,
                     hasCustomWallpaper = hasCustomWallpaperState.value,
+                    currentLaunchTransition = launchTransitionState.value,
+                    onLaunchTransitionSelected = { trans ->
+                        launchTransitionState.value = trans
+                        TransitionManager.setLaunchTransition(this@MainActivity, trans)
+                    },
+                    isLaunchingFade = isLaunchingFadeState.value,
                     onBgModeSelected = { mode ->
                         backgroundModeState.value = mode
                         ThemeManager.setBackgroundMode(this@MainActivity, mode)
@@ -434,6 +444,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        isLaunchingFadeState.value = false
         setupImmersiveMode()
     }
 
@@ -622,17 +633,72 @@ class MainActivity : ComponentActivity() {
         return bitmap
     }
 
+    private fun getLaunchBundle(): Bundle? {
+        val trans = launchTransitionState.value
+        return when (trans) {
+            LaunchTransitionType.FADE -> {
+                ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out).toBundle()
+            }
+            LaunchTransitionType.ZOOM -> {
+                val decor = window?.decorView
+                if (decor != null && decor.width > 0 && decor.height > 0) {
+                    ActivityOptions.makeScaleUpAnimation(decor, decor.width / 2, decor.height / 2, 0, 0).toBundle()
+                } else {
+                    ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out).toBundle()
+                }
+            }
+            LaunchTransitionType.INSTANT -> {
+                ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle()
+            }
+            LaunchTransitionType.SLIDE -> null
+        }
+    }
+
+    private fun applyPostLaunchTransition() {
+        val trans = launchTransitionState.value
+        when (trans) {
+            LaunchTransitionType.FADE -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, android.R.anim.fade_in, android.R.anim.fade_out)
+                } else {
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                }
+            }
+            LaunchTransitionType.INSTANT -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
+                } else {
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(0, 0)
+                }
+            }
+            LaunchTransitionType.ZOOM -> {}
+            LaunchTransitionType.SLIDE -> {}
+        }
+    }
+
     private fun requestLaunchItem(item: AppItem) {
         val intro = IntroManager.detectIntroForApp(this, item, isLaunching = true)
         if (intro != null && intro.assetFileName != null) {
             activeIntroPlayingState.value = intro
             pendingLaunchAppState.value = item
         } else {
-            launchItem(item)
+            val trans = launchTransitionState.value
+            if (trans == LaunchTransitionType.FADE) {
+                isLaunchingFadeState.value = true
+                CoroutineScope(Dispatchers.Main).launch {
+                    delay(220)
+                    launchItem(item)
+                }
+            } else {
+                launchItem(item)
+            }
         }
     }
 
     private fun launchItem(item: AppItem) {
+        val bundle = getLaunchBundle()
         when (item.itemType) {
             ItemType.CLOUD -> {
                 val url = item.cloudUrl
@@ -643,7 +709,8 @@ class MainActivity : ComponentActivity() {
                             setPackage("com.redphx.betterxc")
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
-                        startActivity(bxcIntent)
+                        if (bundle != null) startActivity(bxcIntent, bundle) else startActivity(bxcIntent)
+                        applyPostLaunchTransition()
                         openedInBxc = true
                     } catch (_: Exception) {}
 
@@ -652,7 +719,8 @@ class MainActivity : ComponentActivity() {
                             val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
-                            startActivity(browserIntent)
+                            if (bundle != null) startActivity(browserIntent, bundle) else startActivity(browserIntent)
+                            applyPostLaunchTransition()
                         } catch (e: Exception) {
                             Toast.makeText(this, "Não foi possível abrir o jogo", Toast.LENGTH_SHORT).show()
                         }
@@ -662,15 +730,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
             ItemType.ROM -> {
-                val ok = RomScanner.launchRom(this, item)
-                if (!ok) {
+                val ok = RomScanner.launchRom(this, item, bundle)
+                if (ok) {
+                    applyPostLaunchTransition()
+                } else {
                     Toast.makeText(this, "Instale o emulador para abrir: ${item.label}", Toast.LENGTH_LONG).show()
                 }
             }
             ItemType.APP -> {
                 val launchIntent = packageManager.getLaunchIntentForPackage(item.packageName)
                 if (launchIntent != null) {
-                    startActivity(launchIntent)
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (bundle != null) startActivity(launchIntent, bundle) else startActivity(launchIntent)
+                    applyPostLaunchTransition()
                 } else {
                     Toast.makeText(this, "Não foi possível iniciar ${item.label}", Toast.LENGTH_SHORT).show()
                 }

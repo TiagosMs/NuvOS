@@ -2,6 +2,7 @@ package com.decklauncher.ui
 
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -39,15 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.decklauncher.data.AppFolder
-import com.decklauncher.data.BackgroundMode
-import com.decklauncher.data.CategoryManager
-import com.decklauncher.data.HeroManager
-import com.decklauncher.data.IntroManager
-import com.decklauncher.data.ConsoleIntro
-import com.decklauncher.data.LogoManager
-import com.decklauncher.data.SetupManager
-import com.decklauncher.data.ThemeManager
+import com.decklauncher.data.*
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.FocusArea
@@ -93,6 +86,9 @@ fun DeckHomeScreen(
     accentColorLong: Long = 0xFF1A73E8L,
     customWallpaperBitmap: Bitmap? = null,
     hasCustomWallpaper: Boolean = false,
+    currentLaunchTransition: LaunchTransitionType = LaunchTransitionType.FADE,
+    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {},
+    isLaunchingFade: Boolean = false,
     onBgModeSelected: (BackgroundMode) -> Unit = {},
     onRequestPickWallpaper: () -> Unit = {},
     onAccentColorSelected: (Long) -> Unit = {},
@@ -744,7 +740,9 @@ fun DeckHomeScreen(
                 onRequestPickWallpaper = onRequestPickWallpaper,
                 hasCustomWallpaper = hasCustomWallpaper,
                 currentAccentColor = accentColorLong,
-                onAccentColorSelected = onAccentColorSelected
+                onAccentColorSelected = onAccentColorSelected,
+                currentLaunchTransition = currentLaunchTransition,
+                onLaunchTransitionSelected = onLaunchTransitionSelected
             )
         }
 
@@ -774,6 +772,19 @@ fun DeckHomeScreen(
             BootIntroPlayer(
                 intro = activeIntroPlaying,
                 onIntroFinished = onIntroFinished
+            )
+        }
+
+        // Efeito de escurecimento suave (Fade to Black) ao abrir jogos (estilo Steam Deck)
+        AnimatedVisibility(
+            visible = isLaunchingFade,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(250))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
             )
         }
     }
