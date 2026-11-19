@@ -9,3 +9,6 @@
 .cxx
 local.properties
 app/build
+marketing/*.mp4
+marketing/*.m4a
+

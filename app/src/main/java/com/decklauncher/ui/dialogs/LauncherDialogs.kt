@@ -2,14 +2,46 @@ package com.decklauncher.ui.dialogs
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.view.KeyEvent as AndroidKeyEvent
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.webkit.CookieManager
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogWindowProvider
+import com.decklauncher.ui.components.DiscordClydeIcon
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,12 +71,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Paleta sóbria Steam Deck / SteamOS
-private val SteamDeckBg = Color(0xFF1B2026)
-private val SteamDeckCardBg = Color(0xFF222933)
-private val SteamDeckBorder = Color(0x33FFFFFF)
-private val SteamDeckTextMuted = Color(0xFF8A96A0)
+// Paleta Frosted Glass (Vidro translúcido desfocado profundo)
+private val SteamDeckBg = Color(0xC025282F) // ~75% opacidade para efeito de vidro fosco profundo
+private val SteamDeckCardBg = Color(0x99181A1F) // ~60% opacidade para pílulas de vidro fosco
+private val SteamDeckBorder = Color(0x28FFFFFF)
+private val SteamDeckTextMuted = Color(0xFFD6D6D6)
 private val SteamDeckButtonBlue = Color(0xFF1A73E8)
+
+@Composable
+fun EnableWindowBlur(blurRadius: Int = 100) {
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.attributes = window.attributes.apply {
+                blurBehindRadius = blurRadius
+            }
+        }
+    }
+}
+
+private data class DialogActionItem(
+    val label: String,
+    val color: Color = TextWhite,
+    val onClick: () -> Unit
+)
 
 @Composable
 fun OptionsDialog(
@@ -64,78 +116,149 @@ fun OptionsDialog(
     onRemoveItem: () -> Unit,
     onRequestReorder: () -> Unit = {}
 ) {
+    val actions = remember(app) {
+        val list = mutableListOf<DialogActionItem>()
+        list.add(DialogActionItem("Iniciar") { onLaunch(); onDismiss() })
+        list.add(DialogActionItem("Mover Posição / Trocar de Lugar") { onRequestReorder(); onDismiss() })
+        list.add(DialogActionItem("Editar Capa (SteamGridDB)") { onRequestEditCover(); onDismiss() })
+        list.add(DialogActionItem("Editar Fundo / Hero (SteamGridDB)") { onRequestEditHero(); onDismiss() })
+        list.add(DialogActionItem("Editar Logo 3D (SteamGridDB)") { onRequestEditLogo(); onDismiss() })
+        list.add(DialogActionItem("Trocar Intro do Console") { onRequestSelectIntro(); onDismiss() })
+        list.add(DialogActionItem("Adicionar Jogos em Nuvem (Better xCloud)") { onRequestAddGame(); onDismiss() })
+        if (app.itemType == ItemType.APP) {
+            list.add(DialogActionItem("Informações do Aplicativo") { onOpenAppSettings(); onDismiss() })
+            list.add(DialogActionItem("Desinstalar Aplicativo", Color(0xFFEF4444)) { onUninstallApp(); onDismiss() })
+        } else {
+            list.add(DialogActionItem("Remover da Tela Inicial", Color(0xFFEF4444)) { onRemoveItem(); onDismiss() })
+        }
+        list.add(DialogActionItem("Pacote de Ícones") { onRequestIconPackSettings(); onDismiss() })
+        list.add(DialogActionItem("Re-escanear Armazenamento") { onRescanRoms(); onDismiss() })
+        list.add(DialogActionItem("Fechar") { onDismiss() })
+        list
+    }
+
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val focusRequester = remember { FocusRequester() }
+    val scrollState = rememberScrollState()
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+        focusRequester.requestFocus()
+    }
+
+    LaunchedEffect(selectedIndex) {
+        val target = (selectedIndex * 52).coerceAtLeast(0)
+        scrollState.animateScrollTo(target)
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
-                .width(360.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
-                .padding(20.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Header sóbrio Steam Deck
-                Text(
-                    text = app.label,
-                    color = TextWhite,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = when (app.itemType) {
-                        ItemType.CLOUD -> "Jogo em Nuvem (Better xCloud)"
-                        ItemType.ROM -> "Jogo de Emulador (${app.romPath ?: ""})"
-                        ItemType.APP -> "Aplicativo Android"
-                    },
-                    color = SteamDeckTextMuted,
-                    fontSize = 12.sp
-                )
-
-                HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
-
-                // Actions list - Sóbrio, sem emojis
-                SteamDeckOptionRow(label = "Iniciar", onClick = { onLaunch(); onDismiss() })
-                SteamDeckOptionRow(label = "Mover Posição / Trocar de Lugar", onClick = { onRequestReorder(); onDismiss() })
-                SteamDeckOptionRow(label = "Editar Capa (SteamGridDB)", onClick = { onRequestEditCover(); onDismiss() })
-                SteamDeckOptionRow(label = "Editar Fundo / Hero (SteamGridDB)", onClick = { onRequestEditHero(); onDismiss() })
-                SteamDeckOptionRow(label = "Editar Logo 3D (SteamGridDB)", onClick = { onRequestEditLogo(); onDismiss() })
-                SteamDeckOptionRow(label = "Trocar Intro do Console", onClick = { onRequestSelectIntro(); onDismiss() })
-                SteamDeckOptionRow(label = "Adicionar Jogos em Nuvem (Better xCloud)", onClick = { onRequestAddGame(); onDismiss() })
-
-                if (app.itemType == ItemType.APP) {
-                    SteamDeckOptionRow(label = "Informações do Aplicativo", onClick = { onOpenAppSettings(); onDismiss() })
-                    SteamDeckOptionRow(
-                        label = "Desinstalar Aplicativo",
-                        color = Color(0xFFEF4444),
-                        onClick = { onUninstallApp(); onDismiss() }
-                    )
-                } else {
-                    SteamDeckOptionRow(
-                        label = "Remover da Tela Inicial",
-                        color = Color(0xFFEF4444),
-                        onClick = { onRemoveItem(); onDismiss() }
-                    )
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> {
+                                selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
+                                selectedIndex = (selectedIndex + 1).coerceAtMost(actions.size - 1)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                actions.getOrNull(selectedIndex)?.onClick?.invoke()
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
                 }
-
-                SteamDeckOptionRow(label = "Pacote de Ícones", onClick = { onRequestIconPackSettings(); onDismiss() })
-                SteamDeckOptionRow(label = "Re-escanear Armazenamento", onClick = { onRescanRoms(); onDismiss() })
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(390.dp)
+                        .fillMaxHeight(0.90f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(26.dp))
+                        .padding(20.dp)
                 ) {
-                    Text("Fechar", color = TextWhite, fontSize = 13.sp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Header sóbrio Steam Deck
+                        Text(
+                            text = app.label,
+                            color = TextWhite,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = when (app.itemType) {
+                                ItemType.CLOUD -> "Jogo em Nuvem (Better xCloud)"
+                                ItemType.ROM -> "Jogo de Emulador (${app.romPath ?: ""})"
+                                ItemType.APP -> "Aplicativo Android"
+                            },
+                            color = SteamDeckTextMuted,
+                            fontSize = 12.sp
+                        )
+
+                        HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
+
+                        // Actions list com foco nítido e seleção por controle
+                        actions.forEachIndexed { idx, item ->
+                            SteamDeckOptionRow(
+                                label = item.label,
+                                color = item.color,
+                                isExternalFocused = selectedIndex == idx,
+                                onClick = item.onClick
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -181,12 +304,13 @@ fun EditCoverSteamGridDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(520.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -235,7 +359,7 @@ fun EditCoverSteamGridDialog(
                     Button(
                         onClick = { doSearch(searchTitle) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(20.dp),
                         enabled = !isLoading
                     ) {
                         Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
@@ -262,8 +386,8 @@ fun EditCoverSteamGridDialog(
                                 modifier = Modifier
                                     .width(90.dp)
                                     .height(135.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
                                     .clickable {
                                         onApplyCoverUrl(artwork.url)
                                         onDismiss()
@@ -318,56 +442,514 @@ fun AddGameOptionsDialog(
     onOpenCloudCatalog: () -> Unit,
     onRescanRoms: () -> Unit
 ) {
+    val actions = remember {
+        listOf(
+            DialogActionItem("Catálogo Xbox Cloud (Better xCloud)") {
+                onOpenCloudCatalog()
+                onDismiss()
+            },
+            DialogActionItem("Escanear Pasta de ROMs (/sdcard/ROMs)") {
+                onDismiss()
+                onRescanRoms()
+            },
+            DialogActionItem("Fechar") {
+                onDismiss()
+            }
+        )
+    }
+
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val focusRequester = remember { FocusRequester() }
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+        focusRequester.requestFocus()
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
-                .width(360.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
-                .padding(20.dp)
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> {
+                                selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
+                                selectedIndex = (selectedIndex + 1).coerceAtMost(actions.size - 1)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                actions.getOrNull(selectedIndex)?.onClick?.invoke()
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(390.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(26.dp))
+                        .padding(20.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Adicionar Jogos",
+                            color = TextWhite,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Selecione o tipo de jogo para adicionar:",
+                            color = SteamDeckTextMuted,
+                            fontSize = 12.sp
+                        )
+
+                        HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
+
+                        actions.forEachIndexed { idx, item ->
+                            SteamDeckOptionRow(
+                                label = item.label,
+                                color = item.color,
+                                isExternalFocused = selectedIndex == idx,
+                                onClick = item.onClick
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmulatorGamesDialog(
+    emulatorApp: AppItem,
+    allRoms: List<AppItem>,
+    pinnedGameIds: Set<String>,
+    onDismiss: () -> Unit,
+    onLaunchEmulator: () -> Unit,
+    onLaunchRom: (AppItem) -> Unit,
+    onTogglePinGame: (AppItem) -> Unit
+) {
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
+    val emulatorRoms = remember(emulatorApp, allRoms) {
+        RomScanner.getRomsForEmulator(emulatorApp.packageName, allRoms)
+    }
+
+    var selectedIndex by remember { mutableIntStateOf(if (emulatorRoms.isNotEmpty()) 1 else 0) }
+    val focusRequester = remember { FocusRequester() }
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    LaunchedEffect(selectedIndex) {
+        val target = ((selectedIndex - 1).coerceAtLeast(0) * 68)
+        scrollState.animateScrollTo(target)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> {
+                                selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
+                                selectedIndex = (selectedIndex + 1).coerceAtMost(emulatorRoms.size)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                if (selectedIndex == 0) {
+                                    onLaunchEmulator()
+                                    onDismiss()
+                                } else {
+                                    val rom = emulatorRoms.getOrNull(selectedIndex - 1)
+                                    if (rom != null) {
+                                        onLaunchRom(rom)
+                                        onDismiss()
+                                    }
+                                }
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_X,
+                            AndroidKeyEvent.KEYCODE_BUTTON_Y -> {
+                                if (selectedIndex > 0) {
+                                    val rom = emulatorRoms.getOrNull(selectedIndex - 1)
+                                    if (rom != null) {
+                                        onTogglePinGame(rom)
+                                    }
+                                }
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(460.dp)
+                        .fillMaxHeight(0.92f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(
+                            1.2.dp,
+                            Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))),
+                            RoundedCornerShape(26.dp)
+                        )
+                        .padding(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            if (emulatorApp.iconBitmap != null) {
+                                Image(
+                                    bitmap = emulatorApp.iconBitmap,
+                                    contentDescription = emulatorApp.label,
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF333333)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("🎮", fontSize = 22.sp)
+                                }
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = emulatorApp.label,
+                                    color = TextWhite,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${emulatorRoms.size} jogos encontrados",
+                                    color = SteamDeckTextMuted,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Option 0: Abrir App do Emulador
+                        SteamDeckOptionRow(
+                            label = "Abrir App do Emulador",
+                            color = Color(0xFF60A5FA),
+                            isExternalFocused = selectedIndex == 0,
+                            onClick = {
+                                onLaunchEmulator()
+                                onDismiss()
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = Color(0x22FFFFFF),
+                            modifier = Modifier.padding(vertical = 10.dp)
+                        )
+
+                        if (emulatorRoms.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Nenhum jogo encontrado",
+                                    color = TextWhite,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Coloque seus arquivos na pasta de ROMs ou configure pelo menu de opções.",
+                                    color = SteamDeckTextMuted,
+                                    fontSize = 12.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 20.dp)
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .verticalScroll(scrollState),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                emulatorRoms.forEachIndexed { idx, rom ->
+                                    val isRowFocused = selectedIndex == idx + 1
+                                    val isPinned = pinnedGameIds.contains(rom.id)
+
+                                    EmulatorRomItemRow(
+                                        rom = rom,
+                                        isFocused = isRowFocused,
+                                        isPinned = isPinned,
+                                        onLaunch = {
+                                            onLaunchRom(rom)
+                                            onDismiss()
+                                        },
+                                        onTogglePin = {
+                                            onTogglePinGame(rom)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Controller Hints at bottom of Drawer
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0x30000000))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🎮 (A) Jogar  •  (X) Fixar na Home",
+                                color = Color(0xFFD6D6D6),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "(B) Voltar",
+                                color = Color(0xFFAAAAAA),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmulatorRomItemRow(
+    rom: AppItem,
+    isFocused: Boolean,
+    isPinned: Boolean,
+    onLaunch: () -> Unit,
+    onTogglePin: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.02f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+        label = "rom_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 2.5.dp else 1.dp,
+        label = "rom_border_width"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else Color(0x1AFFFFFF),
+        label = "rom_border_color"
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (isFocused) Color(0x45FFFFFF) else SteamDeckCardBg,
+        label = "rom_bg_color"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clip(RoundedCornerShape(18.dp))
+            .background(bgColor)
+            .border(borderWidth, borderColor, RoundedCornerShape(18.dp))
+            .clickable { onLaunch() }
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (rom.coverBitmap != null) {
+                Image(
+                    bitmap = rom.coverBitmap,
+                    contentDescription = rom.label,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF262626)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🎮", fontSize = 20.sp)
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Adicionar Jogos",
+                    text = rom.label,
                     color = TextWhite,
-                    fontSize = 17.sp,
+                    fontSize = 13.sp,
+                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val ext = rom.romPath?.substringAfterLast('.', "")?.uppercase() ?: "ROM"
+                    Text(
+                        text = ext,
+                        color = Color(0xFFAAAAAA),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isPinned) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF059669))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Na Tela Inicial ✓",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isPinned) Color(0x35EF4444) else Color(0x3510B981))
+                    .border(1.dp, if (isPinned) Color(0x80EF4444) else Color(0x8010B981), RoundedCornerShape(12.dp))
+                    .clickable { onTogglePin() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = if (isPinned) "Desfixar" else "+ Fixar",
+                    color = if (isPinned) Color(0xFFFCA5A5) else Color(0xFF6EE7B7),
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "Selecione o tipo de jogo para adicionar:",
-                    color = SteamDeckTextMuted,
-                    fontSize = 12.sp
-                )
-
-                HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
-
-                SteamDeckOptionRow(
-                    label = "Catálogo Xbox Cloud (Better xCloud)",
-                    onClick = {
-                        onOpenCloudCatalog()
-                        onDismiss()
-                    }
-                )
-
-                SteamDeckOptionRow(
-                    label = "Escanear Pasta de ROMs (/sdcard/ROMs)",
-                    onClick = { onDismiss(); onRescanRoms() }
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Fechar", color = TextWhite)
-                }
             }
         }
     }
@@ -393,13 +975,14 @@ fun CloudGameCatalogDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(480.dp)
                 .height(520.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -441,7 +1024,7 @@ fun CloudGameCatalogDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(20.dp))
                                 .background(SteamDeckCardBg)
                                 .clickable {
                                     onSelectGame(item.title, item.url)
@@ -497,7 +1080,7 @@ fun CloudGameCatalogDialog(
                                             onDismiss()
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(20.dp)
                                     ) {
                                         Text("Adicionar '$searchQuery' mesmo assim", color = Color.White, fontSize = 12.sp)
                                     }
@@ -534,12 +1117,13 @@ fun SteamGridApiKeyDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(400.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(20.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -584,7 +1168,7 @@ fun SteamGridApiKeyDialog(
                             onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(20.dp)
                     ) {
                         Text("Salvar", color = Color.White, fontWeight = FontWeight.Bold)
                     }
@@ -607,12 +1191,13 @@ fun IconPackDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(420.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(20.dp)
         ) {
             Column(
@@ -629,7 +1214,7 @@ fun IconPackDialog(
                 Button(
                     onClick = { IconPackManager.openIconPackStudioLink(context) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -703,25 +1288,66 @@ fun IconPackDialog(
 }
 
 @Composable
-private fun SteamDeckOptionRow(
+fun SteamDeckOptionRow(
     label: String,
     color: Color = TextWhite,
-    onClick: () -> Unit
+    isExternalFocused: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    var hasFocus by remember { mutableStateOf(false) }
+    val isFocused = hasFocus || isExternalFocused
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.025f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+        label = "option_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) 2.5.dp else 1.dp,
+        label = "option_border_width"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else Color(0x1AFFFFFF),
+        label = "option_border_color"
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (isFocused) Color(0x45FFFFFF) else SteamDeckCardBg,
+        label = "option_bg_color"
+    )
+
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(SteamDeckCardBg)
+            .scale(scale)
+            .clip(RoundedCornerShape(20.dp))
+            .background(bgColor)
+            .border(borderWidth, borderColor, RoundedCornerShape(20.dp))
+            .onFocusChanged { hasFocus = it.isFocused }
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 11.dp)
+            .padding(horizontal = 18.dp, vertical = 13.dp)
     ) {
-        Text(
-            text = label,
-            color = color,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = if (isFocused) Color.White else color,
+                fontSize = 13.sp,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold
+            )
+            if (isFocused) {
+                // Indicador nítido de cursor focado
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                )
+            }
+        }
     }
 }
 
@@ -735,12 +1361,12 @@ private fun SteamDeckIconPackRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(if (isSelected) Color(0x3322C55E) else SteamDeckCardBg)
             .border(
                 1.dp,
                 if (isSelected) BtnAGreen else Color(0x22FFFFFF),
-                RoundedCornerShape(8.dp)
+                RoundedCornerShape(20.dp)
             )
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -786,63 +1412,91 @@ fun LauncherSettingsDialog(
     val activePreset = remember(avatarId) {
         ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
     }
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
-                .width(440.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
-                .padding(22.dp)
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
             ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(440.dp)
+                        .fillMaxHeight(0.92f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                // Seção Perfil
                 Text(
-                    text = "Configurações do Launcher",
-                    color = TextWhite,
-                    fontSize = 18.sp,
+                    text = "Perfil",
+                    color = Color(0xFFD6D6D6),
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "Personalização, Sistema e Biblioteca",
-                    color = SteamDeckTextMuted,
-                    fontSize = 12.sp
-                )
 
-                HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
-
-                Text(
-                    text = "PERFIL",
-                    color = Color(0xFF6B7D8E),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
+                var isProfileFocused by remember { mutableStateOf(false) }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SteamDeckCardBg)
+                        .onFocusChanged { isProfileFocused = it.isFocused }
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isProfileFocused) Color(0x45FFFFFF) else SteamDeckCardBg)
+                        .border(
+                            width = if (isProfileFocused) 2.5.dp else 1.dp,
+                            color = if (isProfileFocused) Color.White else Color(0x1AFFFFFF),
+                            shape = RoundedCornerShape(20.dp)
+                        )
                         .clickable {
                             onRequestChangeAvatar()
                         }
-                        .padding(12.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(46.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
@@ -858,7 +1512,7 @@ fun LauncherSettingsDialog(
                             Text(
                                 text = activePreset.initial,
                                 color = Color.White,
-                                fontSize = 17.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Black
                             )
                         }
@@ -867,31 +1521,32 @@ fun LauncherSettingsDialog(
                             Text(
                                 text = profileName,
                                 color = TextWhite,
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Ícone: ${activePreset.name}",
-                                color = SteamDeckTextMuted,
-                                fontSize = 11.sp
+                                text = "@Without_",
+                                color = Color(0xFFAAAAAA),
+                                fontSize = 12.sp
                             )
                         }
                     }
 
                     Text(
                         text = "Trocar",
-                        color = SteamDeckButtonBlue,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
+                // Seção Biblioteca e Navegação
                 Text(
-                    text = "BIBLIOTECA & NAVEGAÇÃO",
-                    color = Color(0xFF6B7D8E),
-                    fontSize = 11.sp,
+                    text = "Biblioteca e Navegação",
+                    color = Color(0xFFD6D6D6),
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -949,12 +1604,12 @@ fun LauncherSettingsDialog(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(20.dp))
                                     .background(if (isSelected) accentCol.copy(alpha = 0.25f) else SteamDeckCardBg)
                                     .border(
                                         width = if (isSelected) 1.5.dp else 1.dp,
                                         color = if (isSelected) accentCol else Color(0x22FFFFFF),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(20.dp)
                                     )
                                     .clickable { onBgModeSelected(mode) }
                                     .padding(vertical = 10.dp),
@@ -978,7 +1633,7 @@ fun LauncherSettingsDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(20.dp))
                                 .background(SteamDeckCardBg)
                                 .clickable { onRequestPickWallpaper() }
                                 .padding(horizontal = 14.dp, vertical = 11.dp),
@@ -1009,23 +1664,25 @@ fun LauncherSettingsDialog(
                 }
 
                 // Cor do Tema (Accent Color)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Cor de Destaque", color = SteamDeckTextMuted, fontSize = 11.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("cor de destaque", color = Color(0xFFD6D6D6), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ThemeManager.COLOR_PRESETS.forEach { preset ->
                             val isSelected = currentAccentColor == preset.colorValue
                             Box(
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(30.dp)
                                     .clip(CircleShape)
                                     .background(Color(preset.colorValue))
                                     .border(
-                                        width = if (isSelected) 3.dp else 1.dp,
-                                        color = if (isSelected) Color.White else Color(0x33FFFFFF),
+                                        width = if (isSelected) 2.5.dp else 0.dp,
+                                        color = if (isSelected) Color.White else Color.Transparent,
                                         shape = CircleShape
                                     )
                                     .clickable { onAccentColorSelected(preset.colorValue) },
@@ -1049,7 +1706,7 @@ fun LauncherSettingsDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .background(SteamDeckCardBg)
                         .clickable {
                             val newActive = !introsActive
@@ -1098,12 +1755,12 @@ fun LauncherSettingsDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(20.dp))
                                 .background(if (isSelected) accentCol.copy(alpha = 0.22f) else SteamDeckCardBg)
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
                                     color = if (isSelected) accentCol else Color(0x22FFFFFF),
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = RoundedCornerShape(20.dp)
                                 )
                                 .clickable { onLaunchTransitionSelected(trans) }
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1162,14 +1819,20 @@ fun LauncherSettingsDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                var isCloseFocused by remember { mutableStateOf(false) }
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = ButtonDefaults.buttonColors(containerColor = if (isCloseFocused) Color(0xFF384353) else Color(0xFF27303D)),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(if (isCloseFocused) 2.5.dp else 0.dp, Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { isCloseFocused = it.isFocused }
                 ) {
-                    Text("Fechar", color = TextWhite, fontSize = 13.sp)
+                    Text("Fechar", color = TextWhite, fontSize = 13.sp, fontWeight = if (isCloseFocused) FontWeight.Bold else FontWeight.Normal)
                 }
+            }
+        }
             }
         }
     }
@@ -1189,12 +1852,13 @@ fun ChangeAvatarDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(420.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(20.dp)
         ) {
             Column(
@@ -1225,7 +1889,7 @@ fun ChangeAvatarDialog(
                             focusedIndicatorColor = SteamDeckButtonBlue,
                             unfocusedIndicatorColor = Color.Transparent
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -1278,7 +1942,7 @@ fun ChangeAvatarDialog(
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(containerColor = SteamDeckButtonBlue),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Salvar e Fechar", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -1327,12 +1991,13 @@ fun SteamGridHeroSelectDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(620.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -1381,7 +2046,7 @@ fun SteamGridHeroSelectDialog(
                     Button(
                         onClick = { doSearch(searchTitle) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(20.dp),
                         enabled = !isLoading
                     ) {
                         Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
@@ -1408,8 +2073,8 @@ fun SteamGridHeroSelectDialog(
                                 modifier = Modifier
                                     .width(200.dp)
                                     .height(112.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
                                     .clickable {
                                         onApplyHeroUrl(artwork.url)
                                         onDismiss()
@@ -1505,12 +2170,13 @@ fun SteamGridLogoSelectDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(620.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -1559,7 +2225,7 @@ fun SteamGridLogoSelectDialog(
                     Button(
                         onClick = { doSearch(searchTitle) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(20.dp),
                         enabled = !isLoading
                     ) {
                         Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
@@ -1586,9 +2252,9 @@ fun SteamGridLogoSelectDialog(
                                 modifier = Modifier
                                     .width(180.dp)
                                     .height(95.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(20.dp))
                                     .background(Color(0xFF161A20))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
                                     .clickable {
                                         onApplyLogoUrl(artwork.url)
                                         onDismiss()
@@ -1664,9 +2330,9 @@ fun InitialSetupDialog(
         Box(
             modifier = Modifier
                 .width(520.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .background(SteamDeckBg)
-                .border(1.5.dp, Color(0xFF2563EB), RoundedCornerShape(14.dp))
+                .border(1.5.dp, Color(0xFF2563EB), RoundedCornerShape(20.dp))
                 .padding(24.dp)
         ) {
             Column(
@@ -1698,9 +2364,9 @@ fun InitialSetupDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(SteamDeckCardBg)
-                            .border(1.dp, SteamDeckBorder, RoundedCornerShape(8.dp))
+                            .border(1.dp, SteamDeckBorder, RoundedCornerShape(20.dp))
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1735,9 +2401,9 @@ fun InitialSetupDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(SteamDeckCardBg)
-                            .border(1.dp, SteamDeckBorder, RoundedCornerShape(8.dp))
+                            .border(1.dp, SteamDeckBorder, RoundedCornerShape(20.dp))
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1794,7 +2460,7 @@ fun InitialSetupDialog(
                     },
                     modifier = Modifier.fillMaxWidth().height(44.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(20.dp)
                 ) {
                     Text(
                         text = "Concluir e Iniciar Launcher",
@@ -1821,12 +2487,13 @@ fun SelectConsoleIntroDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        EnableWindowBlur()
         Box(
             modifier = Modifier
                 .width(440.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(28.dp))
                 .background(SteamDeckBg)
-                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -1852,7 +2519,7 @@ fun SelectConsoleIntroDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .background(if (isAuto) Color(0xFF1E3A8A) else SteamDeckCardBg)
                         .clickable {
                             selectedId = null
@@ -1889,7 +2556,7 @@ fun SelectConsoleIntroDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(if (isSelected) Color(0xFF1E3A8A) else SteamDeckCardBg)
                             .clickable {
                                 selectedId = intro.id
@@ -1919,6 +2586,197 @@ fun SelectConsoleIntroDialog(
                     TextButton(onClick = onDismiss) {
                         Text("Fechar", color = SteamDeckTextMuted)
                     }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun DiscordOverlayDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var webViewInstance by remember { mutableStateOf<WebView?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .width(960.dp)
+                .fillMaxHeight(0.92f)
+                .clip(RoundedCornerShape(28.dp))
+                .background(SteamDeckBg)
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
+                .padding(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Header com estilo do mockup
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF5865F2)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            DiscordClydeIcon(modifier = Modifier.size(22.dp))
+                        }
+
+                        Column {
+                            Text(
+                                text = "Discord",
+                                color = TextWhite,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Amigos, Conversas & Calls",
+                                color = SteamDeckTextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    // Ações do Topo em Pílulas
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Botão Recarregar
+                        var isReloadFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .onFocusChanged { isReloadFocused = it.isFocused }
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isReloadFocused) Color(0x45FFFFFF) else SteamDeckCardBg)
+                                .border(if (isReloadFocused) 2.5.dp else 1.dp, if (isReloadFocused) Color.White else Color(0x1AFFFFFF), RoundedCornerShape(20.dp))
+                                .clickable { webViewInstance?.reload() }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Recarregar",
+                                color = TextWhite,
+                                fontSize = 12.sp,
+                                fontWeight = if (isReloadFocused) FontWeight.Bold else FontWeight.SemiBold
+                            )
+                        }
+
+                        // Botão Abrir App Nativo (se instalado)
+                        val hasDiscordApp = remember {
+                            try {
+                                context.packageManager.getPackageInfo("com.discord", 0)
+                                true
+                            } catch (_: Exception) {
+                                false
+                            }
+                        }
+
+                        if (hasDiscordApp) {
+                            var isAppFocused by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .onFocusChanged { isAppFocused = it.isFocused }
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF5865F2))
+                                    .border(if (isAppFocused) 2.5.dp else 0.dp, Color.White, RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        val launchIntent = context.packageManager.getLaunchIntentForPackage("com.discord")
+                                        if (launchIntent != null) {
+                                            context.startActivity(launchIntent)
+                                        }
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Abrir no App",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Botão Fechar
+                        var isCloseFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .onFocusChanged { isCloseFocused = it.isFocused }
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isCloseFocused) Color(0x45FFFFFF) else SteamDeckCardBg)
+                                .border(if (isCloseFocused) 2.5.dp else 1.dp, if (isCloseFocused) Color.White else Color(0x1AFFFFFF), RoundedCornerShape(20.dp))
+                                .clickable { onDismiss() }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Fechar",
+                                color = if (isCloseFocused) Color.White else Color(0xFFEF4444),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Corpo com o Discord Web embutido (com WebRTC e cookies persistentes)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SteamDeckCardBg)
+                ) {
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(20.dp)),
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                settings.apply {
+                                    javaScriptEnabled = true
+                                    domStorageEnabled = true
+                                    databaseEnabled = true
+                                    mediaPlaybackRequiresUserGesture = false
+                                    allowFileAccess = true
+                                    userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                                }
+                                val cookieManager = CookieManager.getInstance()
+                                cookieManager.setAcceptCookie(true)
+                                cookieManager.setAcceptThirdPartyCookies(this, true)
+                                webChromeClient = object : WebChromeClient() {
+                                    override fun onPermissionRequest(request: PermissionRequest?) {
+                                        request?.grant(request.resources)
+                                    }
+                                }
+                                webViewClient = object : WebViewClient() {
+                                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                        return false
+                                    }
+                                }
+                                loadUrl("https://discord.com/app")
+                                webViewInstance = this
+                            }
+                        }
+                    )
                 }
             }
         }

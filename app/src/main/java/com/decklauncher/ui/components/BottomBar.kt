@@ -20,6 +20,7 @@ fun BottomBar(
     isAppsTab: Boolean = false,
     isInsideFolder: Boolean = false,
     isReorderMode: Boolean = false,
+    isEmulatorsTab: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -59,7 +60,7 @@ fun BottomBar(
                 ControllerActionPrompt(
                     buttonLetter = "A",
                     buttonColor = BtnAGreen,
-                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir Pasta" else "Jogar"
+                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir Pasta" else if (isEmulatorsTab) "Ver Jogos" else "Jogar"
                 )
                 ControllerActionPrompt(
                     buttonLetter = "X",

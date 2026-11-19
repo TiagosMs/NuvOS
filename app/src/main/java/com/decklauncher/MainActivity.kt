@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
     private var selectedIndexState = mutableIntStateOf(0)
     private var selectedTabState = mutableIntStateOf(0)
     private var focusAreaState = mutableStateOf(FocusArea.CAROUSEL)
+    private var topBarIndexState = mutableIntStateOf(0) // 0: Perfil, 1: Add Game (+), 2: Discord
     private var appsListState = mutableStateOf<List<AppItem>>(emptyList())
     private var batteryState = mutableIntStateOf(100)
     private var activeFolderState = mutableStateOf<AppFolder?>(null)
@@ -62,11 +63,43 @@ class MainActivity : ComponentActivity() {
     private var showIconPackDialogState = mutableStateOf(false)
     private var showLauncherSettingsDialogState = mutableStateOf(false)
     private var showChangeAvatarDialogState = mutableStateOf(false)
+    private var showDiscordDialogState = mutableStateOf(false)
     private var isReorderModeState = mutableStateOf(false)
     private var profileNameState = mutableStateOf("Tiago")
     private var avatarIdState = mutableStateOf("deck_blue")
     private var activeDialogAppState = mutableStateOf<AppItem?>(null)
     private var backgroundModeState = mutableStateOf(BackgroundMode.IMMERSIVE)
+
+    private val isAnyDialogOpen: Boolean
+        get() = showOptionsDialogState.value || showEditCoverDialogState.value ||
+            showEditHeroDialogState.value || showEditLogoDialogState.value ||
+            showSelectIntroDialogState.value || showInitialSetupDialogState.value ||
+            showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
+            showSteamGridDialogState.value || showIconPackDialogState.value ||
+            showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value ||
+            showDiscordDialogState.value || showEmulatorGamesDialogState.value
+
+    private fun closeAllDialogs() {
+        showOptionsDialogState.value = false
+        showEditCoverDialogState.value = false
+        showEditHeroDialogState.value = false
+        showEditLogoDialogState.value = false
+        showSelectIntroDialogState.value = false
+        showInitialSetupDialogState.value = false
+        showAddCloudDialogState.value = false
+        showAddGameOptionsDialogState.value = false
+        showSteamGridDialogState.value = false
+        showIconPackDialogState.value = false
+        showLauncherSettingsDialogState.value = false
+        showChangeAvatarDialogState.value = false
+        showDiscordDialogState.value = false
+        showEmulatorGamesDialogState.value = false
+        activeEmulatorAppState.value = null
+    }
+    private var showEmulatorGamesDialogState = mutableStateOf(false)
+    private var activeEmulatorAppState = mutableStateOf<AppItem?>(null)
+    private var allScannedRomsState = mutableStateOf<List<AppItem>>(emptyList())
+    private var pinnedGameIdsState = mutableStateOf<Set<String>>(emptySet())
     private var accentColorLongState = mutableLongStateOf(0xFF1A73E8)
     private var customWallpaperBitmapState = mutableStateOf<Bitmap?>(null)
     private var hasCustomWallpaperState = mutableStateOf(false)
@@ -239,7 +272,13 @@ class MainActivity : ComponentActivity() {
                     showIconPackDialog = showIconPackDialogState.value,
                     showLauncherSettingsDialog = showLauncherSettingsDialogState.value,
                     showChangeAvatarDialog = showChangeAvatarDialogState.value,
+                    showDiscordDialog = showDiscordDialogState.value,
+                    showEmulatorGamesDialog = showEmulatorGamesDialogState.value,
+                    activeEmulatorApp = activeEmulatorAppState.value,
+                    allScannedRoms = allScannedRomsState.value,
+                    pinnedGameIds = pinnedGameIdsState.value,
                     isReorderMode = isReorderModeState.value,
+                    topBarIndex = topBarIndexState.intValue,
                     profileName = profileNameState.value,
                     avatarId = avatarIdState.value,
                     currentRomFolder = romFolderNameState.value,
@@ -287,7 +326,14 @@ class MainActivity : ComponentActivity() {
                         selectedIndexState.intValue = 0
                         triggerHaptic()
                     },
-                    onLaunchApp = { requestLaunchItem(it) },
+                    onLaunchApp = { app ->
+                        if (app.category == AppCategory.EMULADORES && app.itemType == ItemType.APP) {
+                            activeEmulatorAppState.value = app
+                            showEmulatorGamesDialogState.value = true
+                        } else {
+                            requestLaunchItem(app)
+                        }
+                    },
                     onOpenSettings = { openAppOptions(it) },
                     onUninstallApp = { uninstallApp(it) },
                     onDismissOptions = { showOptionsDialogState.value = false },
@@ -302,6 +348,28 @@ class MainActivity : ComponentActivity() {
                     onDismissIconPack = { showIconPackDialogState.value = false },
                     onDismissLauncherSettings = { showLauncherSettingsDialogState.value = false },
                     onDismissChangeAvatar = { showChangeAvatarDialogState.value = false },
+                    onDismissDiscord = { showDiscordDialogState.value = false },
+                    onDismissEmulatorGames = {
+                        showEmulatorGamesDialogState.value = false
+                        activeEmulatorAppState.value = null
+                    },
+                    onTogglePinGame = { game ->
+                        val pinned = PinnedGamesManager.togglePin(this@MainActivity, game.id)
+                        pinnedGameIdsState.value = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
+                        loadInstalledApps()
+                        Toast.makeText(
+                            this@MainActivity,
+                            if (pinned) "${game.label} adicionado à Tela Inicial" else "${game.label} removido da Tela Inicial",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onLaunchRom = { requestLaunchItem(it) },
+                    onOpenDiscord = {
+                        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 101)
+                        }
+                        showDiscordDialogState.value = true
+                    },
                     onRequestEditCover = { item ->
                         activeDialogAppState.value = item
                         showEditCoverDialogState.value = true
@@ -343,6 +411,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestAddGame = {
                         showAddCloudDialogState.value = true
+                    },
+                    onRequestAddGameOptions = {
+                        showAddGameOptionsDialogState.value = true
                     },
                     onRequestSteamGridSettings = {
                         showSteamGridDialogState.value = true
@@ -434,6 +505,11 @@ class MainActivity : ComponentActivity() {
                             CloudGameManager.removeCloudGame(this, item.id)
                             loadInstalledApps()
                             Toast.makeText(this, "Jogo em nuvem removido", Toast.LENGTH_SHORT).show()
+                        } else if (item.itemType == ItemType.ROM) {
+                            PinnedGamesManager.unpinGame(this, item.id)
+                            pinnedGameIdsState.value = PinnedGamesManager.getPinnedGameIds(this)
+                            loadInstalledApps()
+                            Toast.makeText(this, "${item.label} removido da Tela Inicial", Toast.LENGTH_SHORT).show()
                         }
                     }
                 )
@@ -565,7 +641,7 @@ class MainActivity : ComponentActivity() {
                 cg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
             }
 
-            // ROMs de Emulador vão para Tab JOGOS (conforme solicitado pelo usuário)
+            // ROMs de Emulador: escaneia todos
             val romGames = RomScanner.scanRoms(this@MainActivity).map { rg ->
                 var localCover = CoverManager.loadLocalCover(this@MainActivity, rg.id)
                 if (localCover == null) {
@@ -574,7 +650,11 @@ class MainActivity : ComponentActivity() {
                 rg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
             }
 
-            val allJogos = (appItems + cloudGames + romGames).filter { it.category == AppCategory.JOGOS }.sortedBy { it.label.lowercase() }
+            // Apenas as ROMs selecionadas/fixadas pelo usuário vão para a Tela Inicial (Tab Jogos)
+            val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
+            val pinnedRomGames = romGames.filter { pinnedIds.contains(it.id) }
+
+            val allJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedRomGames).sortedBy { it.label.lowercase() }
             val allEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.sortedBy { it.label.lowercase() }
             val allApps = appItems.filter { it.category == AppCategory.APPS }.sortedBy { it.label.lowercase() }
 
@@ -586,6 +666,8 @@ class MainActivity : ComponentActivity() {
 
             withContext(Dispatchers.Main) {
                 appsListState.value = combined
+                allScannedRomsState.value = romGames
+                pinnedGameIdsState.value = pinnedIds
                 isLoadingState.value = false
             }
         }
@@ -833,28 +915,32 @@ class MainActivity : ComponentActivity() {
             return true
         }
 
-        // Se algum diálogo estiver aberto, botão B fecha o diálogo
-        if (showOptionsDialogState.value || showEditCoverDialogState.value ||
-            showEditHeroDialogState.value || showEditLogoDialogState.value ||
-            showSelectIntroDialogState.value || showInitialSetupDialogState.value ||
-            showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
-            showSteamGridDialogState.value || showIconPackDialogState.value ||
-            showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value) {
-            if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK) {
-                showOptionsDialogState.value = false
-                showEditCoverDialogState.value = false
-                showEditHeroDialogState.value = false
-                showEditLogoDialogState.value = false
-                showSelectIntroDialogState.value = false
-                showInitialSetupDialogState.value = false
-                showAddCloudDialogState.value = false
-                showAddGameOptionsDialogState.value = false
-                showSteamGridDialogState.value = false
-                showIconPackDialogState.value = false
-                showLauncherSettingsDialogState.value = false
-                showChangeAvatarDialogState.value = false
+        // Se algum diálogo estiver aberto, controla foco interno e impede ação no fundo
+        if (isAnyDialogOpen) {
+            if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                closeAllDialogs()
+                triggerHaptic()
                 return true
             }
+            if (event.keyCode == KeyEvent.KEYCODE_BUTTON_A) {
+                val centerEvent = KeyEvent(
+                    event.downTime, event.eventTime, event.action,
+                    KeyEvent.KEYCODE_DPAD_CENTER, event.repeatCount,
+                    event.metaState, event.deviceId, event.scanCode,
+                    event.flags, event.source
+                )
+                return super.dispatchKeyEvent(centerEvent)
+            }
+            if (event.keyCode in listOf(
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_TAB
+            )) {
+                return super.dispatchKeyEvent(event)
+            }
+            // Consome outros botões (X, Y, L1, R1) para não acionar ações no fundo
+            return true
         }
 
         // Se estiver no Modo Reordenar Itens
@@ -918,7 +1004,9 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão SELECT: Abre Opções do app/jogo focado
+            // Botão X / SELECT / MENU: Abre Opções do app/jogo focado
+            KeyEvent.KEYCODE_BUTTON_X,
+            KeyEvent.KEYCODE_X,
             KeyEvent.KEYCODE_BUTTON_SELECT,
             KeyEvent.KEYCODE_MENU -> {
                 val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
@@ -936,27 +1024,69 @@ class MainActivity : ComponentActivity() {
 
             // D-PAD & Teclas direcionais
             KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    topBarIndexState.intValue = (topBarIndexState.intValue - 1).coerceAtLeast(0)
+                    triggerHaptic()
+                    return true
+                }
                 executeNavigation(JoystickDir.LEFT)
                 return true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(2)
+                    triggerHaptic()
+                    return true
+                }
                 executeNavigation(JoystickDir.RIGHT)
                 return true
             }
             KeyEvent.KEYCODE_DPAD_UP -> {
-                executeNavigation(JoystickDir.UP)
+                if (focusAreaState.value == FocusArea.CAROUSEL) {
+                    val isAppsTab = selectedTabState.intValue == 2
+                    val isInsideFolder = isAppsTab && activeFolderState.value != null
+                    if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
+                        selectedIndexState.intValue -= GRID_COLUMNS
+                        triggerHaptic()
+                        return true
+                    } else {
+                        focusAreaState.value = FocusArea.TOP_BAR
+                        topBarIndexState.intValue = 0
+                        triggerHaptic()
+                        return true
+                    }
+                }
                 return true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    focusAreaState.value = FocusArea.CAROUSEL
+                    triggerHaptic()
+                    return true
+                }
                 executeNavigation(JoystickDir.DOWN)
                 return true
             }
 
-            // Botão A / Confirmar: Abrir Pasta ou Iniciar App/Jogo
+            // Botão A / Confirmar: Abrir Pasta, Iniciar App/Jogo ou Acionar Ação da TopBar
             KeyEvent.KEYCODE_BUTTON_A,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             KeyEvent.KEYCODE_DPAD_CENTER -> {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    when (topBarIndexState.intValue) {
+                        0 -> showLauncherSettingsDialogState.value = true
+                        1 -> showAddGameOptionsDialogState.value = true
+                        2 -> {
+                            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 101)
+                            }
+                            showDiscordDialogState.value = true
+                        }
+                    }
+                    triggerHaptic()
+                    return true
+                }
                 if (selectedTabState.intValue == 2) {
                     // Aba Apps
                     if (activeFolderState.value == null) {
@@ -972,16 +1102,28 @@ class MainActivity : ComponentActivity() {
                 } else {
                     // Abas Jogos e Emuladores
                     val current = filtered.getOrNull(selectedIndexState.intValue)
-                    if (current != null) requestLaunchItem(current)
+                    if (current != null) {
+                        if (current.category == AppCategory.EMULADORES && current.itemType == ItemType.APP) {
+                            activeEmulatorAppState.value = current
+                            showEmulatorGamesDialogState.value = true
+                        } else {
+                            requestLaunchItem(current)
+                        }
+                    }
                 }
                 triggerHaptic()
                 return true
             }
 
-            // Botão B: Voltar da pasta ou voltar da navegação
+            // Botão B: Voltar da TopBar, da pasta ou voltar da navegação
             KeyEvent.KEYCODE_BUTTON_B,
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE -> {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    focusAreaState.value = FocusArea.CAROUSEL
+                    triggerHaptic()
+                    return true
+                }
                 if (activeFolderState.value != null) {
                     activeFolderState.value = null
                     selectedIndexState.intValue = 0
@@ -1044,8 +1186,28 @@ class MainActivity : ComponentActivity() {
             joyRepeatJob?.cancel()
             currentJoyDir = newDir
 
+            if (isAnyDialogOpen) {
+                val keycode = when (newDir) {
+                    JoystickDir.UP -> KeyEvent.KEYCODE_DPAD_UP
+                    JoystickDir.DOWN -> KeyEvent.KEYCODE_DPAD_DOWN
+                    JoystickDir.LEFT -> KeyEvent.KEYCODE_DPAD_LEFT
+                    JoystickDir.RIGHT -> KeyEvent.KEYCODE_DPAD_RIGHT
+                    JoystickDir.NONE -> 0
+                }
+                if (keycode != 0) {
+                    val now = SystemClock.uptimeMillis()
+                    val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keycode, 0)
+                    val up = KeyEvent(now, now, KeyEvent.ACTION_UP, keycode, 0)
+                    dispatchKeyEvent(down)
+                    dispatchKeyEvent(up)
+                }
+                return true
+            }
+
+            // 1. Executa 1 passo único com debounce anti-rebote
             executeNavigation(newDir, isAutoRepeat = false)
 
+            // 2. Só avança continuamente se mantido segurado por mais de 1 segundo
             joyRepeatJob = CoroutineScope(Dispatchers.Main).launch {
                 delay(HOLD_THRESHOLD_MS)
                 while (currentJoyDir == newDir) {
@@ -1065,6 +1227,8 @@ class MainActivity : ComponentActivity() {
             return false
         }
         lastNavTime = now
+
+        if (isAnyDialogOpen) return false
 
         if (isReorderModeState.value) {
             when (dir) {
@@ -1093,25 +1257,40 @@ class MainActivity : ComponentActivity() {
         when (dir) {
             // Nota: Esquerda e Direita NÃO trocam abas (exclusivo para LB e RB conforme solicitado)
             JoystickDir.LEFT -> {
-                if (count > 0) {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    topBarIndexState.intValue = (topBarIndexState.intValue - 1).coerceAtLeast(0)
+                    triggerHaptic()
+                } else if (count > 0) {
                     selectedIndexState.intValue = (selectedIndexState.intValue - 1).coerceAtLeast(0)
                     triggerHaptic()
                 }
             }
             JoystickDir.RIGHT -> {
-                if (count > 0) {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(2)
+                    triggerHaptic()
+                } else if (count > 0) {
                     selectedIndexState.intValue = (selectedIndexState.intValue + 1).coerceAtMost(count - 1)
                     triggerHaptic()
                 }
             }
             JoystickDir.UP -> {
-                if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
-                    selectedIndexState.intValue -= GRID_COLUMNS
-                    triggerHaptic()
+                if (focusAreaState.value == FocusArea.CAROUSEL) {
+                    if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
+                        selectedIndexState.intValue -= GRID_COLUMNS
+                        triggerHaptic()
+                    } else {
+                        focusAreaState.value = FocusArea.TOP_BAR
+                        topBarIndexState.intValue = 0
+                        triggerHaptic()
+                    }
                 }
             }
             JoystickDir.DOWN -> {
-                if (isInsideFolder && count > 0) {
+                if (focusAreaState.value == FocusArea.TOP_BAR) {
+                    focusAreaState.value = FocusArea.CAROUSEL
+                    triggerHaptic()
+                } else if (isInsideFolder && count > 0) {
                     val next = selectedIndexState.intValue + GRID_COLUMNS
                     if (next < count) {
                         selectedIndexState.intValue = next

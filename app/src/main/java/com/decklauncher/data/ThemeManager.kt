@@ -28,13 +28,17 @@ object ThemeManager {
     private const val KEY_ACCENT_COLOR = "accent_color"
 
     val COLOR_PRESETS = listOf(
-        ThemeColorPreset("blue", "Steam Blue", 0xFF1A73E8),
-        ThemeColorPreset("red", "Cyber Red", 0xFFE50914),
-        ThemeColorPreset("green", "Matrix Green", 0xFF10B981),
-        ThemeColorPreset("gold", "Amber Gold", 0xFFF59E0B),
-        ThemeColorPreset("purple", "Cosmic Purple", 0xFF8B5CF6),
-        ThemeColorPreset("cyan", "Electric Cyan", 0xFF06B6D4),
-        ThemeColorPreset("white", "Minimal White", 0xFFFFFFFF)
+        ThemeColorPreset("red", "Vermelho Vibrante", 0xFFFF1E1E),
+        ThemeColorPreset("yellow", "Amarelo Ouro", 0xFFFFEB00),
+        ThemeColorPreset("blue", "Azul Elétrico", 0xFF002BFF),
+        ThemeColorPreset("pink", "Magenta Neon", 0xFFFF007A),
+        ThemeColorPreset("white", "Branco Minimal", 0xFFFFFFFF),
+        ThemeColorPreset("black", "Preto Ônix", 0xFF141414),
+        ThemeColorPreset("purple", "Lilás Cósmico", 0xFF9D7BFF),
+        ThemeColorPreset("teal", "Verde Menta", 0xFF4EBA89),
+        ThemeColorPreset("forest", "Verde Musgo", 0xFF556B4A),
+        ThemeColorPreset("crimson", "Vermelho Carmesim", 0xFFD40000),
+        ThemeColorPreset("silver", "Cinza Prata", 0xFFD9D9D9)
     )
 
     private var cachedWallpaper: Bitmap? = null

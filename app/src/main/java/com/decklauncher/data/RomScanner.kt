@@ -105,6 +105,28 @@ object RomScanner {
         return null
     }
 
+    fun getRomsForEmulator(emulatorPkg: String, allRoms: List<AppItem>): List<AppItem> {
+        val pkgLower = emulatorPkg.lowercase()
+        return allRoms.filter { rom ->
+            val romPkg = rom.packageName.lowercase()
+            val ext = rom.romPath?.substringAfterLast('.', "")?.lowercase() ?: ""
+            when {
+                romPkg == pkgLower -> true
+                (pkgLower.contains("melonds") || pkgLower.contains("drastic") || pkgLower.contains("dsemu")) &&
+                    (ext == "nds" || romPkg.contains("melonds") || romPkg.contains("drastic")) -> true
+                pkgLower.contains("ppsspp") && (ext in listOf("iso", "cso", "pbp") || romPkg.contains("ppsspp")) -> true
+                pkgLower.contains("dolphin") && (ext in listOf("iso", "rvz", "gcm", "wbfs", "ciso") || romPkg.contains("dolphin")) -> true
+                (pkgLower.contains("aethersx2") || pkgLower.contains("nethersx2")) &&
+                    (ext in listOf("iso", "chd", "bin", "cso") || romPkg.contains("aether") || romPkg.contains("nether")) -> true
+                pkgLower.contains("citra") && (ext in listOf("3ds", "cia", "cxi") || romPkg.contains("citra")) -> true
+                pkgLower.contains("snes") && (ext in listOf("sfc", "smc")) -> true
+                (pkgLower.contains("gba") || pkgLower.contains("myboy")) && (ext in listOf("gba", "gb", "gbc")) -> true
+                pkgLower.contains("retroarch") -> true
+                else -> false
+            }
+        }
+    }
+
     fun launchRom(context: Context, item: AppItem, options: android.os.Bundle? = null): Boolean {
         val path = item.romPath ?: return false
         val file = File(path)

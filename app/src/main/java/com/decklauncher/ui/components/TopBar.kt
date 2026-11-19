@@ -1,6 +1,8 @@
 package com.decklauncher.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -15,16 +17,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decklauncher.data.ProfileManager
@@ -42,7 +48,11 @@ fun TopBar(
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
     accentColor: Color = Color(0xFF1A73E8),
+    isTopBarFocused: Boolean = false,
+    topBarIndex: Int = 0,
     onOpenProfileSettings: () -> Unit = {},
+    onOpenAddGame: () -> Unit = {},
+    onOpenDiscord: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val activePreset = remember(avatarId) {
@@ -62,6 +72,20 @@ fun TopBar(
 
     val tabs = listOf("Jogos", "Emuladores", "Apps")
 
+    // Animações de cursor e foco para TopBar
+    val isProfileFocused = isTopBarFocused && topBarIndex == 0
+    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.08f else 1.0f, label = "profile_scale")
+    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 2.5.dp else 0.dp, label = "profile_border")
+    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x40FFFFFF) else Color.Transparent, label = "profile_bg")
+
+    val isAddFocused = isTopBarFocused && topBarIndex == 1
+    val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.15f else 1.0f, label = "add_scale")
+    val addBorderWidth by animateDpAsState(targetValue = if (isAddFocused) 2.5.dp else 1.dp, label = "add_border")
+
+    val isDiscordFocused = isTopBarFocused && topBarIndex == 2
+    val discordScale by animateFloatAsState(targetValue = if (isDiscordFocused) 1.18f else 1.0f, label = "discord_scale")
+    val discordBorderWidth by animateDpAsState(targetValue = if (isDiscordFocused) 3.dp else 1.dp, label = "discord_border")
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -74,9 +98,12 @@ fun TopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
+                .scale(profileScale)
                 .clip(RoundedCornerShape(20.dp))
+                .background(profileBg)
+                .border(profileBorderWidth, Color.White, RoundedCornerShape(20.dp))
                 .clickable { onOpenProfileSettings() }
-                .padding(vertical = 4.dp, horizontal = 6.dp)
+                .padding(vertical = 4.dp, horizontal = 10.dp)
         ) {
             // Avatar Circular com anel de destaque
             Box(
@@ -91,7 +118,7 @@ fun TopBar(
                             )
                         )
                     )
-                    .border(1.5.dp, Color(0x66FFFFFF), CircleShape),
+                    .border(if (isProfileFocused) 2.dp else 1.5.dp, Color.White, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -106,8 +133,18 @@ fun TopBar(
                 text = profileName,
                 color = TextWhite,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = if (isProfileFocused) FontWeight.ExtraBold else FontWeight.Bold
             )
+
+            if (isProfileFocused) {
+                // Ponto indicador de foco
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                )
+            }
         }
 
         // Center Tabs: [LB] Jogos Emuladores Apps [RB]
@@ -182,30 +219,100 @@ fun TopBar(
             }
         }
 
-        // Right Status: Signal + Battery + Time
+        // Right Status: Add Game + Discord Quick Icon + Signal + Battery + Time
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.semantics {
-                contentDescription = "Bateria: $batteryPct%, Horário: $currentTime"
-            }
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            SignalBarsIcon(
-                modifier = Modifier.size(width = 16.dp, height = 12.dp)
-            )
+            // Botão Adicionar Jogo (+)
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .scale(addScale)
+                    .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
+                    .clip(CircleShape)
+                    .background(if (isAddFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
+                    .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x33FFFFFF), CircleShape)
+                    .clickable { onOpenAddGame() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
 
-            BatteryIcon(
-                percentage = batteryPct,
-                modifier = Modifier.size(width = 22.dp, height = 11.dp)
-            )
+            // Discord Quick Button
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .scale(discordScale)
+                    .shadow(if (isDiscordFocused) 18.dp else 0.dp, CircleShape, spotColor = Color(0xFF5865F2))
+                    .clip(CircleShape)
+                    .background(Color(0xFF5865F2))
+                    .border(discordBorderWidth, if (isDiscordFocused) Color.White else Color(0x44FFFFFF), CircleShape)
+                    .clickable { onOpenDiscord() }
+                    .padding(5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                DiscordClydeIcon(modifier = Modifier.fillMaxSize())
+            }
 
-            Text(
-                text = currentTime,
-                color = TextWhite,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
+            // Signal + Battery + Time
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.semantics {
+                    contentDescription = "Bateria: $batteryPct%, Horário: $currentTime"
+                }
+            ) {
+                SignalBarsIcon(
+                    modifier = Modifier.size(width = 16.dp, height = 12.dp)
+                )
+
+                BatteryIcon(
+                    percentage = batteryPct,
+                    modifier = Modifier.size(width = 22.dp, height = 11.dp)
+                )
+
+                Text(
+                    text = currentTime,
+                    color = TextWhite,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun DiscordClydeIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val path = Path().apply {
+            moveTo(w * 0.2f, h * 0.25f)
+            lineTo(w * 0.35f, h * 0.15f)
+            quadraticBezierTo(w * 0.5f, h * 0.22f, w * 0.65f, h * 0.15f)
+            lineTo(w * 0.8f, h * 0.25f)
+            quadraticBezierTo(w * 0.95f, h * 0.6f, w * 0.85f, h * 0.85f)
+            lineTo(w * 0.72f, h * 0.75f)
+            quadraticBezierTo(w * 0.5f, h * 0.82f, w * 0.28f, h * 0.75f)
+            lineTo(w * 0.15f, h * 0.85f)
+            quadraticBezierTo(w * 0.05f, h * 0.6f, w * 0.2f, h * 0.25f)
+            close()
+        }
+        drawPath(path, color = Color.White)
+
+        val eyeRadius = w * 0.08f
+        val eyeY = h * 0.52f
+        drawCircle(color = Color(0xFF5865F2), radius = eyeRadius, center = Offset(w * 0.38f, eyeY))
+        drawCircle(color = Color(0xFF5865F2), radius = eyeRadius, center = Offset(w * 0.62f, eyeY))
     }
 }
 

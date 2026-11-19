@@ -74,7 +74,13 @@ fun DeckHomeScreen(
     showIconPackDialog: Boolean,
     showLauncherSettingsDialog: Boolean = false,
     showChangeAvatarDialog: Boolean = false,
+    showDiscordDialog: Boolean = false,
+    showEmulatorGamesDialog: Boolean = false,
+    activeEmulatorApp: AppItem? = null,
+    allScannedRoms: List<AppItem> = emptyList(),
+    pinnedGameIds: Set<String> = emptySet(),
     isReorderMode: Boolean = false,
+    topBarIndex: Int = 0,
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
     activeIntroPlaying: ConsoleIntro? = null,
@@ -111,6 +117,11 @@ fun DeckHomeScreen(
     onDismissIconPack: () -> Unit,
     onDismissLauncherSettings: () -> Unit = {},
     onDismissChangeAvatar: () -> Unit = {},
+    onDismissDiscord: () -> Unit = {},
+    onOpenDiscord: () -> Unit = {},
+    onDismissEmulatorGames: () -> Unit = {},
+    onTogglePinGame: (AppItem) -> Unit = {},
+    onLaunchRom: (AppItem) -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
     onRequestEditHero: (AppItem) -> Unit = {},
     onRequestEditLogo: (AppItem) -> Unit = {},
@@ -122,6 +133,7 @@ fun DeckHomeScreen(
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
+    onRequestAddGameOptions: () -> Unit = {},
     onRequestOpenLauncherSettings: () -> Unit = {},
     onRequestChangeAvatar: () -> Unit = {},
     onRequestReorderMode: () -> Unit = {},
@@ -391,7 +403,11 @@ fun DeckHomeScreen(
                 profileName = profileName,
                 avatarId = avatarId,
                 accentColor = accentColor,
-                onOpenProfileSettings = onRequestOpenLauncherSettings
+                isTopBarFocused = focusArea == FocusArea.TOP_BAR,
+                topBarIndex = topBarIndex,
+                onOpenProfileSettings = onRequestOpenLauncherSettings,
+                onOpenAddGame = onRequestAddGameOptions,
+                onOpenDiscord = onOpenDiscord
             )
 
             // 2. Main Content Area
@@ -500,7 +516,7 @@ fun DeckHomeScreen(
                                     ) { index, app ->
                                         GameCard(
                                             app = app,
-                                            isSelected = index == safeIndex && focusArea != FocusArea.TABS,
+                                            isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                             onSelect = { onSelectedIndexChange(index) },
                                             onLaunch = { onLaunchApp(app) },
                                             isReorderMode = isReorderMode,
@@ -531,7 +547,7 @@ fun DeckHomeScreen(
                                         ) { index, folder ->
                                             AppFolderCard(
                                                 folder = folder,
-                                                isSelected = index == safeIndex && focusArea != FocusArea.TABS,
+                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                                 onSelect = { onSelectedIndexChange(index) },
                                                 onOpen = { onOpenFolder(folder) }
                                             )
@@ -589,7 +605,7 @@ fun DeckHomeScreen(
                                             ) { index, app ->
                                                 AppGridCard(
                                                     app = app,
-                                                    isSelected = index == safeIndex && focusArea != FocusArea.TABS,
+                                                    isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                                     onSelect = { onSelectedIndexChange(index) },
                                                     onLaunch = { onLaunchApp(app) },
                                                     showLabel = true
@@ -635,7 +651,8 @@ fun DeckHomeScreen(
             BottomBar(
                 isAppsTab = selectedTab == 2,
                 isInsideFolder = activeFolder != null,
-                isReorderMode = isReorderMode
+                isReorderMode = isReorderMode,
+                isEmulatorsTab = selectedTab == 1
             )
         }
 
@@ -764,6 +781,24 @@ fun DeckHomeScreen(
                 onDismiss = onDismissChangeAvatar,
                 onAvatarSelected = onAvatarSelected,
                 onNameUpdated = onProfileNameUpdated
+            )
+        }
+
+        if (showDiscordDialog) {
+            DiscordOverlayDialog(
+                onDismiss = onDismissDiscord
+            )
+        }
+
+        if (showEmulatorGamesDialog && activeEmulatorApp != null) {
+            EmulatorGamesDialog(
+                emulatorApp = activeEmulatorApp,
+                allRoms = allScannedRoms,
+                pinnedGameIds = pinnedGameIds,
+                onDismiss = onDismissEmulatorGames,
+                onLaunchEmulator = { onLaunchApp(activeEmulatorApp) },
+                onLaunchRom = onLaunchRom,
+                onTogglePinGame = onTogglePinGame
             )
         }
 

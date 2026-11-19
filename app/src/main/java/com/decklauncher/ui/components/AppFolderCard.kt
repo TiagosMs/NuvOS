@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,7 +43,7 @@ fun AppFolderCard(
     modifier: Modifier = Modifier
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.05f else 0.98f,
+        targetValue = if (isSelected) 1.05f else 0.97f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
         label = "folder_card_scale"
     )
@@ -53,6 +54,12 @@ fun AppFolderCard(
         label = "folder_border"
     )
 
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isSelected) 6.dp else 0.dp,
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
+        label = "folder_shadow"
+    )
+
     val shape = RoundedCornerShape(22.dp)
 
     Card(
@@ -60,6 +67,7 @@ fun AppFolderCard(
             .width(160.dp)
             .height(180.dp)
             .scale(scale)
+            .shadow(shadowElevation, shape, spotColor = Color(0x40FFFFFF), ambientColor = Color(0x20FFFFFF))
             .clip(shape)
             .border(
                 BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x33FFFFFF)),

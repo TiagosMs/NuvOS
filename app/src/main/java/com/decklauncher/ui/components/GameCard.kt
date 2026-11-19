@@ -52,24 +52,24 @@ fun GameCard(
 ) {
     // Ultra-smooth slower spring physics for fluid console feel
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) (if (isReorderMode) 1.07f else 1.05f) else 0.95f,
+        targetValue = if (isSelected) (if (isReorderMode) 1.09f else 1.07f) else 0.94f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
         label = "game_card_scale"
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 3.5.dp else 1.dp,
+        targetValue = if (isSelected) 4.dp else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "game_card_border"
     )
 
     val shadowElevation by animateDpAsState(
-        targetValue = if (isSelected) 22.dp else 2.dp,
+        targetValue = if (isSelected) 28.dp else 2.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "game_card_shadow"
     )
 
-    val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor
+    val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else (if (isSelected) Color.White else accentColor)
 
     val shape = RoundedCornerShape(22.dp)
 
@@ -87,12 +87,12 @@ fun GameCard(
                 .shadow(
                     elevation = shadowElevation,
                     shape = shape,
-                    spotColor = activeBorderColor,
-                    ambientColor = activeBorderColor
+                    spotColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor,
+                    ambientColor = Color.White
                 )
                 .clip(shape)
                 .border(
-                    BorderStroke(borderWidth, if (isSelected) activeBorderColor else Color(0x22FFFFFF)),
+                    BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x22FFFFFF)),
                     shape = shape
                 )
                 .clickable(
@@ -161,7 +161,7 @@ fun GameCard(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Indicator below selected card: Nome do jogo no cursor (sem bolinha verde) ou [◀ MOVER ▶]
+        // Indicator below selected card: Nome do jogo no cursor com barra nítida de foco ou [◀ MOVER ▶]
         AnimatedVisibility(
             visible = isSelected,
             enter = fadeIn(),
@@ -184,11 +184,19 @@ fun GameCard(
                     )
                 }
             } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
+                    // Pílula nítida e brilhante de cursor ativo
+                    Box(
+                        modifier = Modifier
+                            .width(38.dp)
+                            .height(3.5.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White)
+                    )
                     Text(
                         text = app.label,
                         color = TextWhite,

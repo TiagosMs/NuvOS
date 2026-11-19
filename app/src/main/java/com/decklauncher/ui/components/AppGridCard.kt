@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -43,13 +44,13 @@ fun AppGridCard(
     modifier: Modifier = Modifier
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.06f else 0.96f,
+        targetValue = if (isSelected) 1.05f else 0.96f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
         label = "grid_card_scale"
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.5.dp else 1.dp,
+        targetValue = if (isSelected) 3.dp else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "grid_border"
     )
@@ -58,7 +59,7 @@ fun AppGridCard(
 
     Column(
         modifier = modifier
-            .padding(horizontal = 2.dp, vertical = 6.dp) // Margem de respiro para o scale não cortar o topo
+            .padding(horizontal = 2.dp, vertical = 4.dp)
             .scale(scale)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -77,7 +78,9 @@ fun AppGridCard(
                     BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x28FFFFFF)),
                     shape = shape
                 ),
-            colors = CardDefaults.cardColors(containerColor = CardBgDark),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) Color(0xFF2D2D2D) else CardBgDark
+            ),
             shape = shape
         ) {
             Box(
