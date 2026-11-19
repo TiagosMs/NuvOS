@@ -50,13 +50,18 @@ class MainActivity : ComponentActivity() {
     private var activeFolderState = mutableStateOf<AppFolder?>(null)
     private var isLoadingState = mutableStateOf(true)
 
-    // Dialog states
+    // Dialog & Interaction states
     private var showOptionsDialogState = mutableStateOf(false)
     private var showEditCoverDialogState = mutableStateOf(false)
     private var showAddCloudDialogState = mutableStateOf(false)
     private var showAddGameOptionsDialogState = mutableStateOf(false)
     private var showSteamGridDialogState = mutableStateOf(false)
     private var showIconPackDialogState = mutableStateOf(false)
+    private var showLauncherSettingsDialogState = mutableStateOf(false)
+    private var showChangeAvatarDialogState = mutableStateOf(false)
+    private var isReorderModeState = mutableStateOf(false)
+    private var profileNameState = mutableStateOf("Tiago")
+    private var avatarIdState = mutableStateOf("deck_blue")
     private var activeDialogAppState = mutableStateOf<AppItem?>(null)
 
     private enum class JoystickDir { NONE, LEFT, RIGHT, UP, DOWN }
@@ -105,6 +110,9 @@ class MainActivity : ComponentActivity() {
         // Configura chave de API padrão fornecida pelo usuário
         SteamGridDbManager.setApiKey(this, "1b8937c720a13f8746fedc874c88b46e")
 
+        profileNameState.value = ProfileManager.getProfileName(this)
+        avatarIdState.value = ProfileManager.getAvatarId(this)
+
         setupImmersiveMode()
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
@@ -140,6 +148,11 @@ class MainActivity : ComponentActivity() {
                     showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
                     showSteamGridDialog = showSteamGridDialogState.value,
                     showIconPackDialog = showIconPackDialogState.value,
+                    showLauncherSettingsDialog = showLauncherSettingsDialogState.value,
+                    showChangeAvatarDialog = showChangeAvatarDialogState.value,
+                    isReorderMode = isReorderModeState.value,
+                    profileName = profileNameState.value,
+                    avatarId = avatarIdState.value,
                     onSelectedIndexChange = { selectedIndexState.intValue = it },
                     onTabSelected = {
                         selectedTabState.intValue = it
@@ -166,6 +179,8 @@ class MainActivity : ComponentActivity() {
                     onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
                     onDismissSteamGrid = { showSteamGridDialogState.value = false },
                     onDismissIconPack = { showIconPackDialogState.value = false },
+                    onDismissLauncherSettings = { showLauncherSettingsDialogState.value = false },
+                    onDismissChangeAvatar = { showChangeAvatarDialogState.value = false },
                     onRequestEditCover = { item ->
                         activeDialogAppState.value = item
                         showEditCoverDialogState.value = true
@@ -178,6 +193,24 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestIconPackSettings = {
                         showIconPackDialogState.value = true
+                    },
+                    onRequestOpenLauncherSettings = {
+                        showLauncherSettingsDialogState.value = true
+                    },
+                    onRequestChangeAvatar = {
+                        showChangeAvatarDialogState.value = true
+                    },
+                    onRequestReorderMode = {
+                        isReorderModeState.value = true
+                        Toast.makeText(this@MainActivity, "Modo Mover: D-Pad ◀ / ▶ troca de posição, (A) fixa", Toast.LENGTH_LONG).show()
+                    },
+                    onAvatarSelected = { avatarId ->
+                        avatarIdState.value = avatarId
+                        ProfileManager.setAvatarId(this@MainActivity, avatarId)
+                    },
+                    onProfileNameUpdated = { name ->
+                        profileNameState.value = name
+                        ProfileManager.setProfileName(this@MainActivity, name)
                     },
                     onSaveSteamGridKey = { key ->
                         SteamGridDbManager.setApiKey(this, key)
@@ -358,12 +391,50 @@ class MainActivity : ComponentActivity() {
                 rg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
             }
 
-            val combined = (appItems + cloudGames + romGames).sortedBy { it.label.lowercase() }
+            val allJogos = (appItems + cloudGames + romGames).filter { it.category == AppCategory.JOGOS }.sortedBy { it.label.lowercase() }
+            val allEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.sortedBy { it.label.lowercase() }
+            val allApps = appItems.filter { it.category == AppCategory.APPS }.sortedBy { it.label.lowercase() }
+
+            val orderedJogos = OrderManager.applyOrder(this@MainActivity, "jogos", allJogos)
+            val orderedEmuladores = OrderManager.applyOrder(this@MainActivity, "emuladores", allEmuladores)
+            val orderedApps = OrderManager.applyOrder(this@MainActivity, "apps", allApps)
+
+            val combined = orderedJogos + orderedEmuladores + orderedApps
 
             withContext(Dispatchers.Main) {
                 appsListState.value = combined
                 isLoadingState.value = false
             }
+        }
+    }
+
+    private fun swapSelectedItem(delta: Int) {
+        val catKey = when (selectedTabState.intValue) {
+            0 -> "jogos"
+            1 -> "emuladores"
+            else -> "apps"
+        }
+        val currentList = getFilteredApps()
+        val currIdx = selectedIndexState.intValue
+        val targetIdx = currIdx + delta
+        if (targetIdx in currentList.indices) {
+            val newList = OrderManager.swapItems(this, catKey, currentList, currIdx, targetIdx)
+            selectedIndexState.intValue = targetIdx
+
+            // Atualiza a lista completa preservando as outras categorias
+            val otherItems = appsListState.value.filter {
+                when (selectedTabState.intValue) {
+                    0 -> it.category != AppCategory.JOGOS
+                    1 -> it.category != AppCategory.EMULADORES
+                    else -> it.category != AppCategory.APPS
+                }
+            }
+            appsListState.value = when (selectedTabState.intValue) {
+                0 -> newList + otherItems
+                1 -> otherItems.filter { it.category == AppCategory.JOGOS } + newList + otherItems.filter { it.category == AppCategory.APPS }
+                else -> otherItems + newList
+            }
+            triggerHaptic()
         }
     }
 
@@ -486,7 +557,8 @@ class MainActivity : ComponentActivity() {
         // Se algum diálogo estiver aberto, botão B fecha o diálogo
         if (showOptionsDialogState.value || showEditCoverDialogState.value ||
             showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
-            showSteamGridDialogState.value || showIconPackDialogState.value) {
+            showSteamGridDialogState.value || showIconPackDialogState.value ||
+            showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value) {
             if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK) {
                 showOptionsDialogState.value = false
                 showEditCoverDialogState.value = false
@@ -494,7 +566,33 @@ class MainActivity : ComponentActivity() {
                 showAddGameOptionsDialogState.value = false
                 showSteamGridDialogState.value = false
                 showIconPackDialogState.value = false
+                showLauncherSettingsDialogState.value = false
+                showChangeAvatarDialogState.value = false
                 return true
+            }
+        }
+
+        // Se estiver no Modo Reordenar Itens
+        if (isReorderModeState.value) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    swapSelectedItem(-1)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    swapSelectedItem(1)
+                    return true
+                }
+                KeyEvent.KEYCODE_BUTTON_A,
+                KeyEvent.KEYCODE_BUTTON_B,
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_DPAD_CENTER -> {
+                    isReorderModeState.value = false
+                    Toast.makeText(this, "Ordem salva com sucesso!", Toast.LENGTH_SHORT).show()
+                    triggerHaptic()
+                    return true
+                }
             }
         }
 
@@ -674,6 +772,20 @@ class MainActivity : ComponentActivity() {
             return false
         }
         lastNavTime = now
+
+        if (isReorderModeState.value) {
+            when (dir) {
+                JoystickDir.LEFT -> {
+                    swapSelectedItem(-1)
+                    return true
+                }
+                JoystickDir.RIGHT -> {
+                    swapSelectedItem(1)
+                    return true
+                }
+                else -> return true
+            }
+        }
 
         val isAppsTab = selectedTabState.intValue == 2
         val isInsideFolder = isAppsTab && activeFolderState.value != null

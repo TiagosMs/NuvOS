@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -55,7 +57,8 @@ fun OptionsDialog(
     onRescanRoms: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onUninstallApp: () -> Unit,
-    onRemoveItem: () -> Unit
+    onRemoveItem: () -> Unit,
+    onRequestReorder: () -> Unit = {}
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -95,6 +98,7 @@ fun OptionsDialog(
 
                 // Actions list - Sóbrio, sem emojis
                 SteamDeckOptionRow(label = "Iniciar", onClick = { onLaunch(); onDismiss() })
+                SteamDeckOptionRow(label = "Mover Posição / Trocar de Lugar", onClick = { onRequestReorder(); onDismiss() })
                 SteamDeckOptionRow(label = "Editar Capa (SteamGridDB)", onClick = { onRequestEditCover(); onDismiss() })
                 SteamDeckOptionRow(label = "Adicionar Jogos em Nuvem (Better xCloud)", onClick = { onRequestAddGame(); onDismiss() })
 
@@ -745,6 +749,307 @@ private fun SteamDeckIconPackRow(
             }
             if (isSelected) {
                 Text(text = "Ativo", color = BtnAGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun LauncherSettingsDialog(
+    onDismiss: () -> Unit,
+    onRequestChangeAvatar: () -> Unit,
+    onRequestSteamGridKey: () -> Unit,
+    onRequestIconPack: () -> Unit,
+    onRequestAddCloudGame: () -> Unit,
+    onRescanRoms: () -> Unit,
+    onRequestReorderMode: () -> Unit,
+    profileName: String = "Tiago",
+    avatarId: String = "deck_blue"
+) {
+    val activePreset = remember(avatarId) {
+        ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(440.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Configurações do Launcher",
+                    color = TextWhite,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Personalização, Sistema e Biblioteca",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
+                )
+
+                HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
+
+                Text(
+                    text = "PERFIL",
+                    color = Color(0xFF6B7D8E),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SteamDeckCardBg)
+                        .clickable {
+                            onRequestChangeAvatar()
+                        }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color(activePreset.primaryColor),
+                                            Color(activePreset.accentColor)
+                                        )
+                                    )
+                                )
+                                .border(1.5.dp, Color(0x66FFFFFF), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = activePreset.initial,
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = profileName,
+                                color = TextWhite,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Ícone: ${activePreset.name}",
+                                color = SteamDeckTextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Trocar",
+                        color = SteamDeckButtonBlue,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "BIBLIOTECA & NAVEGAÇÃO",
+                    color = Color(0xFF6B7D8E),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                SteamDeckOptionRow(
+                    label = "Mover e Trocar Ordem dos Itens",
+                    onClick = {
+                        onRequestReorderMode()
+                        onDismiss()
+                    }
+                )
+
+                SteamDeckOptionRow(
+                    label = "Adicionar Jogos em Nuvem (Better xCloud)",
+                    onClick = {
+                        onRequestAddCloudGame()
+                        onDismiss()
+                    }
+                )
+
+                SteamDeckOptionRow(
+                    label = "Re-escanear ROMs e Emuladores",
+                    onClick = {
+                        onRescanRoms()
+                        onDismiss()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "INTEGRAÇÕES & VISUAL",
+                    color = Color(0xFF6B7D8E),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                SteamDeckOptionRow(
+                    label = "Configurar Chave de API SteamGridDB",
+                    onClick = {
+                        onRequestSteamGridKey()
+                        onDismiss()
+                    }
+                )
+
+                SteamDeckOptionRow(
+                    label = "Selecionar Pacote de Ícones",
+                    onClick = {
+                        onRequestIconPack()
+                        onDismiss()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Fechar", color = TextWhite, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChangeAvatarDialog(
+    onDismiss: () -> Unit,
+    onAvatarSelected: (String) -> Unit,
+    onNameUpdated: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var currentName by remember { mutableStateOf(ProfileManager.getProfileName(context)) }
+    var currentAvatarId by remember { mutableStateOf(ProfileManager.getAvatarId(context)) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(420.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(20.dp)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Personalizar Perfil",
+                    color = TextWhite,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Nome de Perfil", color = SteamDeckTextMuted, fontSize = 11.sp)
+                    TextField(
+                        value = currentName,
+                        onValueChange = {
+                            currentName = it
+                            ProfileManager.setProfileName(context, it)
+                            onNameUpdated(it)
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = SteamDeckCardBg,
+                            unfocusedContainerColor = SteamDeckCardBg,
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            cursorColor = SteamDeckButtonBlue,
+                            focusedIndicatorColor = SteamDeckButtonBlue,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+
+                Text("Escolher Ícone de Perfil", color = SteamDeckTextMuted, fontSize = 11.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    ProfileManager.PRESET_AVATARS.forEach { preset ->
+                        val isSelected = currentAvatarId == preset.id
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color(preset.primaryColor),
+                                            Color(preset.accentColor)
+                                        )
+                                    )
+                                )
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) Color.White else Color(0x44FFFFFF),
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    currentAvatarId = preset.id
+                                    ProfileManager.setAvatarId(context, preset.id)
+                                    onAvatarSelected(preset.id)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = preset.initial,
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = SteamDeckButtonBlue),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Salvar e Fechar", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

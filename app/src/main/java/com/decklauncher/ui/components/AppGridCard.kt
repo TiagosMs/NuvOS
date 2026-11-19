@@ -44,13 +44,13 @@ fun AppGridCard(
 ) {
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.06f else 0.96f,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
         label = "grid_card_scale"
     )
 
     val borderWidth by animateDpAsState(
         targetValue = if (isSelected) 2.5.dp else 1.dp,
-        animationSpec = spring(),
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "grid_border"
     )
 

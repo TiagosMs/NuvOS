@@ -43,13 +43,13 @@ fun AppFolderCard(
 ) {
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.05f else 0.98f,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
         label = "folder_card_scale"
     )
 
     val borderWidth by animateDpAsState(
         targetValue = if (isSelected) 3.dp else 1.dp,
-        animationSpec = spring(),
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "folder_border"
     )
 

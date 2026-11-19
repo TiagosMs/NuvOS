@@ -19,6 +19,7 @@ import com.decklauncher.ui.theme.*
 fun BottomBar(
     isAppsTab: Boolean = false,
     isInsideFolder: Boolean = false,
+    isReorderMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -28,31 +29,55 @@ fun BottomBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(22.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ControllerActionPrompt(
-                buttonLetter = "A",
-                buttonColor = BtnAGreen,
-                actionLabel = if (isAppsTab && !isInsideFolder) "Abrir Pasta" else "Jogar"
-            )
-            ControllerActionPrompt(
-                buttonLetter = "X",
-                buttonColor = BtnXBlue,
-                actionLabel = "Opções"
-            )
-            ControllerActionPrompt(
-                buttonLetter = "Y",
-                buttonColor = BtnYYellow,
-                actionLabel = "Adicionar Jogos"
-            )
-            if (isAppsTab && isInsideFolder) {
+        if (isReorderMode) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "◀ D-Pad ▶ Mover",
+                    color = Color(0xFFF59E0B),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                ControllerActionPrompt(
+                    buttonLetter = "A",
+                    buttonColor = BtnAGreen,
+                    actionLabel = "Fixar / Salvar"
+                )
                 ControllerActionPrompt(
                     buttonLetter = "B",
                     buttonColor = Color(0xFFEF4444),
-                    actionLabel = "Voltar"
+                    actionLabel = "Concluir"
                 )
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ControllerActionPrompt(
+                    buttonLetter = "A",
+                    buttonColor = BtnAGreen,
+                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir Pasta" else "Jogar"
+                )
+                ControllerActionPrompt(
+                    buttonLetter = "X",
+                    buttonColor = BtnXBlue,
+                    actionLabel = "Opções"
+                )
+                ControllerActionPrompt(
+                    buttonLetter = "Y",
+                    buttonColor = BtnYYellow,
+                    actionLabel = "Adicionar Jogos"
+                )
+                if (isAppsTab && isInsideFolder) {
+                    ControllerActionPrompt(
+                        buttonLetter = "B",
+                        buttonColor = Color(0xFFEF4444),
+                        actionLabel = "Voltar"
+                    )
+                }
             }
         }
     }

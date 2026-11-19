@@ -46,26 +46,29 @@ fun GameCard(
     isSelected: Boolean,
     onSelect: () -> Unit,
     onLaunch: () -> Unit,
+    isReorderMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    // Ultra-smooth spring physics for fluid console feel
+    // Ultra-smooth slower spring physics for fluid console feel
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.05f else 0.95f,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 280f),
+        targetValue = if (isSelected) (if (isReorderMode) 1.07f else 1.05f) else 0.95f,
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
         label = "game_card_scale"
     )
 
     val borderWidth by animateDpAsState(
         targetValue = if (isSelected) 3.5.dp else 1.dp,
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "game_card_border"
     )
 
     val shadowElevation by animateDpAsState(
         targetValue = if (isSelected) 22.dp else 2.dp,
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "game_card_shadow"
     )
+
+    val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else Color.White
 
     val shape = RoundedCornerShape(22.dp)
 
@@ -83,12 +86,12 @@ fun GameCard(
                 .shadow(
                     elevation = shadowElevation,
                     shape = shape,
-                    spotColor = Color.White,
-                    ambientColor = Color.White
+                    spotColor = activeBorderColor,
+                    ambientColor = activeBorderColor
                 )
                 .clip(shape)
                 .border(
-                    BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x22FFFFFF)),
+                    BorderStroke(borderWidth, if (isSelected) activeBorderColor else Color(0x22FFFFFF)),
                     shape = shape
                 )
                 .clickable(
@@ -222,31 +225,49 @@ fun GameCard(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Indicator below selected card: ● Title
+        // Indicator below selected card: ● Title or [◀ MOVER ▶]
         AnimatedVisibility(
             visible = isSelected,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(horizontal = 4.dp)
-            ) {
-                Box(
+            if (isReorderMode) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(DotGreen)
-                )
-                Text(
-                    text = app.label,
-                    color = TextWhite,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFF59E0B))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "◀ MOVER ▶",
+                        color = Color.Black,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(DotGreen)
+                    )
+                    Text(
+                        text = app.label,
+                        color = TextWhite,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

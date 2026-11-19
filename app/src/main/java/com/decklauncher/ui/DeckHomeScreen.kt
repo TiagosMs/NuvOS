@@ -1,11 +1,17 @@
 package com.decklauncher.ui
 
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -23,19 +29,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decklauncher.data.AppFolder
 import com.decklauncher.data.CategoryManager
+import com.decklauncher.data.HeroManager
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.FocusArea
 import com.decklauncher.ui.components.*
 import com.decklauncher.ui.dialogs.*
 import com.decklauncher.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -55,6 +68,11 @@ fun DeckHomeScreen(
     showAddGameOptionsDialog: Boolean,
     showSteamGridDialog: Boolean,
     showIconPackDialog: Boolean,
+    showLauncherSettingsDialog: Boolean = false,
+    showChangeAvatarDialog: Boolean = false,
+    isReorderMode: Boolean = false,
+    profileName: String = "Tiago",
+    avatarId: String = "deck_blue",
     onSelectedIndexChange: (Int) -> Unit,
     onTabSelected: (Int) -> Unit,
     onOpenFolder: (AppFolder) -> Unit,
@@ -68,10 +86,17 @@ fun DeckHomeScreen(
     onDismissAddGameOptions: () -> Unit,
     onDismissSteamGrid: () -> Unit,
     onDismissIconPack: () -> Unit,
+    onDismissLauncherSettings: () -> Unit = {},
+    onDismissChangeAvatar: () -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
+    onRequestOpenLauncherSettings: () -> Unit = {},
+    onRequestChangeAvatar: () -> Unit = {},
+    onRequestReorderMode: () -> Unit = {},
+    onAvatarSelected: (String) -> Unit = {},
+    onProfileNameUpdated: (String) -> Unit = {},
     onSaveSteamGridKey: (String) -> Unit,
     onSelectIconPack: (String?) -> Unit,
     onApplyCoverUrl: (AppItem, String) -> Unit,
@@ -80,6 +105,7 @@ fun DeckHomeScreen(
     onRemoveItem: (AppItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val carouselState = rememberLazyListState()
     val folderRowState = rememberLazyListState()
@@ -120,6 +146,22 @@ fun DeckHomeScreen(
             if (activeFolder != null) activeFolder.apps.getOrNull(safeIndex) else null
         } else {
             filteredApps.getOrNull(safeIndex)
+        }
+    }
+
+    // Dynamic 16:9 hero background adaptativo com SteamGridDB
+    var currentHeroBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(currentFocusedApp?.id, selectedTab) {
+        if ((selectedTab == 0 || selectedTab == 1) && currentFocusedApp != null) {
+            delay(120) // Debounce para navegação rápida
+            val target = currentFocusedApp
+            val bmp = HeroManager.getOrFetchHero(context, target.id, target.label)
+            if (currentFocusedApp?.id == target.id) {
+                currentHeroBitmap = bmp
+            }
+        } else {
+            currentHeroBitmap = null
         }
     }
 
@@ -175,15 +217,61 @@ fun DeckHomeScreen(
             .fillMaxSize()
             .background(ConsoleBg)
     ) {
+        // Fundo adaptativo 16:9 desfocado (SteamGridDB Hero Background)
+        AnimatedContent(
+            targetState = currentHeroBitmap,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(550, easing = FastOutSlowInEasing)) togetherWith
+                fadeOut(animationSpec = tween(400, easing = FastOutSlowInEasing))
+            },
+            label = "hero_bg_fade"
+        ) { heroBmp ->
+            if (heroBmp != null) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        bitmap = heroBmp.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(radius = 32.dp)
+                    )
+                    // Overlay de gradiente escuro cinematográfico Steam Deck
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0x9912161C),
+                                        Color(0xCC12161C),
+                                        Color(0xF512161C)
+                                    )
+                                )
+                            )
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(ConsoleBg)
+                )
+            }
+        }
+
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // 1. Top Bar: [LB] Jogos Emuladores Apps [RB] + Signal Battery Clock
+            // 1. Top Bar: [LB] Jogos Emuladores Apps [RB] + Perfil (canto superior esquerdo) + Signal Battery Clock
             TopBar(
                 selectedTab = selectedTab,
                 isTabAreaFocused = focusArea == FocusArea.TABS,
                 onTabSelected = onTabSelected,
-                batteryPct = batteryPct
+                batteryPct = batteryPct,
+                profileName = profileName,
+                avatarId = avatarId,
+                onOpenProfileSettings = onRequestOpenLauncherSettings
             )
 
             // 2. Main Content Area
@@ -228,7 +316,31 @@ fun DeckHomeScreen(
                 } else {
                     AnimatedContent(
                         targetState = selectedTab,
-                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                (slideInHorizontally(
+                                    animationSpec = tween(450, easing = FastOutSlowInEasing),
+                                    initialOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() }
+                                ) + fadeIn(animationSpec = tween(380)))
+                                    .togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = tween(450, easing = FastOutSlowInEasing),
+                                            targetOffsetX = { fullWidth -> (-fullWidth * 0.12f).toInt() }
+                                        ) + fadeOut(animationSpec = tween(280))
+                                    )
+                            } else {
+                                (slideInHorizontally(
+                                    animationSpec = tween(450, easing = FastOutSlowInEasing),
+                                    initialOffsetX = { fullWidth -> (-fullWidth * 0.12f).toInt() }
+                                ) + fadeIn(animationSpec = tween(380)))
+                                    .togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = tween(450, easing = FastOutSlowInEasing),
+                                            targetOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() }
+                                        ) + fadeOut(animationSpec = tween(280))
+                                    )
+                            }
+                        },
                         label = "tab_content_switch"
                     ) { tab ->
                         if (tab == 0 || tab == 1) {
@@ -255,7 +367,8 @@ fun DeckHomeScreen(
                                             app = app,
                                             isSelected = index == safeIndex && focusArea != FocusArea.TABS,
                                             onSelect = { onSelectedIndexChange(index) },
-                                            onLaunch = { onLaunchApp(app) }
+                                            onLaunch = { onLaunchApp(app) },
+                                            isReorderMode = isReorderMode
                                         )
                                     }
                                 }
@@ -295,8 +408,7 @@ fun DeckHomeScreen(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(horizontal = 40.dp, vertical = 4.dp)
-                                ) {
-                                    // Folder Header: apenas botão/chip de voltar com nome da pasta
+                                    ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -386,7 +498,8 @@ fun DeckHomeScreen(
             // 3. Bottom Controller Hints: (A) Jogar/Abrir   (X) Opções   (Y) Adicionar Jogos
             BottomBar(
                 isAppsTab = selectedTab == 2,
-                isInsideFolder = activeFolder != null
+                isInsideFolder = activeFolder != null,
+                isReorderMode = isReorderMode
             )
         }
 
@@ -405,7 +518,8 @@ fun DeckHomeScreen(
                 onRescanRoms = onRescanRoms,
                 onOpenAppSettings = { onOpenSettings(targetApp) },
                 onUninstallApp = { onUninstallApp(targetApp) },
-                onRemoveItem = { onRemoveItem(targetApp) }
+                onRemoveItem = { onRemoveItem(targetApp) },
+                onRequestReorder = onRequestReorderMode
             )
         }
 
@@ -443,6 +557,28 @@ fun DeckHomeScreen(
             IconPackDialog(
                 onDismiss = onDismissIconPack,
                 onSelectPack = onSelectIconPack
+            )
+        }
+
+        if (showLauncherSettingsDialog) {
+            LauncherSettingsDialog(
+                onDismiss = onDismissLauncherSettings,
+                onRequestChangeAvatar = onRequestChangeAvatar,
+                onRequestSteamGridKey = onRequestSteamGridSettings,
+                onRequestIconPack = onRequestIconPackSettings,
+                onRequestAddCloudGame = onRequestAddGame,
+                onRescanRoms = onRescanRoms,
+                onRequestReorderMode = onRequestReorderMode,
+                profileName = profileName,
+                avatarId = avatarId
+            )
+        }
+
+        if (showChangeAvatarDialog) {
+            ChangeAvatarDialog(
+                onDismiss = onDismissChangeAvatar,
+                onAvatarSelected = onAvatarSelected,
+                onNameUpdated = onProfileNameUpdated
             )
         }
     }
