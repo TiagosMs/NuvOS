@@ -53,7 +53,6 @@ fun TopBar(
     topBarIndex: Int = 0,
     onOpenProfileSettings: () -> Unit = {},
     onOpenAddGame: () -> Unit = {},
-    onOpenDiscord: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val activePreset = remember(avatarId) {
@@ -85,10 +84,6 @@ fun TopBar(
     val isAddFocused = isTopBarFocused && topBarIndex == 1
     val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.15f else 1.0f, label = "add_scale")
     val addBorderWidth by animateDpAsState(targetValue = if (isAddFocused) 2.5.dp else 1.dp, label = "add_border")
-
-    val isDiscordFocused = isTopBarFocused && topBarIndex == 2
-    val discordScale by animateFloatAsState(targetValue = if (isDiscordFocused) 1.18f else 1.0f, label = "discord_scale")
-    val discordBorderWidth by animateDpAsState(targetValue = if (isDiscordFocused) 3.dp else 1.dp, label = "discord_border")
 
     Row(
         modifier = modifier
@@ -229,7 +224,7 @@ fun TopBar(
             }
         }
 
-        // Right Status: Add Game + Discord Quick Icon + Signal + Battery + Time
+        // Right Status: Add Game (+) + Signal + Battery + Time
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 14.dp)
@@ -253,22 +248,6 @@ fun TopBar(
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
-            }
-
-            // Discord Quick Button
-            Box(
-                modifier = Modifier
-                    .size(if (isCompactHeight) 26.dp else 34.dp)
-                    .scale(discordScale)
-                    .shadow(if (isDiscordFocused) 18.dp else 0.dp, CircleShape, spotColor = Color(0xFF5865F2))
-                    .clip(CircleShape)
-                    .background(Color(0xFF5865F2))
-                    .border(discordBorderWidth, if (isDiscordFocused) Color.White else Color(0x44FFFFFF), CircleShape)
-                    .clickable { onOpenDiscord() }
-                    .padding(if (isCompactHeight) 4.dp else 5.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                DiscordClydeIcon(modifier = Modifier.fillMaxSize())
             }
 
             // Signal + Battery + Time
@@ -302,33 +281,6 @@ fun TopBar(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun DiscordClydeIcon(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        val path = Path().apply {
-            moveTo(w * 0.2f, h * 0.25f)
-            lineTo(w * 0.35f, h * 0.15f)
-            quadraticBezierTo(w * 0.5f, h * 0.22f, w * 0.65f, h * 0.15f)
-            lineTo(w * 0.8f, h * 0.25f)
-            quadraticBezierTo(w * 0.95f, h * 0.6f, w * 0.85f, h * 0.85f)
-            lineTo(w * 0.72f, h * 0.75f)
-            quadraticBezierTo(w * 0.5f, h * 0.82f, w * 0.28f, h * 0.75f)
-            lineTo(w * 0.15f, h * 0.85f)
-            quadraticBezierTo(w * 0.05f, h * 0.6f, w * 0.2f, h * 0.25f)
-            close()
-        }
-        drawPath(path, color = Color.White)
-
-        val eyeRadius = w * 0.08f
-        val eyeY = h * 0.52f
-        drawCircle(color = Color(0xFF5865F2), radius = eyeRadius, center = Offset(w * 0.38f, eyeY))
-        drawCircle(color = Color(0xFF5865F2), radius = eyeRadius, center = Offset(w * 0.62f, eyeY))
     }
 }
 

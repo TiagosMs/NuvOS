@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
     private var selectedIndexState = mutableIntStateOf(0)
     private var selectedTabState = mutableIntStateOf(0)
     private var focusAreaState = mutableStateOf(FocusArea.CAROUSEL)
-    private var topBarIndexState = mutableIntStateOf(0) // 0: Perfil, 1: Add Game (+), 2: Discord
+    private var topBarIndexState = mutableIntStateOf(0) // 0: Perfil, 1: Add Game (+)
     private var appsListState = mutableStateOf<List<AppItem>>(emptyList())
     private var batteryState = mutableIntStateOf(100)
     private var activeFolderState = mutableStateOf<AppFolder?>(null)
@@ -63,7 +63,6 @@ class MainActivity : ComponentActivity() {
     private var showIconPackDialogState = mutableStateOf(false)
     private var showLauncherSettingsDialogState = mutableStateOf(false)
     private var showChangeAvatarDialogState = mutableStateOf(false)
-    private var showDiscordDialogState = mutableStateOf(false)
     private var isReorderModeState = mutableStateOf(false)
     private var profileNameState = mutableStateOf("Tiago")
     private var avatarIdState = mutableStateOf("deck_blue")
@@ -77,7 +76,7 @@ class MainActivity : ComponentActivity() {
             showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
             showSteamGridDialogState.value || showIconPackDialogState.value ||
             showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value ||
-            showDiscordDialogState.value || showEmulatorGamesDialogState.value
+            showEmulatorGamesDialogState.value
 
     private fun closeAllDialogs() {
         showOptionsDialogState.value = false
@@ -92,7 +91,6 @@ class MainActivity : ComponentActivity() {
         showIconPackDialogState.value = false
         showLauncherSettingsDialogState.value = false
         showChangeAvatarDialogState.value = false
-        showDiscordDialogState.value = false
         showEmulatorGamesDialogState.value = false
         activeEmulatorAppState.value = null
     }
@@ -272,7 +270,6 @@ class MainActivity : ComponentActivity() {
                     showIconPackDialog = showIconPackDialogState.value,
                     showLauncherSettingsDialog = showLauncherSettingsDialogState.value,
                     showChangeAvatarDialog = showChangeAvatarDialogState.value,
-                    showDiscordDialog = showDiscordDialogState.value,
                     showEmulatorGamesDialog = showEmulatorGamesDialogState.value,
                     activeEmulatorApp = activeEmulatorAppState.value,
                     allScannedRoms = allScannedRomsState.value,
@@ -348,7 +345,6 @@ class MainActivity : ComponentActivity() {
                     onDismissIconPack = { showIconPackDialogState.value = false },
                     onDismissLauncherSettings = { showLauncherSettingsDialogState.value = false },
                     onDismissChangeAvatar = { showChangeAvatarDialogState.value = false },
-                    onDismissDiscord = { showDiscordDialogState.value = false },
                     onDismissEmulatorGames = {
                         showEmulatorGamesDialogState.value = false
                         activeEmulatorAppState.value = null
@@ -364,12 +360,6 @@ class MainActivity : ComponentActivity() {
                         ).show()
                     },
                     onLaunchRom = { requestLaunchItem(it) },
-                    onOpenDiscord = {
-                        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 101)
-                        }
-                        showDiscordDialogState.value = true
-                    },
                     onRequestEditCover = { item ->
                         activeDialogAppState.value = item
                         showEditCoverDialogState.value = true
@@ -1034,7 +1024,7 @@ class MainActivity : ComponentActivity() {
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
-                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(2)
+                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(1)
                     triggerHaptic()
                     return true
                 }
@@ -1077,12 +1067,6 @@ class MainActivity : ComponentActivity() {
                     when (topBarIndexState.intValue) {
                         0 -> showLauncherSettingsDialogState.value = true
                         1 -> showAddGameOptionsDialogState.value = true
-                        2 -> {
-                            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 101)
-                            }
-                            showDiscordDialogState.value = true
-                        }
                     }
                     triggerHaptic()
                     return true
@@ -1267,7 +1251,7 @@ class MainActivity : ComponentActivity() {
             }
             JoystickDir.RIGHT -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
-                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(2)
+                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(1)
                     triggerHaptic()
                 } else if (count > 0) {
                     selectedIndexState.intValue = (selectedIndexState.intValue + 1).coerceAtMost(count - 1)

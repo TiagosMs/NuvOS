@@ -75,7 +75,6 @@ fun DeckHomeScreen(
     showIconPackDialog: Boolean,
     showLauncherSettingsDialog: Boolean = false,
     showChangeAvatarDialog: Boolean = false,
-    showDiscordDialog: Boolean = false,
     showEmulatorGamesDialog: Boolean = false,
     activeEmulatorApp: AppItem? = null,
     allScannedRoms: List<AppItem> = emptyList(),
@@ -118,8 +117,6 @@ fun DeckHomeScreen(
     onDismissIconPack: () -> Unit,
     onDismissLauncherSettings: () -> Unit = {},
     onDismissChangeAvatar: () -> Unit = {},
-    onDismissDiscord: () -> Unit = {},
-    onOpenDiscord: () -> Unit = {},
     onDismissEmulatorGames: () -> Unit = {},
     onTogglePinGame: (AppItem) -> Unit = {},
     onLaunchRom: (AppItem) -> Unit = {},
@@ -409,8 +406,7 @@ fun DeckHomeScreen(
                 isTopBarFocused = focusArea == FocusArea.TOP_BAR,
                 topBarIndex = topBarIndex,
                 onOpenProfileSettings = onRequestOpenLauncherSettings,
-                onOpenAddGame = onRequestAddGameOptions,
-                onOpenDiscord = onOpenDiscord
+                onOpenAddGame = onRequestAddGameOptions
             )
 
             // 2. Main Content Area
@@ -798,12 +794,6 @@ fun DeckHomeScreen(
                 onDismiss = onDismissChangeAvatar,
                 onAvatarSelected = onAvatarSelected,
                 onNameUpdated = onProfileNameUpdated
-            )
-        }
-
-        if (showDiscordDialog) {
-            DiscordOverlayDialog(
-                onDismiss = onDismissDiscord
             )
         }
 
