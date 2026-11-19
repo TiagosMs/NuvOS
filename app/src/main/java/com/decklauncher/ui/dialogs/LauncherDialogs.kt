@@ -53,6 +53,7 @@ fun OptionsDialog(
     onRequestEditCover: () -> Unit,
     onRequestEditHero: () -> Unit = {},
     onRequestEditLogo: () -> Unit = {},
+    onRequestSelectIntro: () -> Unit = {},
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
@@ -104,6 +105,7 @@ fun OptionsDialog(
                 SteamDeckOptionRow(label = "Editar Capa (SteamGridDB)", onClick = { onRequestEditCover(); onDismiss() })
                 SteamDeckOptionRow(label = "Editar Fundo / Hero (SteamGridDB)", onClick = { onRequestEditHero(); onDismiss() })
                 SteamDeckOptionRow(label = "Editar Logo 3D (SteamGridDB)", onClick = { onRequestEditLogo(); onDismiss() })
+                SteamDeckOptionRow(label = "Trocar Intro do Console", onClick = { onRequestSelectIntro(); onDismiss() })
                 SteamDeckOptionRow(label = "Adicionar Jogos em Nuvem (Better xCloud)", onClick = { onRequestAddGame(); onDismiss() })
 
                 if (app.itemType == ItemType.APP) {
@@ -777,6 +779,7 @@ fun LauncherSettingsDialog(
     currentAccentColor: Long = 0xFF1A73E8,
     onAccentColorSelected: (Long) -> Unit = {}
 ) {
+    val context = LocalContext.current
     val activePreset = remember(avatarId) {
         ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
     }
@@ -1036,6 +1039,43 @@ fun LauncherSettingsDialog(
                             }
                         }
                     }
+                }
+
+                // Intros dos Consoles ao Iniciar
+                var introsActive by remember { mutableStateOf(IntroManager.isIntroEnabled(context)) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SteamDeckCardBg)
+                        .clickable {
+                            val newActive = !introsActive
+                            introsActive = newActive
+                            IntroManager.setIntroEnabled(context, newActive)
+                        }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Intros de Boot dos Consoles",
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (introsActive) "Vídeo oficial e áudio ao iniciar o jogo" else "Desativado (início imediato)",
+                            color = if (introsActive) Color(0xFF10B981) else SteamDeckTextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = if (introsActive) "Ativado" else "Desativado",
+                        color = if (introsActive) Color(0xFF10B981) else SteamDeckTextMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1705,6 +1745,121 @@ fun InitialSetupDialog(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SelectConsoleIntroDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onIntroSelected: (String?) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedId by remember { mutableStateOf(IntroManager.getCustomIntroId(context, app.id)) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(440.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Intro de Boot - ${app.label}",
+                    color = TextWhite,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Selecione o console cuja animação de boot com som tocará ao abrir este jogo:",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
+                )
+
+                HorizontalDivider(color = Color(0x22FFFFFF))
+
+                // Opção Automática (Padrão)
+                val isAuto = selectedId == null
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isAuto) Color(0xFF1E3A8A) else SteamDeckCardBg)
+                        .clickable {
+                            selectedId = null
+                            IntroManager.setCustomIntroId(context, app.id, null)
+                            onIntroSelected(null)
+                        }
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Automático (Detectar pelo Console/ROM)",
+                            color = TextWhite,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val detected = IntroManager.detectIntroForApp(context, app)
+                        Text(
+                            text = "Atual: ${detected?.displayName ?: "Nenhuma"}",
+                            color = SteamDeckTextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                    if (isAuto) {
+                        Text("Ativo", color = Color(0xFF60A5FA), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                IntroManager.ALL_INTROS.forEach { intro ->
+                    val isSelected = selectedId == intro.id
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) Color(0xFF1E3A8A) else SteamDeckCardBg)
+                            .clickable {
+                                selectedId = intro.id
+                                IntroManager.setCustomIntroId(context, app.id, intro.id)
+                                onIntroSelected(intro.id)
+                            }
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = intro.displayName,
+                            color = TextWhite,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                        if (isSelected) {
+                            Text("Ativo", color = Color(0xFF60A5FA), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Fechar", color = SteamDeckTextMuted)
+                    }
                 }
             }
         }

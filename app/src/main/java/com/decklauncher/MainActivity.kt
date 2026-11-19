@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
+import android.os.StrictMode
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
@@ -70,7 +71,10 @@ class MainActivity : ComponentActivity() {
     private var hasCustomWallpaperState = mutableStateOf(false)
     private var showEditHeroDialogState = mutableStateOf(false)
     private var showEditLogoDialogState = mutableStateOf(false)
+    private var showSelectIntroDialogState = mutableStateOf(false)
     private var showInitialSetupDialogState = mutableStateOf(false)
+    private var activeIntroPlayingState = mutableStateOf<ConsoleIntro?>(null)
+    private var pendingLaunchAppState = mutableStateOf<AppItem?>(null)
     private var romFolderNameState = mutableStateOf("")
     private var downloadFolderNameState = mutableStateOf("")
     private var apiKeyTextState = mutableStateOf("")
@@ -159,6 +163,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Permite compartilhamento de URIs de arquivos com emuladores sem acionar FileUriExposedException
+        val vmPolicy = StrictMode.VmPolicy.Builder().build()
+        StrictMode.setVmPolicy(vmPolicy)
+
         // Configura chave de API padrão fornecida pelo usuário
         SteamGridDbManager.setApiKey(this, "1b8937c720a13f8746fedc874c88b46e")
 
@@ -209,7 +217,17 @@ class MainActivity : ComponentActivity() {
                     showEditCoverDialog = showEditCoverDialogState.value,
                     showEditHeroDialog = showEditHeroDialogState.value,
                     showEditLogoDialog = showEditLogoDialogState.value,
+                    showSelectIntroDialog = showSelectIntroDialogState.value,
                     showInitialSetupDialog = showInitialSetupDialogState.value,
+                    activeIntroPlaying = activeIntroPlayingState.value,
+                    onIntroFinished = {
+                        val item = pendingLaunchAppState.value
+                        activeIntroPlayingState.value = null
+                        pendingLaunchAppState.value = null
+                        if (item != null) {
+                            launchItem(item)
+                        }
+                    },
                     showAddCloudDialog = showAddCloudDialogState.value,
                     showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
                     showSteamGridDialog = showSteamGridDialogState.value,
@@ -258,13 +276,14 @@ class MainActivity : ComponentActivity() {
                         selectedIndexState.intValue = 0
                         triggerHaptic()
                     },
-                    onLaunchApp = { launchItem(it) },
+                    onLaunchApp = { requestLaunchItem(it) },
                     onOpenSettings = { openAppOptions(it) },
                     onUninstallApp = { uninstallApp(it) },
                     onDismissOptions = { showOptionsDialogState.value = false },
                     onDismissEditCover = { showEditCoverDialogState.value = false },
                     onDismissEditHero = { showEditHeroDialogState.value = false },
                     onDismissEditLogo = { showEditLogoDialogState.value = false },
+                    onDismissSelectIntro = { showSelectIntroDialogState.value = false },
                     onDismissInitialSetup = { showInitialSetupDialogState.value = false },
                     onDismissAddCloud = { showAddCloudDialogState.value = false },
                     onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
@@ -283,6 +302,10 @@ class MainActivity : ComponentActivity() {
                     onRequestEditLogo = { item ->
                         activeDialogAppState.value = item
                         showEditLogoDialogState.value = true
+                    },
+                    onRequestSelectIntro = { item ->
+                        activeDialogAppState.value = item
+                        showSelectIntroDialogState.value = true
                     },
                     onRequestPickRomFolder = {
                         try {
@@ -369,6 +392,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                    },
+                    onIntroSelected = { item, introId ->
+                        IntroManager.setCustomIntroId(this@MainActivity, item.id, introId)
+                        Toast.makeText(this@MainActivity, "Intro do console atualizada!", Toast.LENGTH_SHORT).show()
                     },
                     onAddCloudGameConfirm = { title, url ->
                         val item = CloudGameManager.addCloudGame(this, title, url)
@@ -603,6 +630,16 @@ class MainActivity : ComponentActivity() {
         return bitmap
     }
 
+    private fun requestLaunchItem(item: AppItem) {
+        val intro = IntroManager.detectIntroForApp(this, item)
+        if (intro != null && intro.assetFileName != null) {
+            activeIntroPlayingState.value = intro
+            pendingLaunchAppState.value = item
+        } else {
+            launchItem(item)
+        }
+    }
+
     private fun launchItem(item: AppItem) {
         when (item.itemType) {
             ItemType.CLOUD -> {
@@ -700,10 +737,34 @@ class MainActivity : ComponentActivity() {
             return super.dispatchKeyEvent(event)
         }
 
+        // Se uma intro de boot estiver em execução, qualquer botão de ação ou retorno pula a intro
+        if (activeIntroPlayingState.value != null) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_BUTTON_A,
+                KeyEvent.KEYCODE_BUTTON_B,
+                KeyEvent.KEYCODE_BUTTON_X,
+                KeyEvent.KEYCODE_BUTTON_Y,
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_ESCAPE,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER,
+                KeyEvent.KEYCODE_DPAD_CENTER -> {
+                    val item = pendingLaunchAppState.value
+                    activeIntroPlayingState.value = null
+                    pendingLaunchAppState.value = null
+                    if (item != null) {
+                        launchItem(item)
+                    }
+                    return true
+                }
+            }
+            return true
+        }
+
         // Se algum diálogo estiver aberto, botão B fecha o diálogo
         if (showOptionsDialogState.value || showEditCoverDialogState.value ||
             showEditHeroDialogState.value || showEditLogoDialogState.value ||
-            showInitialSetupDialogState.value ||
+            showSelectIntroDialogState.value || showInitialSetupDialogState.value ||
             showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
             showSteamGridDialogState.value || showIconPackDialogState.value ||
             showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value) {
@@ -712,6 +773,7 @@ class MainActivity : ComponentActivity() {
                 showEditCoverDialogState.value = false
                 showEditHeroDialogState.value = false
                 showEditLogoDialogState.value = false
+                showSelectIntroDialogState.value = false
                 showInitialSetupDialogState.value = false
                 showAddCloudDialogState.value = false
                 showAddGameOptionsDialogState.value = false
@@ -833,12 +895,12 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
-                        if (app != null) launchItem(app)
+                        if (app != null) requestLaunchItem(app)
                     }
                 } else {
                     // Abas Jogos e Emuladores
                     val current = filtered.getOrNull(selectedIndexState.intValue)
-                    if (current != null) launchItem(current)
+                    if (current != null) requestLaunchItem(current)
                 }
                 triggerHaptic()
                 return true

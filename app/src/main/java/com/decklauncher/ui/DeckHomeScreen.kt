@@ -43,6 +43,8 @@ import com.decklauncher.data.AppFolder
 import com.decklauncher.data.BackgroundMode
 import com.decklauncher.data.CategoryManager
 import com.decklauncher.data.HeroManager
+import com.decklauncher.data.IntroManager
+import com.decklauncher.data.ConsoleIntro
 import com.decklauncher.data.LogoManager
 import com.decklauncher.data.SetupManager
 import com.decklauncher.data.ThemeManager
@@ -71,6 +73,7 @@ fun DeckHomeScreen(
     showEditCoverDialog: Boolean,
     showEditHeroDialog: Boolean = false,
     showEditLogoDialog: Boolean = false,
+    showSelectIntroDialog: Boolean = false,
     showInitialSetupDialog: Boolean = false,
     showAddCloudDialog: Boolean,
     showAddGameOptionsDialog: Boolean,
@@ -81,6 +84,8 @@ fun DeckHomeScreen(
     isReorderMode: Boolean = false,
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
+    activeIntroPlaying: ConsoleIntro? = null,
+    onIntroFinished: () -> Unit = {},
     currentRomFolder: String = "",
     currentDownloadFolder: String = "",
     currentApiKey: String = "",
@@ -102,6 +107,7 @@ fun DeckHomeScreen(
     onDismissEditCover: () -> Unit,
     onDismissEditHero: () -> Unit = {},
     onDismissEditLogo: () -> Unit = {},
+    onDismissSelectIntro: () -> Unit = {},
     onDismissInitialSetup: () -> Unit = {},
     onDismissAddCloud: () -> Unit,
     onDismissAddGameOptions: () -> Unit,
@@ -112,6 +118,7 @@ fun DeckHomeScreen(
     onRequestEditCover: (AppItem) -> Unit,
     onRequestEditHero: (AppItem) -> Unit = {},
     onRequestEditLogo: (AppItem) -> Unit = {},
+    onRequestSelectIntro: (AppItem) -> Unit = {},
     onRequestPickRomFolder: () -> Unit = {},
     onRequestPickDownloadFolder: () -> Unit = {},
     onRequestSetupFolders: () -> Unit = {},
@@ -129,6 +136,7 @@ fun DeckHomeScreen(
     onApplyCoverUrl: (AppItem, String) -> Unit,
     onApplyHeroUrl: (AppItem, String) -> Unit = { _, _ -> },
     onApplyLogoUrl: (AppItem, String) -> Unit = { _, _ -> },
+    onIntroSelected: (AppItem, String?) -> Unit = { _, _ -> },
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
@@ -646,6 +654,7 @@ fun DeckHomeScreen(
                 onRequestEditCover = { onRequestEditCover(targetApp) },
                 onRequestEditHero = { onRequestEditHero(targetApp) },
                 onRequestEditLogo = { onRequestEditLogo(targetApp) },
+                onRequestSelectIntro = { onRequestSelectIntro(targetApp) },
                 onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
                 onRequestIconPackSettings = onRequestIconPackSettings,
@@ -678,6 +687,14 @@ fun DeckHomeScreen(
                 app = targetApp,
                 onDismiss = onDismissEditLogo,
                 onApplyLogoUrl = { url -> onApplyLogoUrl(targetApp, url) }
+            )
+        }
+
+        if (showSelectIntroDialog && targetApp != null) {
+            SelectConsoleIntroDialog(
+                app = targetApp,
+                onDismiss = onDismissSelectIntro,
+                onIntroSelected = { introId -> onIntroSelected(targetApp, introId) }
             )
         }
 
@@ -749,6 +766,14 @@ fun DeckHomeScreen(
                 onDismiss = onDismissChangeAvatar,
                 onAvatarSelected = onAvatarSelected,
                 onNameUpdated = onProfileNameUpdated
+            )
+        }
+
+        // Fullscreen Console Boot Intro Player com fade suave
+        if (activeIntroPlaying != null) {
+            BootIntroPlayer(
+                intro = activeIntroPlaying,
+                onIntroFinished = onIntroFinished
             )
         }
     }
