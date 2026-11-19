@@ -48,11 +48,13 @@ class MainActivity : ComponentActivity() {
     private var appsListState = mutableStateOf<List<AppItem>>(emptyList())
     private var batteryState = mutableIntStateOf(100)
     private var activeFolderState = mutableStateOf<AppFolder?>(null)
+    private var isLoadingState = mutableStateOf(true)
 
     // Dialog states
     private var showOptionsDialogState = mutableStateOf(false)
-    private var showDownloadCoverDialogState = mutableStateOf(false)
+    private var showEditCoverDialogState = mutableStateOf(false)
     private var showAddCloudDialogState = mutableStateOf(false)
+    private var showAddGameOptionsDialogState = mutableStateOf(false)
     private var showSteamGridDialogState = mutableStateOf(false)
     private var showIconPackDialogState = mutableStateOf(false)
     private var activeDialogAppState = mutableStateOf<AppItem?>(null)
@@ -68,7 +70,7 @@ class MainActivity : ComponentActivity() {
         private const val MIN_TAP_INTERVAL_MS = 180L
         private const val DEADZONE_ACTIVE = 0.55f
         private const val DEADZONE_RELEASE = 0.25f
-        private const val GRID_COLUMNS = 8 // 8 colunas para ícones compactos na área de apps
+        private const val GRID_COLUMNS = 8
     }
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -92,13 +94,16 @@ class MainActivity : ComponentActivity() {
             val key = intent?.getStringExtra("key")
             if (!key.isNullOrBlank()) {
                 SteamGridDbManager.setApiKey(this@MainActivity, key.trim())
-                Toast.makeText(this@MainActivity, "Chave SteamGridDB configurada com sucesso!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Chave SteamGridDB salva!", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Configura chave de API padrão fornecida pelo usuário
+        SteamGridDbManager.setApiKey(this, "1b8937c720a13f8746fedc874c88b46e")
 
         setupImmersiveMode()
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -127,9 +132,12 @@ class MainActivity : ComponentActivity() {
                     focusArea = focusAreaState.value,
                     batteryPct = batteryState.intValue,
                     activeFolder = activeFolderState.value,
+                    activeDialogApp = activeDialogAppState.value,
+                    isLoading = isLoadingState.value,
                     showOptionsDialog = showOptionsDialogState.value,
-                    showDownloadCoverDialog = showDownloadCoverDialogState.value,
+                    showEditCoverDialog = showEditCoverDialogState.value,
                     showAddCloudDialog = showAddCloudDialogState.value,
+                    showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
                     showSteamGridDialog = showSteamGridDialogState.value,
                     showIconPackDialog = showIconPackDialogState.value,
                     onSelectedIndexChange = { selectedIndexState.intValue = it },
@@ -151,16 +159,18 @@ class MainActivity : ComponentActivity() {
                     },
                     onLaunchApp = { launchItem(it) },
                     onOpenSettings = { openAppOptions(it) },
+                    onUninstallApp = { uninstallApp(it) },
                     onDismissOptions = { showOptionsDialogState.value = false },
-                    onDismissDownloadCover = { showDownloadCoverDialogState.value = false },
+                    onDismissEditCover = { showEditCoverDialogState.value = false },
                     onDismissAddCloud = { showAddCloudDialogState.value = false },
+                    onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
                     onDismissSteamGrid = { showSteamGridDialogState.value = false },
                     onDismissIconPack = { showIconPackDialogState.value = false },
-                    onRequestDownloadCover = { item ->
+                    onRequestEditCover = { item ->
                         activeDialogAppState.value = item
-                        showDownloadCoverDialogState.value = true
+                        showEditCoverDialogState.value = true
                     },
-                    onRequestAddCloudGame = {
+                    onRequestAddGame = {
                         showAddCloudDialogState.value = true
                     },
                     onRequestSteamGridSettings = {
@@ -178,10 +188,7 @@ class MainActivity : ComponentActivity() {
                         loadInstalledApps(forceReloadPack = true)
                         Toast.makeText(this, if (packPkg != null) "Pacote de ícones aplicado!" else "Ícones padrão restaurados", Toast.LENGTH_SHORT).show()
                     },
-                    onSearchLibretroCover = { item, title ->
-                        searchAndDownloadCover(item, title)
-                    },
-                    onDownloadCoverUrl = { item, url ->
+                    onApplyCoverUrl = { item, url ->
                         downloadCoverFromUrl(item, url)
                     },
                     onAddCloudGameConfirm = { title, url ->
@@ -254,8 +261,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadInstalledApps(forceReloadPack: Boolean = false) {
+        isLoadingState.value = true
         CoroutineScope(Dispatchers.IO).launch {
-            // Carrega pacote de ícones configurado
             IconPackManager.loadIconPack(this@MainActivity, forceReload = forceReloadPack)
 
             val pm = packageManager
@@ -274,6 +281,7 @@ class MainActivity : ComponentActivity() {
                     val appId = "app_$pkgLower"
                     val activityName = info.activityInfo.name
 
+                    // Identifica apps emuladores
                     val isEmulator = pkgLower.contains("retroarch") || pkgLower.contains("dolphin")
                         || pkgLower.contains("ppsspp") || pkgLower.contains("aether") || pkgLower.contains("nether")
                         || pkgLower.contains("yuzu") || pkgLower.contains("citra") || pkgLower.contains("vita3k")
@@ -284,6 +292,7 @@ class MainActivity : ComponentActivity() {
                         || pkgLower.contains("eden") || labelLower.contains("emulator") || labelLower.contains("emulador")
                         || labelLower.contains("hakux") || labelLower.contains("dolphin")
 
+                    // Identifica jogos Android nativos
                     val isGame = !isEmulator && (
                         (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.activityInfo.applicationInfo.category == ApplicationInfo.CATEGORY_GAME)
                         || pkgLower.contains("minecraft") || pkgLower.contains("game") || pkgLower.contains("roblox")
@@ -291,13 +300,13 @@ class MainActivity : ComponentActivity() {
                         || labelLower.contains("xcloud") || labelLower.contains("moonlight")
                     )
 
+                    // Emuladores vão para Tab 1; Jogos para Tab 0; demais para Tab 2 (Apps)
                     val category = when {
                         isEmulator -> AppCategory.EMULADORES
                         isGame -> AppCategory.JOGOS
                         else -> AppCategory.APPS
                     }
 
-                    // Tenta obter ícone customizado do pacote de ícones (ex: iiSU style 1)
                     val customIconDrawable = IconPackManager.getIcon(this@MainActivity, pkg, activityName)
                     val drawable = customIconDrawable ?: try {
                         info.loadIcon(pm)
@@ -323,25 +332,26 @@ class MainActivity : ComponentActivity() {
                     tempItem.copy(folderCategory = folderCat)
                 }
 
-            // Load Cloud Games
+            // Jogos em Nuvem vão para Tab JOGOS
             val cloudGames = CloudGameManager.getCloudGames(this@MainActivity).map { cg ->
                 val localCover = CoverManager.loadLocalCover(this@MainActivity, cg.id)
-                cg.copy(coverBitmap = localCover?.asImageBitmap())
+                cg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
             }
 
-            // Load ROMs from storage
+            // ROMs de Emulador vão para Tab JOGOS (conforme solicitado pelo usuário)
             val romGames = RomScanner.scanRoms(this@MainActivity).map { rg ->
                 var localCover = CoverManager.loadLocalCover(this@MainActivity, rg.id)
                 if (localCover == null) {
                     localCover = CoverManager.searchLibretroCover(this@MainActivity, rg.id, rg.label)
                 }
-                rg.copy(coverBitmap = localCover?.asImageBitmap())
+                rg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
             }
 
             val combined = (appItems + cloudGames + romGames).sortedBy { it.label.lowercase() }
 
             withContext(Dispatchers.Main) {
                 appsListState.value = combined
+                isLoadingState.value = false
             }
         }
     }
@@ -408,35 +418,30 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 
-    private fun searchAndDownloadCover(item: AppItem, title: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, "Buscando capa para $title...", Toast.LENGTH_SHORT).show()
-            }
-            val bmp = CoverManager.searchLibretroCover(this@MainActivity, item.id, title)
-            withContext(Dispatchers.Main) {
-                if (bmp != null) {
-                    showDownloadCoverDialogState.value = false
-                    loadInstalledApps()
-                    Toast.makeText(this@MainActivity, "Capa atualizada com sucesso!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "Capa não encontrada automaticamente.", Toast.LENGTH_LONG).show()
+    private fun uninstallApp(app: AppItem?) {
+        if (app != null && app.itemType == ItemType.APP) {
+            try {
+                val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                    data = Uri.parse("package:${app.packageName}")
+                    putExtra(Intent.EXTRA_RETURN_RESULT, true)
                 }
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Não foi possível desinstalar ${app.label}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun downloadCoverFromUrl(item: AppItem, url: String) {
+        isLoadingState.value = true
         CoroutineScope(Dispatchers.IO).launch {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, "Baixando imagem da URL...", Toast.LENGTH_SHORT).show()
-            }
             val bmp = CoverManager.downloadCover(this@MainActivity, item.id, url)
             withContext(Dispatchers.Main) {
+                isLoadingState.value = false
                 if (bmp != null) {
-                    showDownloadCoverDialogState.value = false
+                    showEditCoverDialogState.value = false
                     loadInstalledApps()
-                    Toast.makeText(this@MainActivity, "Capa salva com sucesso!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Capa atualizada com sucesso!", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this@MainActivity, "Falha ao baixar imagem dessa URL.", Toast.LENGTH_SHORT).show()
                 }
@@ -452,12 +457,14 @@ class MainActivity : ComponentActivity() {
         }
 
         // Se algum diálogo estiver aberto, botão B fecha o diálogo
-        if (showOptionsDialogState.value || showDownloadCoverDialogState.value ||
-            showAddCloudDialogState.value || showSteamGridDialogState.value || showIconPackDialogState.value) {
+        if (showOptionsDialogState.value || showEditCoverDialogState.value ||
+            showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
+            showSteamGridDialogState.value || showIconPackDialogState.value) {
             if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK) {
                 showOptionsDialogState.value = false
-                showDownloadCoverDialogState.value = false
+                showEditCoverDialogState.value = false
                 showAddCloudDialogState.value = false
+                showAddGameOptionsDialogState.value = false
                 showSteamGridDialogState.value = false
                 showIconPackDialogState.value = false
                 return true
@@ -468,7 +475,7 @@ class MainActivity : ComponentActivity() {
         val filtered = getFilteredApps()
 
         when (event.keyCode) {
-            // L1 e R1: Trocar abas instantaneamente
+            // EXCLUSIVAMENTE LB e RB trocam de abas:
             KeyEvent.KEYCODE_BUTTON_L1 -> {
                 selectedTabState.intValue = (selectedTabState.intValue - 1).coerceAtLeast(0)
                 selectedIndexState.intValue = 0
@@ -482,6 +489,29 @@ class MainActivity : ComponentActivity() {
                 selectedIndexState.intValue = 0
                 activeFolderState.value = null
                 focusAreaState.value = FocusArea.CAROUSEL
+                triggerHaptic()
+                return true
+            }
+
+            // Botão Y: Adicionar Jogos
+            KeyEvent.KEYCODE_BUTTON_Y -> {
+                showAddGameOptionsDialogState.value = true
+                triggerHaptic()
+                return true
+            }
+
+            // Botão SELECT: Abre Opções do app/jogo focado
+            KeyEvent.KEYCODE_BUTTON_SELECT,
+            KeyEvent.KEYCODE_MENU -> {
+                val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
+                    activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
+                } else {
+                    filtered.getOrNull(selectedIndexState.intValue)
+                }
+                if (current != null) {
+                    activeDialogAppState.value = current
+                    showOptionsDialogState.value = true
+                }
                 triggerHaptic()
                 return true
             }
@@ -504,24 +534,20 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão A / Confirmar: Abrir Pasta ou Iniciar App
+            // Botão A / Confirmar: Abrir Pasta ou Iniciar App/Jogo
             KeyEvent.KEYCODE_BUTTON_A,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             KeyEvent.KEYCODE_DPAD_CENTER -> {
-                if (focusAreaState.value == FocusArea.TABS) {
-                    focusAreaState.value = FocusArea.CAROUSEL
-                } else if (selectedTabState.intValue == 2) {
+                if (selectedTabState.intValue == 2) {
                     // Aba Apps
                     if (activeFolderState.value == null) {
-                        // Clicou em uma Pasta
                         val folder = folders.getOrNull(selectedIndexState.intValue)
                         if (folder != null) {
                             activeFolderState.value = folder
                             selectedIndexState.intValue = 0
                         }
                     } else {
-                        // Clicou em um App dentro da pasta
                         val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
                         if (app != null) launchItem(app)
                     }
@@ -534,7 +560,7 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão B: Voltar da pasta ou voltar para o carrossel
+            // Botão B: Voltar da pasta ou voltar da navegação
             KeyEvent.KEYCODE_BUTTON_B,
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE -> {
@@ -544,14 +570,10 @@ class MainActivity : ComponentActivity() {
                     triggerHaptic()
                     return true
                 }
-                if (focusAreaState.value != FocusArea.CAROUSEL) {
-                    focusAreaState.value = FocusArea.CAROUSEL
-                    triggerHaptic()
-                }
                 return true
             }
 
-            // Botão X: Abre menu de Opções (SteamGridDB, Ícones, Capas, Nuvem, ROMs)
+            // Botão X: Abre menu de Opções (Editar Capa, Informações, etc.)
             KeyEvent.KEYCODE_BUTTON_X -> {
                 val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
                     activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
@@ -571,22 +593,11 @@ class MainActivity : ComponentActivity() {
                 triggerHaptic()
                 return true
             }
-
-            // Botão Y: Alternar abas
-            KeyEvent.KEYCODE_BUTTON_Y -> {
-                selectedTabState.intValue = (selectedTabState.intValue + 1) % 3
-                selectedIndexState.intValue = 0
-                activeFolderState.value = null
-                focusAreaState.value = FocusArea.CAROUSEL
-                triggerHaptic()
-                return true
-            }
         }
 
         return super.dispatchKeyEvent(event)
     }
 
-    // Suporte a Analógico / Thumbsticks (Eixo X, Eixo Y, Hat X, Hat Y)
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         val axisX = event.getAxisValue(MotionEvent.AXIS_X).takeIf { it != 0f }
             ?: event.getAxisValue(MotionEvent.AXIS_HAT_X)
@@ -615,10 +626,8 @@ class MainActivity : ComponentActivity() {
             joyRepeatJob?.cancel()
             currentJoyDir = newDir
 
-            // 1. Executa 1 passo único com debounce anti-rebote
             executeNavigation(newDir, isAutoRepeat = false)
 
-            // 2. Só avança continuamente se mantido segurado por mais de 1 segundo
             joyRepeatJob = CoroutineScope(Dispatchers.Main).launch {
                 delay(HOLD_THRESHOLD_MS)
                 while (currentJoyDir == newDir) {
@@ -650,44 +659,27 @@ class MainActivity : ComponentActivity() {
         }
 
         when (dir) {
+            // Nota: Esquerda e Direita NÃO trocam abas (exclusivo para LB e RB conforme solicitado)
             JoystickDir.LEFT -> {
-                if (focusAreaState.value == FocusArea.TABS) {
-                    selectedTabState.intValue = (selectedTabState.intValue - 1).coerceAtLeast(0)
-                    selectedIndexState.intValue = 0
-                    activeFolderState.value = null
-                    triggerHaptic()
-                } else if (count > 0) {
+                if (count > 0) {
                     selectedIndexState.intValue = (selectedIndexState.intValue - 1).coerceAtLeast(0)
                     triggerHaptic()
                 }
             }
             JoystickDir.RIGHT -> {
-                if (focusAreaState.value == FocusArea.TABS) {
-                    selectedTabState.intValue = (selectedTabState.intValue + 1).coerceAtMost(2)
-                    selectedIndexState.intValue = 0
-                    activeFolderState.value = null
-                    triggerHaptic()
-                } else if (count > 0) {
+                if (count > 0) {
                     selectedIndexState.intValue = (selectedIndexState.intValue + 1).coerceAtMost(count - 1)
                     triggerHaptic()
                 }
             }
             JoystickDir.UP -> {
-                if (focusAreaState.value == FocusArea.CAROUSEL) {
-                    if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
-                        selectedIndexState.intValue -= GRID_COLUMNS
-                        triggerHaptic()
-                    } else {
-                        focusAreaState.value = FocusArea.TABS
-                        triggerHaptic()
-                    }
+                if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
+                    selectedIndexState.intValue -= GRID_COLUMNS
+                    triggerHaptic()
                 }
             }
             JoystickDir.DOWN -> {
-                if (focusAreaState.value == FocusArea.TABS) {
-                    focusAreaState.value = FocusArea.CAROUSEL
-                    triggerHaptic()
-                } else if (isInsideFolder && count > 0) {
+                if (isInsideFolder && count > 0) {
                     val next = selectedIndexState.intValue + GRID_COLUMNS
                     if (next < count) {
                         selectedIndexState.intValue = next

@@ -5,20 +5,19 @@ import android.os.Build
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 
-enum class FolderCategory(val id: String, val title: String, val iconEmoji: String) {
-    SYSTEM("system", "Sistema & Google", "⚙️"),
-    MEDIA("media", "Mídia & Streaming", "🎬"),
-    SOCIAL("social", "Comunicação & Social", "💬"),
-    PRODUCTIVITY("productivity", "Produtividade & Notas", "📝"),
-    TOOLS("tools", "Ferramentas & Web", "🛠️"),
-    CREATIVE("creative", "Criatividade & Arte", "🎨"),
-    OTHERS("others", "Outros Aplicativos", "📦")
+enum class FolderCategory(val id: String, val title: String) {
+    SYSTEM("system", "Sistema & Google"),
+    MEDIA("media", "Mídia & Streaming"),
+    SOCIAL("social", "Comunicação & Social"),
+    PRODUCTIVITY("productivity", "Produtividade & Notas"),
+    TOOLS("tools", "Ferramentas & Web"),
+    CREATIVE("creative", "Criatividade & Arte"),
+    OTHERS("others", "Outros Aplicativos")
 }
 
 data class AppFolder(
     val id: String,
     val title: String,
-    val iconEmoji: String,
     val apps: List<AppItem>
 )
 
@@ -117,7 +116,6 @@ object CategoryManager {
                     AppFolder(
                         id = cat.id,
                         title = cat.title,
-                        iconEmoji = cat.iconEmoji,
                         apps = items
                     )
                 )

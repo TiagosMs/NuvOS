@@ -10,14 +10,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decklauncher.ui.theme.*
 
 @Composable
-fun BottomBar(modifier: Modifier = Modifier) {
+fun BottomBar(
+    isAppsTab: Boolean = false,
+    isInsideFolder: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -32,13 +35,25 @@ fun BottomBar(modifier: Modifier = Modifier) {
             ControllerActionPrompt(
                 buttonLetter = "A",
                 buttonColor = BtnAGreen,
-                actionLabel = "Jogar"
+                actionLabel = if (isAppsTab && !isInsideFolder) "Abrir Pasta" else "Jogar"
             )
             ControllerActionPrompt(
                 buttonLetter = "X",
                 buttonColor = BtnXBlue,
                 actionLabel = "Opções"
             )
+            ControllerActionPrompt(
+                buttonLetter = "Y",
+                buttonColor = BtnYYellow,
+                actionLabel = "Adicionar Jogos"
+            )
+            if (isAppsTab && isInsideFolder) {
+                ControllerActionPrompt(
+                    buttonLetter = "B",
+                    buttonColor = Color(0xFFEF4444),
+                    actionLabel = "Voltar"
+                )
+            }
         }
     }
 }
@@ -55,7 +70,6 @@ fun ControllerActionPrompt(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        // Pixel-perfect centered circular controller badge via Canvas
         Canvas(modifier = Modifier.size(17.dp)) {
             val radius = size.minDimension / 2f
             drawCircle(
@@ -72,7 +86,6 @@ fun ControllerActionPrompt(
                 isAntiAlias = true
             }
 
-            // Mathematically centered vertical baseline
             val yOffset = center.y - ((paint.descent() + paint.ascent()) / 2f)
             drawContext.canvas.nativeCanvas.drawText(buttonLetter, center.x, yOffset, paint)
         }

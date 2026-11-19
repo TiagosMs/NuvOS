@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,9 +47,12 @@ fun DeckHomeScreen(
     focusArea: FocusArea,
     batteryPct: Int,
     activeFolder: AppFolder?,
+    activeDialogApp: AppItem?,
+    isLoading: Boolean,
     showOptionsDialog: Boolean,
-    showDownloadCoverDialog: Boolean,
+    showEditCoverDialog: Boolean,
     showAddCloudDialog: Boolean,
+    showAddGameOptionsDialog: Boolean,
     showSteamGridDialog: Boolean,
     showIconPackDialog: Boolean,
     onSelectedIndexChange: (Int) -> Unit,
@@ -57,19 +61,20 @@ fun DeckHomeScreen(
     onCloseFolder: () -> Unit,
     onLaunchApp: (AppItem) -> Unit,
     onOpenSettings: (AppItem?) -> Unit,
+    onUninstallApp: (AppItem) -> Unit,
     onDismissOptions: () -> Unit,
-    onDismissDownloadCover: () -> Unit,
+    onDismissEditCover: () -> Unit,
     onDismissAddCloud: () -> Unit,
+    onDismissAddGameOptions: () -> Unit,
     onDismissSteamGrid: () -> Unit,
     onDismissIconPack: () -> Unit,
-    onRequestDownloadCover: (AppItem) -> Unit,
-    onRequestAddCloudGame: () -> Unit,
+    onRequestEditCover: (AppItem) -> Unit,
+    onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
     onSaveSteamGridKey: (String) -> Unit,
     onSelectIconPack: (String?) -> Unit,
-    onSearchLibretroCover: (AppItem, String) -> Unit,
-    onDownloadCoverUrl: (AppItem, String) -> Unit,
+    onApplyCoverUrl: (AppItem, String) -> Unit,
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
@@ -81,18 +86,16 @@ fun DeckHomeScreen(
     val gridState = rememberLazyGridState()
     val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
 
-    // Current category based on tab
-    val currentTabCategory = when (selectedTab) {
-        0 -> AppCategory.JOGOS
-        1 -> AppCategory.EMULADORES
-        else -> AppCategory.APPS
-    }
-
-    val filteredApps = remember(apps, currentTabCategory) {
-        val list = apps.filter { it.category == currentTabCategory }
-        if (list.isEmpty() && currentTabCategory != AppCategory.APPS) {
-            apps
-        } else list
+    // Current category based on tab:
+    // Tab 0: Jogos (Android Games, Cloud Games, ROMs)
+    // Tab 1: Emuladores (ONLY emulator apps)
+    // Tab 2: Apps (Android apps in folders)
+    val filteredApps = remember(apps, selectedTab) {
+        when (selectedTab) {
+            0 -> apps.filter { it.category == AppCategory.JOGOS }
+            1 -> apps.filter { it.category == AppCategory.EMULADORES }
+            else -> apps.filter { it.category == AppCategory.APPS }
+        }
     }
 
     // Folders for Apps tab
@@ -100,12 +103,7 @@ fun DeckHomeScreen(
         CategoryManager.groupIntoFolders(apps)
     }
 
-    // List of items currently focused in Tab 2
-    val activeAppItems = remember(activeFolder, filteredApps) {
-        if (activeFolder != null) activeFolder.apps else filteredApps
-    }
-
-    val currentTotalCount = remember(selectedTab, activeFolder, folders.size, activeAppItems.size) {
+    val currentTotalCount = remember(selectedTab, activeFolder, folders.size, filteredApps.size) {
         if (selectedTab == 2) {
             if (activeFolder == null) folders.size else activeFolder.apps.size
         } else {
@@ -194,7 +192,29 @@ fun DeckHomeScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                if (filteredApps.isEmpty() && selectedTab != 2) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color = DotGreen,
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Text(
+                                text = "Carregando...",
+                                color = TabInactiveText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else if (filteredApps.isEmpty() && selectedTab != 2) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -243,31 +263,13 @@ fun DeckHomeScreen(
                         } else {
                             // Tab 2: APPS - Organizados em Pastas por Categorias + Ícones Menores
                             if (activeFolder == null) {
-                                // Vista de Pastas (Folders View)
+                                // Vista de Pastas (Folders View) - Limpo, sem textos redundantes
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(horizontal = 40.dp, vertical = 12.dp),
                                     verticalArrangement = Arrangement.Center
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "📁 Pastas de Aplicativos (${folders.size} categorias)",
-                                            color = TextWhite,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "(A) Abrir Pasta   |   (X) Opções / Ícones",
-                                            color = TabInactiveText,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-
                                     LazyRow(
                                         state = folderRowState,
                                         modifier = Modifier.fillMaxWidth(),
@@ -288,18 +290,17 @@ fun DeckHomeScreen(
                                     }
                                 }
                             } else {
-                                // Vista dentro da Pasta (Folder Contents View) - Ícones Menores em 8 Colunas
+                                // Vista dentro da Pasta (Folder Contents View) - Sem corte no topo, sem textos redundantes
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 40.dp, vertical = 6.dp)
+                                        .padding(horizontal = 40.dp, vertical = 4.dp)
                                 ) {
-                                    // Folder Header com botão de voltar
+                                    // Folder Header: apenas botão/chip de voltar com nome da pasta
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(bottom = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                            .padding(bottom = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(
@@ -314,21 +315,15 @@ fun DeckHomeScreen(
                                             Text(text = "◀ (B) Voltar", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             Text(text = "|", color = Color(0x44FFFFFF))
                                             Text(
-                                                text = "${activeFolder.iconEmoji} ${activeFolder.title} (${activeFolder.apps.size})",
+                                                text = "${activeFolder.title} (${activeFolder.apps.size})",
                                                 color = Color.White,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
-
-                                        Text(
-                                            text = "(A) Abrir App   |   (X) Opções",
-                                            color = TabInactiveText,
-                                            fontSize = 12.sp
-                                        )
                                     }
 
-                                    // Compact Grid de 8 Colunas com Ícones Menores
+                                    // Compact Grid de 8 Colunas com Padding superior ampliado (sem corte de topo)
                                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                         LazyVerticalGrid(
                                             columns = GridCells.Fixed(8),
@@ -336,8 +331,8 @@ fun DeckHomeScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .fillMaxHeight(),
-                                            contentPadding = PaddingValues(vertical = 4.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp, start = 4.dp, end = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                                             verticalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
                                             itemsIndexed(
@@ -388,36 +383,45 @@ fun DeckHomeScreen(
                 }
             }
 
-            // 3. Bottom Controller Hints: (A) Jogar / Abrir   (X) Opções
-            BottomBar()
+            // 3. Bottom Controller Hints: (A) Jogar/Abrir   (X) Opções   (Y) Adicionar Jogos
+            BottomBar(
+                isAppsTab = selectedTab == 2,
+                isInsideFolder = activeFolder != null
+            )
         }
 
         // Dialogs
-        if (showOptionsDialog) {
-            val appToConfigure = currentFocusedApp ?: apps.firstOrNull()
-            if (appToConfigure != null) {
-                OptionsDialog(
-                    app = appToConfigure,
-                    onDismiss = onDismissOptions,
-                    onLaunch = { onLaunchApp(appToConfigure) },
-                    onRequestDownloadCover = { onRequestDownloadCover(appToConfigure) },
-                    onRequestAddCloudGame = onRequestAddCloudGame,
-                    onRequestSteamGridSettings = onRequestSteamGridSettings,
-                    onRequestIconPackSettings = onRequestIconPackSettings,
-                    onRescanRoms = onRescanRoms,
-                    onOpenAppSettings = { onOpenSettings(appToConfigure) },
-                    onRemoveItem = { onRemoveItem(appToConfigure) }
-                )
-            }
+        val targetApp = activeDialogApp ?: currentFocusedApp ?: apps.firstOrNull()
+
+        if (showOptionsDialog && targetApp != null) {
+            OptionsDialog(
+                app = targetApp,
+                onDismiss = onDismissOptions,
+                onLaunch = { onLaunchApp(targetApp) },
+                onRequestEditCover = { onRequestEditCover(targetApp) },
+                onRequestAddGame = onRequestAddGame,
+                onRequestSteamGridSettings = onRequestSteamGridSettings,
+                onRequestIconPackSettings = onRequestIconPackSettings,
+                onRescanRoms = onRescanRoms,
+                onOpenAppSettings = { onOpenSettings(targetApp) },
+                onUninstallApp = { onUninstallApp(targetApp) },
+                onRemoveItem = { onRemoveItem(targetApp) }
+            )
         }
 
-        if (showDownloadCoverDialog && currentFocusedApp != null) {
-            DownloadCoverDialog(
-                app = currentFocusedApp,
-                onDismiss = onDismissDownloadCover,
-                onSearchLibretro = { title -> onSearchLibretroCover(currentFocusedApp, title) },
-                onDownloadUrl = { url -> onDownloadCoverUrl(currentFocusedApp, url) },
-                onRequestSteamGridSettings = onRequestSteamGridSettings
+        if (showEditCoverDialog && targetApp != null) {
+            EditCoverSteamGridDialog(
+                app = targetApp,
+                onDismiss = onDismissEditCover,
+                onApplyCoverUrl = { url -> onApplyCoverUrl(targetApp, url) }
+            )
+        }
+
+        if (showAddGameOptionsDialog) {
+            AddGameOptionsDialog(
+                onDismiss = onDismissAddGameOptions,
+                onAddCloudGame = onRequestAddGame,
+                onRescanRoms = onRescanRoms
             )
         }
 

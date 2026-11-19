@@ -28,11 +28,13 @@ object SteamGridDbManager {
 
     private const val PREFS_NAME = "steamgriddb_prefs"
     private const val KEY_API = "api_key"
+    private const val DEFAULT_API_KEY = "1b8937c720a13f8746fedc874c88b46e"
     private const val BASE_URL = "https://www.steamgriddb.com/api/v2"
 
-    fun getApiKey(context: Context): String? {
+    fun getApiKey(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_API, null)?.takeIf { it.isNotBlank() }
+        val saved = prefs.getString(KEY_API, null)?.trim()
+        return if (!saved.isNullOrBlank()) saved else DEFAULT_API_KEY
     }
 
     fun setApiKey(context: Context, apiKey: String?) {
@@ -48,12 +50,12 @@ object SteamGridDbManager {
     }
 
     fun hasApiKey(context: Context): Boolean {
-        return !getApiKey(context).isNullOrBlank()
+        return getApiKey(context).isNotBlank()
     }
 
     suspend fun searchGames(context: Context, query: String): List<SteamGridGame> = withContext(Dispatchers.IO) {
-        val apiKey = getApiKey(context) ?: return@withContext emptyList()
-        if (query.isBlank()) return@withContext emptyList()
+        val apiKey = getApiKey(context)
+        if (query.isBlank() || apiKey.isBlank()) return@withContext emptyList()
 
         try {
             val enc = URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
@@ -91,9 +93,9 @@ object SteamGridDbManager {
     }
 
     suspend fun getGridsForGame(context: Context, gameId: Long): List<SteamGridArtwork> = withContext(Dispatchers.IO) {
-        val apiKey = getApiKey(context) ?: return@withContext emptyList()
+        val apiKey = getApiKey(context)
+        if (apiKey.isBlank()) return@withContext emptyList()
 
-        // Tenta dimensões verticais 600x900 primeiro, se vazio tenta todas as verticais
         val dimensions = listOf("600x900", "any")
         for (dim in dimensions) {
             try {

@@ -116,13 +116,13 @@ fun AppFolderCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Folder Title & Count
+            // Folder Title & Count (Without emojis)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = "${folder.iconEmoji} ${folder.title}",
+                    text = folder.title,
                     color = TextWhite,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,

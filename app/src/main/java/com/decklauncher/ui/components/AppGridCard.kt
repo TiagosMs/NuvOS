@@ -43,7 +43,7 @@ fun AppGridCard(
     modifier: Modifier = Modifier
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 0.96f,
+        targetValue = if (isSelected) 1.06f else 0.96f,
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
         label = "grid_card_scale"
     )
@@ -58,6 +58,7 @@ fun AppGridCard(
 
     Column(
         modifier = modifier
+            .padding(horizontal = 2.dp, vertical = 6.dp) // Margem de respiro para o scale não cortar o topo
             .scale(scale)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

@@ -14,6 +14,7 @@ val DotGreen = Color(0xFF22C55E)
 
 val BtnAGreen = Color(0xFF16A34A)
 val BtnXBlue = Color(0xFF0284C7)
+val BtnYYellow = Color(0xFFEAB308)
 
 val LbRbPillBg = Color(0xFFE5E7EB)
 val LbRbPillText = Color(0xFF000000)
