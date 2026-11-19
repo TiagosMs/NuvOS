@@ -243,4 +243,23 @@ object SteamGridDbManager {
         } catch (_: Exception) {}
         null
     }
+
+    suspend fun downloadAndApplyLogo(context: Context, appId: String, logoUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(logoUrl)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("User-Agent", "DeckLauncher/1.0 (Android)")
+            }
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val bmp = android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+                if (bmp != null) {
+                    LogoManager.saveLogo(context, appId, bmp)
+                    return@withContext bmp
+                }
+            }
+        } catch (_: Exception) {}
+        null
+    }
 }

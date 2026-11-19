@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
     private var customWallpaperBitmapState = mutableStateOf<Bitmap?>(null)
     private var hasCustomWallpaperState = mutableStateOf(false)
     private var showEditHeroDialogState = mutableStateOf(false)
+    private var showEditLogoDialogState = mutableStateOf(false)
     private var showInitialSetupDialogState = mutableStateOf(false)
     private var romFolderNameState = mutableStateOf("")
     private var downloadFolderNameState = mutableStateOf("")
@@ -207,6 +208,7 @@ class MainActivity : ComponentActivity() {
                     showOptionsDialog = showOptionsDialogState.value,
                     showEditCoverDialog = showEditCoverDialogState.value,
                     showEditHeroDialog = showEditHeroDialogState.value,
+                    showEditLogoDialog = showEditLogoDialogState.value,
                     showInitialSetupDialog = showInitialSetupDialogState.value,
                     showAddCloudDialog = showAddCloudDialogState.value,
                     showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
@@ -262,6 +264,7 @@ class MainActivity : ComponentActivity() {
                     onDismissOptions = { showOptionsDialogState.value = false },
                     onDismissEditCover = { showEditCoverDialogState.value = false },
                     onDismissEditHero = { showEditHeroDialogState.value = false },
+                    onDismissEditLogo = { showEditLogoDialogState.value = false },
                     onDismissInitialSetup = { showInitialSetupDialogState.value = false },
                     onDismissAddCloud = { showAddCloudDialogState.value = false },
                     onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
@@ -276,6 +279,10 @@ class MainActivity : ComponentActivity() {
                     onRequestEditHero = { item ->
                         activeDialogAppState.value = item
                         showEditHeroDialogState.value = true
+                    },
+                    onRequestEditLogo = { item ->
+                        activeDialogAppState.value = item
+                        showEditLogoDialogState.value = true
                     },
                     onRequestPickRomFolder = {
                         try {
@@ -346,6 +353,18 @@ class MainActivity : ComponentActivity() {
                                 withContext(Dispatchers.Main) {
                                     Toast.makeText(this@MainActivity, "Fundo 16:9 atualizado!", Toast.LENGTH_SHORT).show()
                                     showEditHeroDialogState.value = false
+                                    loadInstalledApps()
+                                }
+                            }
+                        }
+                    },
+                    onApplyLogoUrl = { item, url ->
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val bmp = SteamGridDbManager.downloadAndApplyLogo(this@MainActivity, item.id, url)
+                            if (bmp != null) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainActivity, "Logo 3D atualizada com sucesso!", Toast.LENGTH_SHORT).show()
+                                    showEditLogoDialogState.value = false
                                     loadInstalledApps()
                                 }
                             }
@@ -683,7 +702,8 @@ class MainActivity : ComponentActivity() {
 
         // Se algum diálogo estiver aberto, botão B fecha o diálogo
         if (showOptionsDialogState.value || showEditCoverDialogState.value ||
-            showEditHeroDialogState.value || showInitialSetupDialogState.value ||
+            showEditHeroDialogState.value || showEditLogoDialogState.value ||
+            showInitialSetupDialogState.value ||
             showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
             showSteamGridDialogState.value || showIconPackDialogState.value ||
             showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value) {
@@ -691,6 +711,7 @@ class MainActivity : ComponentActivity() {
                 showOptionsDialogState.value = false
                 showEditCoverDialogState.value = false
                 showEditHeroDialogState.value = false
+                showEditLogoDialogState.value = false
                 showInitialSetupDialogState.value = false
                 showAddCloudDialogState.value = false
                 showAddGameOptionsDialogState.value = false

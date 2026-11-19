@@ -52,6 +52,7 @@ fun OptionsDialog(
     onLaunch: () -> Unit,
     onRequestEditCover: () -> Unit,
     onRequestEditHero: () -> Unit = {},
+    onRequestEditLogo: () -> Unit = {},
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
@@ -102,6 +103,7 @@ fun OptionsDialog(
                 SteamDeckOptionRow(label = "Mover Posição / Trocar de Lugar", onClick = { onRequestReorder(); onDismiss() })
                 SteamDeckOptionRow(label = "Editar Capa (SteamGridDB)", onClick = { onRequestEditCover(); onDismiss() })
                 SteamDeckOptionRow(label = "Editar Fundo / Hero (SteamGridDB)", onClick = { onRequestEditHero(); onDismiss() })
+                SteamDeckOptionRow(label = "Editar Logo 3D (SteamGridDB)", onClick = { onRequestEditLogo(); onDismiss() })
                 SteamDeckOptionRow(label = "Adicionar Jogos em Nuvem (Better xCloud)", onClick = { onRequestAddGame(); onDismiss() })
 
                 if (app.itemType == ItemType.APP) {
@@ -1348,6 +1350,180 @@ fun SteamGridHeroSelectDialog(
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Fechar", color = SteamDeckTextMuted)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SteamGridLogoSelectDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onApplyLogoUrl: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+
+    fun doSearch(term: String) {
+        coroutineScope.launch {
+            isLoading = true
+            statusMessage = "Buscando logos transparentes no SteamGridDB..."
+            val games = SteamGridDbManager.searchGames(context, term)
+            if (games.isNotEmpty()) {
+                val game = games.first()
+                val logos = SteamGridDbManager.getLogosForGame(context, game.id)
+                results = logos
+                statusMessage = if (logos.isNotEmpty()) "${logos.size} logos encontradas para '${game.name}'" else "Nenhuma logo para '${game.name}'"
+            } else {
+                results = emptyList()
+                statusMessage = "Nenhum jogo encontrado com esse termo."
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        doSearch(searchTitle)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(620.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Selecionar Logo 3D - ${app.label}",
+                        color = TextWhite,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = BtnAGreen,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchTitle,
+                        onValueChange = { searchTitle = it },
+                        label = { Text("Nome do Jogo") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = Color.White,
+                            unfocusedBorderColor = Color(0x44FFFFFF)
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    Button(
+                        onClick = { doSearch(searchTitle) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isLoading
+                    ) {
+                        Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (statusMessage != null) {
+                    Text(text = statusMessage!!, color = Color(0xFF22C55E), fontSize = 12.sp)
+                }
+
+                if (results.isNotEmpty()) {
+                    Text(
+                        text = "Selecione a logo transparente oficial:",
+                        color = SteamDeckTextMuted,
+                        fontSize = 12.sp
+                    )
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(results) { artwork ->
+                            Box(
+                                modifier = Modifier
+                                    .width(180.dp)
+                                    .height(95.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF161A20))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        onApplyLogoUrl(artwork.url)
+                                        onDismiss()
+                                    }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                var thumbBmp by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+                                LaunchedEffect(artwork.thumbUrl) {
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val url = java.net.URL(artwork.thumbUrl)
+                                            val stream = url.openStream()
+                                            thumbBmp = android.graphics.BitmapFactory.decodeStream(stream)
+                                            stream.close()
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+
+                                if (thumbBmp != null) {
+                                    Image(
+                                        bitmap = thumbBmp!!.asImageBitmap(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    CircularProgressIndicator(
+                                        color = SteamDeckButtonBlue,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
                         }

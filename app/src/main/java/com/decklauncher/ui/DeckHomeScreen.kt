@@ -70,6 +70,7 @@ fun DeckHomeScreen(
     showOptionsDialog: Boolean,
     showEditCoverDialog: Boolean,
     showEditHeroDialog: Boolean = false,
+    showEditLogoDialog: Boolean = false,
     showInitialSetupDialog: Boolean = false,
     showAddCloudDialog: Boolean,
     showAddGameOptionsDialog: Boolean,
@@ -100,6 +101,7 @@ fun DeckHomeScreen(
     onDismissOptions: () -> Unit,
     onDismissEditCover: () -> Unit,
     onDismissEditHero: () -> Unit = {},
+    onDismissEditLogo: () -> Unit = {},
     onDismissInitialSetup: () -> Unit = {},
     onDismissAddCloud: () -> Unit,
     onDismissAddGameOptions: () -> Unit,
@@ -109,6 +111,7 @@ fun DeckHomeScreen(
     onDismissChangeAvatar: () -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
     onRequestEditHero: (AppItem) -> Unit = {},
+    onRequestEditLogo: (AppItem) -> Unit = {},
     onRequestPickRomFolder: () -> Unit = {},
     onRequestPickDownloadFolder: () -> Unit = {},
     onRequestSetupFolders: () -> Unit = {},
@@ -125,6 +128,7 @@ fun DeckHomeScreen(
     onSelectIconPack: (String?) -> Unit,
     onApplyCoverUrl: (AppItem, String) -> Unit,
     onApplyHeroUrl: (AppItem, String) -> Unit = { _, _ -> },
+    onApplyLogoUrl: (AppItem, String) -> Unit = { _, _ -> },
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
@@ -641,6 +645,7 @@ fun DeckHomeScreen(
                 onLaunch = { onLaunchApp(targetApp) },
                 onRequestEditCover = { onRequestEditCover(targetApp) },
                 onRequestEditHero = { onRequestEditHero(targetApp) },
+                onRequestEditLogo = { onRequestEditLogo(targetApp) },
                 onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
                 onRequestIconPackSettings = onRequestIconPackSettings,
@@ -665,6 +670,14 @@ fun DeckHomeScreen(
                 app = targetApp,
                 onDismiss = onDismissEditHero,
                 onApplyHeroUrl = { url -> onApplyHeroUrl(targetApp, url) }
+            )
+        }
+
+        if (showEditLogoDialog && targetApp != null) {
+            SteamGridLogoSelectDialog(
+                app = targetApp,
+                onDismiss = onDismissEditLogo,
+                onApplyLogoUrl = { url -> onApplyLogoUrl(targetApp, url) }
             )
         }
 
