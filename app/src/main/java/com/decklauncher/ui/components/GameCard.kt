@@ -47,6 +47,7 @@ fun GameCard(
     onSelect: () -> Unit,
     onLaunch: () -> Unit,
     isReorderMode: Boolean = false,
+    accentColor: Color = Color.White,
     modifier: Modifier = Modifier
 ) {
     // Ultra-smooth slower spring physics for fluid console feel
@@ -68,7 +69,7 @@ fun GameCard(
         label = "game_card_shadow"
     )
 
-    val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else Color.White
+    val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor
 
     val shape = RoundedCornerShape(22.dp)
 
@@ -192,40 +193,12 @@ fun GameCard(
                         )
                     }
                 }
-
-                // Bottom title overlay with gradient fade
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color(0xBB000000),
-                                    Color(0xEE000000)
-                                )
-                            )
-                        )
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = app.label,
-                        color = TextWhite,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Indicator below selected card: ● Title or [◀ MOVER ▶]
+        // Indicator below selected card: Nome do jogo no cursor (sem bolinha verde) ou [◀ MOVER ▶]
         AnimatedVisibility(
             visible = isSelected,
             enter = fadeIn(),
@@ -250,22 +223,17 @@ fun GameCard(
             } else {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(DotGreen)
-                    )
                     Text(
                         text = app.label,
                         color = TextWhite,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 }
             }

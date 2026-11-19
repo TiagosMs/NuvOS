@@ -21,6 +21,7 @@ import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.view.WindowCompat
@@ -63,6 +64,30 @@ class MainActivity : ComponentActivity() {
     private var profileNameState = mutableStateOf("Tiago")
     private var avatarIdState = mutableStateOf("deck_blue")
     private var activeDialogAppState = mutableStateOf<AppItem?>(null)
+    private var backgroundModeState = mutableStateOf(BackgroundMode.IMMERSIVE)
+    private var accentColorLongState = mutableLongStateOf(0xFF1A73E8)
+    private var customWallpaperBitmapState = mutableStateOf<Bitmap?>(null)
+    private var hasCustomWallpaperState = mutableStateOf(false)
+
+    private val wallpaperPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            CoroutineScope(Dispatchers.Main).launch {
+                val ok = ThemeManager.saveCustomWallpaperFromUri(this@MainActivity, uri)
+                if (ok) {
+                    val bmp = ThemeManager.loadCustomWallpaper(this@MainActivity)
+                    customWallpaperBitmapState.value = bmp
+                    hasCustomWallpaperState.value = true
+                    backgroundModeState.value = BackgroundMode.WALLPAPER
+                    ThemeManager.setBackgroundMode(this@MainActivity, BackgroundMode.WALLPAPER)
+                    Toast.makeText(this@MainActivity, "Papel de parede aplicado!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Erro ao carregar imagem", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     private enum class JoystickDir { NONE, LEFT, RIGHT, UP, DOWN }
     private var currentJoyDir = JoystickDir.NONE
@@ -112,6 +137,10 @@ class MainActivity : ComponentActivity() {
 
         profileNameState.value = ProfileManager.getProfileName(this)
         avatarIdState.value = ProfileManager.getAvatarId(this)
+        backgroundModeState.value = ThemeManager.getBackgroundMode(this)
+        accentColorLongState.longValue = ThemeManager.getAccentColorLong(this)
+        hasCustomWallpaperState.value = ThemeManager.hasCustomWallpaper(this)
+        customWallpaperBitmapState.value = ThemeManager.loadCustomWallpaper(this)
 
         setupImmersiveMode()
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -153,6 +182,25 @@ class MainActivity : ComponentActivity() {
                     isReorderMode = isReorderModeState.value,
                     profileName = profileNameState.value,
                     avatarId = avatarIdState.value,
+                    backgroundMode = backgroundModeState.value,
+                    accentColorLong = accentColorLongState.longValue,
+                    customWallpaperBitmap = customWallpaperBitmapState.value,
+                    hasCustomWallpaper = hasCustomWallpaperState.value,
+                    onBgModeSelected = { mode ->
+                        backgroundModeState.value = mode
+                        ThemeManager.setBackgroundMode(this@MainActivity, mode)
+                    },
+                    onRequestPickWallpaper = {
+                        try {
+                            wallpaperPickerLauncher.launch("image/*")
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity, "Erro ao abrir seletor: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onAccentColorSelected = { colorVal ->
+                        accentColorLongState.longValue = colorVal
+                        ThemeManager.setAccentColor(this@MainActivity, colorVal)
+                    },
                     onSelectedIndexChange = { selectedIndexState.intValue = it },
                     onTabSelected = {
                         selectedTabState.intValue = it
@@ -621,6 +669,14 @@ class MainActivity : ComponentActivity() {
             // Botão Y: Abre diretamente o Catálogo de Jogos em Nuvem (Better xCloud) com pesquisa
             KeyEvent.KEYCODE_BUTTON_Y -> {
                 showAddCloudDialogState.value = true
+                triggerHaptic()
+                return true
+            }
+
+            // Botão START / F1: Abre Configurações do Launcher
+            KeyEvent.KEYCODE_BUTTON_START,
+            KeyEvent.KEYCODE_F1 -> {
+                showLauncherSettingsDialogState.value = true
                 triggerHaptic()
                 return true
             }

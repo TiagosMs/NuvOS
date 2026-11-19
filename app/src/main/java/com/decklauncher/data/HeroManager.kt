@@ -57,20 +57,49 @@ object HeroManager {
         }
     }
 
+    fun cleanTitleForSearch(rawTitle: String): String {
+        var t = rawTitle
+        // Remove extensões de arquivo comuns (.nds, .gba, .sfc, .nes, .iso, etc.)
+        t = t.replace(Regex("\\.[a-zA-Z0-9]{2,4}$"), "")
+        // Remove tags de região/versão entre parênteses ou colchetes: (USA), (Europe), [!], (v1.0), etc.
+        t = t.replace(Regex("\\s*[\\[\\(].*?[\\]\\)]"), "")
+        // Casos especiais conhecidos no launcher
+        val lower = t.trim().lowercase()
+        if (lower.contains("better xcloud") || lower.contains("betterxc")) return "Xbox Cloud Gaming"
+        if (lower.contains("hakux")) return "Xbox"
+        if (lower.contains("cooking mama")) return "Cooking Mama"
+        if (lower.contains("forza horizon 5")) return "Forza Horizon 5"
+        if (lower.contains("forza motorsport")) return "Forza Motorsport"
+        if (lower.contains("halo infinite")) return "Halo Infinite"
+        if (lower.contains("persona 5")) return "Persona 5 Tactica"
+        if (lower.contains("minecraft")) return "Minecraft"
+        if (lower.contains("korg ds-10")) return "KORG DS-10"
+        if (lower.contains("moonlight")) return "Moonlight"
+        if (lower.contains("rhythm heaven")) return "Rhythm Heaven"
+        return t.trim()
+    }
+
     suspend fun getOrFetchHero(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {
         // 1. Tenta carregar do cache local
         val local = loadLocalHero(context, id)
         if (local != null) return@withContext local
 
-        // 2. Busca arte 16:9 de herói no SteamGridDB
+        // 2. Busca arte 16:9 de herói no SteamGridDB com título limpo
         val apiKey = SteamGridDbManager.getApiKey(context)
         if (apiKey.isBlank()) return@withContext null
 
+        val cleanTitle = cleanTitleForSearch(title)
+        if (cleanTitle.isBlank()) return@withContext null
+
         try {
-            val games = SteamGridDbManager.searchGames(context, title)
+            val games = SteamGridDbManager.searchGames(context, cleanTitle)
             if (games.isNotEmpty()) {
-                val gameId = games.first().id
-                val heroUrl = fetchHeroArtworkUrl(apiKey, gameId)
+                // Encontra a melhor correspondência em vez de pegar cegamente o primeiro
+                val bestMatch = games.firstOrNull { it.name.equals(cleanTitle, ignoreCase = true) }
+                    ?: games.firstOrNull { it.name.contains(cleanTitle, ignoreCase = true) }
+                    ?: games.first()
+
+                val heroUrl = fetchHeroArtworkUrl(apiKey, bestMatch.id)
                 if (!heroUrl.isNullOrBlank()) {
                     val downloaded = downloadHeroBitmap(heroUrl)
                     if (downloaded != null) {

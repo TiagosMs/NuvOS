@@ -41,6 +41,7 @@ fun TopBar(
     batteryPct: Int,
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
+    accentColor: Color = Color(0xFF1A73E8),
     onOpenProfileSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -134,8 +135,8 @@ fun TopBar(
             tabs.forEachIndexed { index, title ->
                 val isSelected = selectedTab == index
                 val tabBg by animateColorAsState(
-                    targetValue = if (isSelected) TabActiveBg else Color.Transparent,
-                    animationSpec = spring(),
+                    targetValue = if (isSelected) accentColor.copy(alpha = 0.35f) else Color.Transparent,
+                    animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
                     label = "tab_bg"
                 )
 
@@ -143,6 +144,11 @@ fun TopBar(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(tabBg)
+                        .border(
+                            width = if (isSelected) 1.dp else 0.dp,
+                            color = if (isSelected) accentColor.copy(alpha = 0.6f) else Color.Transparent,
+                            shape = RoundedCornerShape(20.dp)
+                        )
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null

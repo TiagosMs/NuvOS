@@ -764,7 +764,13 @@ fun LauncherSettingsDialog(
     onRescanRoms: () -> Unit,
     onRequestReorderMode: () -> Unit,
     profileName: String = "Tiago",
-    avatarId: String = "deck_blue"
+    avatarId: String = "deck_blue",
+    currentBgMode: BackgroundMode = BackgroundMode.IMMERSIVE,
+    onBgModeSelected: (BackgroundMode) -> Unit = {},
+    onRequestPickWallpaper: () -> Unit = {},
+    hasCustomWallpaper: Boolean = false,
+    currentAccentColor: Long = 0xFF1A73E8,
+    onAccentColorSelected: (Long) -> Unit = {}
 ) {
     val activePreset = remember(avatarId) {
         ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
@@ -905,7 +911,124 @@ fun LauncherSettingsDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "INTEGRAÇÕES & VISUAL",
+                    text = "APARÊNCIA & PERSONALIZAÇÃO",
+                    color = Color(0xFF6B7D8E),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Modo de Fundo
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Plano de Fundo", color = SteamDeckTextMuted, fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BackgroundMode.values().forEach { mode ->
+                            val isSelected = currentBgMode == mode
+                            val accentCol = Color(currentAccentColor)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) accentCol.copy(alpha = 0.25f) else SteamDeckCardBg)
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) accentCol else Color(0x22FFFFFF),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { onBgModeSelected(mode) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = when (mode) {
+                                        BackgroundMode.IMMERSIVE -> "Imersivo"
+                                        BackgroundMode.WALLPAPER -> "Wallpaper"
+                                        BackgroundMode.SOLID -> "Sóbrio"
+                                    },
+                                    color = if (isSelected) TextWhite else SteamDeckTextMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    if (currentBgMode == BackgroundMode.WALLPAPER) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SteamDeckCardBg)
+                                .clickable { onRequestPickWallpaper() }
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Escolher Imagem do Dispositivo",
+                                    color = TextWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (hasCustomWallpaper) "Wallpaper ativo do armazenamento ✓" else "Nenhum arquivo selecionado",
+                                    color = if (hasCustomWallpaper) Color(0xFF10B981) else SteamDeckTextMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Text(
+                                text = "Selecionar",
+                                color = Color(currentAccentColor),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Cor do Tema (Accent Color)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Cor de Destaque", color = SteamDeckTextMuted, fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ThemeManager.COLOR_PRESETS.forEach { preset ->
+                            val isSelected = currentAccentColor == preset.colorValue
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(preset.colorValue))
+                                    .border(
+                                        width = if (isSelected) 3.dp else 1.dp,
+                                        color = if (isSelected) Color.White else Color(0x33FFFFFF),
+                                        shape = CircleShape
+                                    )
+                                    .clickable { onAccentColorSelected(preset.colorValue) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(if (preset.colorValue == 0xFFFFFFFF) Color.Black else Color.White)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "INTEGRAÇÕES & SISTEMA",
                     color = Color(0xFF6B7D8E),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold

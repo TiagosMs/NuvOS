@@ -40,14 +40,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decklauncher.data.AppFolder
+import com.decklauncher.data.BackgroundMode
 import com.decklauncher.data.CategoryManager
 import com.decklauncher.data.HeroManager
+import com.decklauncher.data.ThemeManager
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.FocusArea
 import com.decklauncher.ui.components.*
 import com.decklauncher.ui.dialogs.*
 import com.decklauncher.ui.theme.*
+import androidx.compose.ui.graphics.toArgb
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -73,6 +76,13 @@ fun DeckHomeScreen(
     isReorderMode: Boolean = false,
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
+    backgroundMode: BackgroundMode = BackgroundMode.IMMERSIVE,
+    accentColorLong: Long = 0xFF1A73E8L,
+    customWallpaperBitmap: Bitmap? = null,
+    hasCustomWallpaper: Boolean = false,
+    onBgModeSelected: (BackgroundMode) -> Unit = {},
+    onRequestPickWallpaper: () -> Unit = {},
+    onAccentColorSelected: (Long) -> Unit = {},
     onSelectedIndexChange: (Int) -> Unit,
     onTabSelected: (Int) -> Unit,
     onOpenFolder: (AppFolder) -> Unit,
@@ -106,6 +116,7 @@ fun DeckHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val accentColor = remember(accentColorLong) { Color(accentColorLong) }
     val coroutineScope = rememberCoroutineScope()
     val carouselState = rememberLazyListState()
     val folderRowState = rememberLazyListState()
@@ -217,46 +228,121 @@ fun DeckHomeScreen(
             .fillMaxSize()
             .background(ConsoleBg)
     ) {
-        // Fundo adaptativo 16:9 desfocado (SteamGridDB Hero Background)
-        AnimatedContent(
-            targetState = currentHeroBitmap,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(550, easing = FastOutSlowInEasing)) togetherWith
-                fadeOut(animationSpec = tween(400, easing = FastOutSlowInEasing))
-            },
-            label = "hero_bg_fade"
-        ) { heroBmp ->
-            if (heroBmp != null) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Image(
-                        bitmap = heroBmp.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(radius = 32.dp)
-                    )
-                    // Overlay de gradiente escuro cinematográfico Steam Deck
+        // Renderização dinâmica de fundo de acordo com o modo escolhido pelo usuário
+        when (backgroundMode) {
+            BackgroundMode.WALLPAPER -> {
+                if (customWallpaperBitmap != null) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            bitmap = customWallpaperBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color(0x88000000),
+                                            Color(0xAA12161C),
+                                            Color(0xFA12161C)
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                } else {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0x9912161C),
-                                        Color(0xCC12161C),
-                                        Color(0xF512161C)
-                                    )
-                                )
-                            )
+                            .background(ConsoleBg)
                     )
                 }
-            } else {
+            }
+            BackgroundMode.SOLID -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(ConsoleBg)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF1E252E),
+                                    Color(0xFF161A20),
+                                    Color(0xFF111418)
+                                )
+                            )
+                        )
                 )
+            }
+            BackgroundMode.IMMERSIVE -> {
+                // Solução Madura de Console (PlayStation 5 / Steam Deck Cinema Stage):
+                // A arte 16:9 fica posicionada no topo/centro com nitidez suave (blur sutil 6dp),
+                // com um degradê cinematográfico que desce até o grafite escuro onde fica o carrossel,
+                // eliminando corte feio e visual borrado/lavado.
+                AnimatedContent(
+                    targetState = currentHeroBitmap,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(600, easing = FastOutSlowInEasing)) togetherWith
+                        fadeOut(animationSpec = tween(450, easing = FastOutSlowInEasing))
+                    },
+                    label = "hero_bg_fade"
+                ) { heroBmp ->
+                    if (heroBmp != null) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // 1. Camada de fundo ambiente suave (Bloom)
+                            Image(
+                                bitmap = heroBmp.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(radius = 32.dp)
+                            )
+
+                            // 2. Arte 16:9 Cinema Stage no topo da tela com softening sutil (preserva arte e personagens)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(0.72f)
+                            ) {
+                                Image(
+                                    bitmap = heroBmp.asImageBitmap(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    alignment = Alignment.TopCenter,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .blur(radius = 6.dp)
+                                )
+                            }
+
+                            // 3. Multi-stop Cinema Scrim
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colorStops = arrayOf(
+                                                0.00f to Color(0xCC111418),
+                                                0.15f to Color(0x66111418),
+                                                0.45f to Color(0x33111418),
+                                                0.70f to Color(0xEE111418),
+                                                1.00f to Color(0xFF111418)
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(ConsoleBg)
+                        )
+                    }
+                }
             }
         }
 
@@ -271,6 +357,7 @@ fun DeckHomeScreen(
                 batteryPct = batteryPct,
                 profileName = profileName,
                 avatarId = avatarId,
+                accentColor = accentColor,
                 onOpenProfileSettings = onRequestOpenLauncherSettings
             )
 
@@ -368,7 +455,8 @@ fun DeckHomeScreen(
                                             isSelected = index == safeIndex && focusArea != FocusArea.TABS,
                                             onSelect = { onSelectedIndexChange(index) },
                                             onLaunch = { onLaunchApp(app) },
-                                            isReorderMode = isReorderMode
+                                            isReorderMode = isReorderMode,
+                                            accentColor = accentColor
                                         )
                                     }
                                 }
@@ -570,7 +658,13 @@ fun DeckHomeScreen(
                 onRescanRoms = onRescanRoms,
                 onRequestReorderMode = onRequestReorderMode,
                 profileName = profileName,
-                avatarId = avatarId
+                avatarId = avatarId,
+                currentBgMode = backgroundMode,
+                onBgModeSelected = onBgModeSelected,
+                onRequestPickWallpaper = onRequestPickWallpaper,
+                hasCustomWallpaper = hasCustomWallpaper,
+                currentAccentColor = accentColorLong,
+                onAccentColorSelected = onAccentColorSelected
             )
         }
 
