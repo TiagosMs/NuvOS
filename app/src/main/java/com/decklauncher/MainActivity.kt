@@ -498,16 +498,8 @@ class MainActivity : ComponentActivity() {
                     val appId = "app_$pkgLower"
                     val activityName = info.activityInfo.name
 
-                    // Identifica apps emuladores
-                    val isEmulator = pkgLower.contains("retroarch") || pkgLower.contains("dolphin")
-                        || pkgLower.contains("ppsspp") || pkgLower.contains("aether") || pkgLower.contains("nether")
-                        || pkgLower.contains("yuzu") || pkgLower.contains("citra") || pkgLower.contains("vita3k")
-                        || pkgLower.contains("duckstation") || pkgLower.contains("mupen") || pkgLower.contains("snes9x")
-                        || pkgLower.contains("myboy") || pkgLower.contains("drastic") || pkgLower.contains("lemuroid")
-                        || pkgLower.contains("skyline") || pkgLower.contains("redream") || pkgLower.contains("flycast")
-                        || pkgLower.contains("melonds") || pkgLower.contains("hakux") || pkgLower.contains("gamehub")
-                        || pkgLower.contains("eden") || labelLower.contains("emulator") || labelLower.contains("emulador")
-                        || labelLower.contains("hakux") || labelLower.contains("dolphin")
+                    // Identifica apps emuladores de forma abrangente e unificada
+                    val isEmulator = IntroManager.isEmulator(pkg, label)
 
                     // Identifica jogos Android nativos
                     val isGame = !isEmulator && (
@@ -631,7 +623,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestLaunchItem(item: AppItem) {
-        val intro = IntroManager.detectIntroForApp(this, item)
+        val intro = IntroManager.detectIntroForApp(this, item, isLaunching = true)
         if (intro != null && intro.assetFileName != null) {
             activeIntroPlayingState.value = intro
             pendingLaunchAppState.value = item

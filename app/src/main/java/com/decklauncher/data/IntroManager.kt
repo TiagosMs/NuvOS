@@ -18,6 +18,7 @@ object IntroManager {
     private const val PREFS_NAME = "deck_intro_prefs"
     private const val KEY_INTRO_ENABLED = "intros_enabled"
     private const val KEY_CUSTOM_PREFIX = "custom_intro_"
+    private const val KEY_DOLPHIN_TOGGLE = "dolphin_toggle_wii"
 
     val ALL_INTROS = listOf(
         ConsoleIntro("nds", "Nintendo DS", "nds.mp4"),
@@ -63,7 +64,130 @@ object IntroManager {
         }
     }
 
-    fun detectIntroForApp(context: Context, app: AppItem): ConsoleIntro? {
+    fun isEmulator(packageName: String, label: String): Boolean {
+        val p = packageName.lowercase()
+        val l = label.lowercase()
+        return p.contains("retroarch") || p.contains("dolphin") || p.contains("ppsspp")
+            || p.contains("aether") || p.contains("nether") || p.contains("yuzu")
+            || p.contains("citra") || p.contains("vita3k") || p.contains("duckstation")
+            || p.contains("mupen") || p.contains("snes9x") || p.contains("myboy")
+            || p.contains("drastic") || p.contains("lemuroid") || p.contains("skyline")
+            || p.contains("redream") || p.contains("flycast") || p.contains("melonds")
+            || p.contains("hakux") || p.contains("haku_x") || p.contains("gamehub")
+            || p.contains("eden") || p.contains("cemu") || p.contains("azahar")
+            || p.contains("rpcsx") || p.contains("rpcs3") || p.contains("winlator")
+            || p.contains("mobox") || p.contains("cassia") || p.contains("horizon")
+            || p.contains("suyu") || p.contains("sudachi") || p.contains("lime3ds")
+            || p.contains("folium") || p.contains("mandarine") || p.contains("strato")
+            || p.contains("ryujinx") || p.contains("xemu") || p.contains("play!")
+            || p.contains("epsxe") || p.contains("fpse") || p.contains("reicast")
+            || p.contains("scummvm") || p.contains("dosbox") || p.contains("m64plus")
+            || p.contains("superretro") || p.contains("classicboy")
+            || l.contains("emulator") || l.contains("emulador")
+            || l.contains("hakux") || l.contains("haku_x") || l.contains("dolphin")
+            || l.contains("duckstation") || l.contains("ppsspp") || l.contains("melonds")
+            || l.contains("drastic") || l.contains("aethersx2") || l.contains("nethersx2")
+            || l.contains("citra") || l.contains("azahar") || l.contains("cemu")
+            || l.contains("winlator") || l.contains("rpcsx") || l.contains("retroarch")
+            || l.contains("eden") || l.contains("vita3k")
+    }
+
+    private fun getDolphinIntro(context: Context, isLaunching: Boolean): ConsoleIntro? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastWasWii = prefs.getBoolean(KEY_DOLPHIN_TOGGLE, false)
+        val nextIsWii = if (isLaunching) {
+            val toggled = !lastWasWii
+            prefs.edit().putBoolean(KEY_DOLPHIN_TOGGLE, toggled).apply()
+            toggled
+        } else {
+            !lastWasWii
+        }
+        return if (nextIsWii) {
+            ALL_INTROS.firstOrNull { it.id == "wii" }
+        } else {
+            ALL_INTROS.firstOrNull { it.id == "gamecube" }
+        }
+    }
+
+    fun detectEmulatorIntro(context: Context, app: AppItem, isLaunching: Boolean = false): ConsoleIntro? {
+        val pkg = app.packageName.lowercase()
+        val label = app.label.lowercase()
+
+        // 1. Dolphin: Alterna 1 vez Wii, 1 vez GameCube
+        if (pkg.contains("dolphin") || label.contains("dolphin")) {
+            return getDolphinIntro(context, isLaunching)
+        }
+
+        // 2. Nintendo 3DS: AzaharPlus, Citra, Lime3DS, Mandarine, Folium
+        if (pkg.contains("azahar") || pkg.contains("citra") || pkg.contains("lime3ds")
+            || pkg.contains("mandarine") || pkg.contains("folium")
+            || label.contains("3ds") || label.contains("azahar") || label.contains("citra")
+        ) {
+            return ALL_INTROS.firstOrNull { it.id == "3ds" }
+        }
+
+        // 3. Nintendo Wii U: Cemu
+        if (pkg.contains("cemu") || label.contains("cemu") || label.contains("wii u") || label.contains("wiiu")) {
+            return ALL_INTROS.firstOrNull { it.id == "wiiu" }
+        }
+
+        // 4. PSP: PPSSPP, Vita3K
+        if (pkg.contains("ppsspp") || label.contains("ppsspp") || label.contains("psp") || pkg.contains("vita3k") || label.contains("vita")) {
+            return ALL_INTROS.firstOrNull { it.id == "psp" }
+        }
+
+        // 5. Nintendo DS: melonDS, DraStic, DeSmuME
+        if (pkg.contains("melonds") || pkg.contains("drastic") || pkg.contains("desmume") || label.contains("nds") || label.contains("ds")) {
+            return ALL_INTROS.firstOrNull { it.id == "nds" }
+        }
+
+        // 6. PlayStation 2: NetherSX2, AetherSX2, Play!
+        if (pkg.contains("aether") || pkg.contains("nether") || pkg.contains("play!") || label.contains("ps2") || label.contains("aethersx2") || label.contains("nethersx2")) {
+            return ALL_INTROS.firstOrNull { it.id == "ps2" }
+        }
+
+        // 7. PlayStation 1: DuckStation, ePSXe, FPse, PCSX
+        if (pkg.contains("duckstation") || pkg.contains("epsxe") || pkg.contains("fpse") || label.contains("ps1") || label.contains("psx")) {
+            return ALL_INTROS.firstOrNull { it.id == "ps1" }
+        }
+
+        // 8. Xbox Clássico: haku_x, xemu
+        if (pkg.contains("haku_x") || pkg.contains("hakux") || pkg.contains("xemu") || label.contains("xbox") || label.contains("hakux") || label.contains("haku_x")) {
+            return ALL_INTROS.firstOrNull { it.id == "xbox_classic" }
+        }
+
+        // 9. Sega Dreamcast: Flycast, Redream, Reicast
+        if (pkg.contains("flycast") || pkg.contains("redream") || pkg.contains("reicast") || label.contains("dreamcast")) {
+            return ALL_INTROS.firstOrNull { it.id == "dreamcast" }
+        }
+
+        // 10. PC / Windows: Winlator, Mobox, Cassia, Horizon -> Xbox 360
+        if (pkg.contains("winlator") || pkg.contains("mobox") || pkg.contains("cassia") || pkg.contains("horizon") || label.contains("winlator")) {
+            return ALL_INTROS.firstOrNull { it.id == "xbox_360" }
+        }
+
+        // 11. PS3: RPCSX
+        if (pkg.contains("rpcsx") || pkg.contains("rpcs3") || label.contains("rpcsx") || label.contains("ps3")) {
+            return ALL_INTROS.firstOrNull { it.id == "ps2" }
+        }
+
+        // 12. Nintendo Switch: Eden, Yuzu, Suyu, Sudachi, Skyline, Ryujinx, Strato
+        if (pkg.contains("eden") || pkg.contains("yuzu") || pkg.contains("suyu") || pkg.contains("sudachi")
+            || pkg.contains("skyline") || pkg.contains("ryujinx") || pkg.contains("strato")
+            || label.contains("switch") || label.contains("eden")
+        ) {
+            return ALL_INTROS.firstOrNull { it.id == "switch" }
+        }
+
+        // 13. RetroArch / Lemuroid
+        if (pkg.contains("retroarch") || pkg.contains("lemuroid") || label.contains("retroarch")) {
+            return ALL_INTROS.firstOrNull { it.id == "switch" }
+        }
+
+        return ALL_INTROS.firstOrNull { it.id == "switch" }
+    }
+
+    fun detectIntroForApp(context: Context, app: AppItem, isLaunching: Boolean = false): ConsoleIntro? {
         if (!isIntroEnabled(context)) return null
 
         // 1. Preferência manual específica salva pelo usuário para este jogo/app
@@ -73,52 +197,19 @@ object IntroManager {
             return ALL_INTROS.firstOrNull { it.id == customId }
         }
 
-        // 2. Apps normais utilitários (Aba Apps) não disparam intro por padrão
+        // 2. Detecção de Aplicativo Emulador (independente da aba em que estiver)
+        if (app.itemType == ItemType.APP && isEmulator(app.packageName, app.label)) {
+            return detectEmulatorIntro(context, app, isLaunching)
+        }
+
+        // 3. Apps normais utilitários (Aba Apps) não disparam intro por padrão
         if (app.category == AppCategory.APPS) {
             return null
         }
 
-        // 3. Jogos em Nuvem (Better xCloud) -> Xbox Series
+        // 4. Jogos em Nuvem (Better xCloud) -> Xbox Series
         if (app.itemType == ItemType.CLOUD) {
             return ALL_INTROS.firstOrNull { it.id == "xbox_series" }
-        }
-
-        // 4. Detecção por Emulador (quando abre o próprio aplicativo emulador na aba Emuladores)
-        if (app.category == AppCategory.EMULADORES && app.itemType == ItemType.APP) {
-            val pkg = app.packageName.lowercase()
-            val label = app.label.lowercase()
-
-            if (pkg.contains("ppsspp") || label.contains("ppsspp") || label.contains("psp")) {
-                return ALL_INTROS.firstOrNull { it.id == "psp" }
-            }
-            if (pkg.contains("melonds") || pkg.contains("drastic") || label.contains("nds") || label.contains("ds")) {
-                return ALL_INTROS.firstOrNull { it.id == "nds" }
-            }
-            if (pkg.contains("citra") || label.contains("3ds")) {
-                return ALL_INTROS.firstOrNull { it.id == "3ds" }
-            }
-            if (pkg.contains("aethersx2") || pkg.contains("play!") || label.contains("ps2")) {
-                return ALL_INTROS.firstOrNull { it.id == "ps2" }
-            }
-            if (pkg.contains("dolphin") || label.contains("dolphin") || label.contains("gamecube")) {
-                return ALL_INTROS.firstOrNull { it.id == "gamecube" }
-            }
-            if (pkg.contains("haku_x") || label.contains("xbox")) {
-                return ALL_INTROS.firstOrNull { it.id == "xbox_classic" }
-            }
-            if (pkg.contains("duckstation") || pkg.contains("epsxe") || label.contains("ps1") || label.contains("psx")) {
-                return ALL_INTROS.firstOrNull { it.id == "ps1" }
-            }
-            if (pkg.contains("flycast") || pkg.contains("redream") || label.contains("dreamcast")) {
-                return ALL_INTROS.firstOrNull { it.id == "dreamcast" }
-            }
-            if (pkg.contains("cemu") || label.contains("wii u") || label.contains("wiiu")) {
-                return ALL_INTROS.firstOrNull { it.id == "wiiu" }
-            }
-            if (pkg.contains("yuzu") || pkg.contains("skyline") || label.contains("switch")) {
-                return ALL_INTROS.firstOrNull { it.id == "switch" }
-            }
-            return ALL_INTROS.firstOrNull { it.id == "switch" }
         }
 
         // 5. Detecção por ROM (extensão de arquivo)
@@ -133,14 +224,19 @@ object IntroManager {
                 "cdi", "gdi", "chd" -> return ALL_INTROS.firstOrNull { it.id == "dreamcast" }
                 "gcm" -> return ALL_INTROS.firstOrNull { it.id == "gamecube" }
                 "wbfs" -> return ALL_INTROS.firstOrNull { it.id == "wii" }
+                "wua", "rpx" -> return ALL_INTROS.firstOrNull { it.id == "wiiu" }
+                "nsp", "xci" -> return ALL_INTROS.firstOrNull { it.id == "switch" }
                 "iso", "cso" -> {
-                    // Diferencia PSP de PS2 ou GameCube
+                    // Diferencia PSP, PS2, GameCube ou Wii
                     val targetPkg = app.packageName.lowercase()
-                    if (targetPkg.contains("aethersx2") || path.contains("ps2")) {
+                    if (targetPkg.contains("aethersx2") || targetPkg.contains("nether") || path.contains("ps2")) {
                         return ALL_INTROS.firstOrNull { it.id == "ps2" }
                     }
                     if (targetPkg.contains("dolphin") || path.contains("gamecube")) {
                         return ALL_INTROS.firstOrNull { it.id == "gamecube" }
+                    }
+                    if (path.contains("wii")) {
+                        return ALL_INTROS.firstOrNull { it.id == "wii" }
                     }
                     return ALL_INTROS.firstOrNull { it.id == "psp" }
                 }

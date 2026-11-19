@@ -1813,9 +1813,11 @@ fun SelectConsoleIntroDialog(
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        val detected = IntroManager.detectIntroForApp(context, app)
+                        val isDolphin = app.packageName.lowercase().contains("dolphin") || app.label.lowercase().contains("dolphin")
+                        val detected = IntroManager.detectIntroForApp(context, app, isLaunching = false)
+                        val displayDetected = if (isDolphin) "Wii / GameCube (Alternando a cada boot)" else (detected?.displayName ?: "Nenhuma")
                         Text(
-                            text = "Atual: ${detected?.displayName ?: "Nenhuma"}",
+                            text = "Atual: $displayDetected",
                             color = SteamDeckTextMuted,
                             fontSize = 11.sp
                         )
