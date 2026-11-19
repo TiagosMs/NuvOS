@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DeckLauncher" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowAnimationStyle">@style/DeckWindowAnimation</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <style name="DeckWindowAnimation">
+        <item name="android:activityOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskCloseExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskToFrontEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskToFrontExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskToBackEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskToBackExitAnimation">@android:anim/fade_out</item>
+        <item name="android:wallpaperOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:wallpaperOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:wallpaperCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:wallpaperCloseExitAnimation">@android:anim/fade_out</item>
+    </style>
+</resources>

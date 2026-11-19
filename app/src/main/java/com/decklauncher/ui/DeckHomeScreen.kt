@@ -775,12 +775,8 @@ fun DeckHomeScreen(
             )
         }
 
-        // Efeito de escurecimento suave (Fade to Black) ao abrir jogos (estilo Steam Deck)
-        AnimatedVisibility(
-            visible = isLaunchingFade,
-            enter = fadeIn(tween(180)),
-            exit = fadeOut(tween(250))
-        ) {
+        // Mantém a tela preta sólida e absoluta durante a transição para o emulador/jogo (sem deslizar)
+        if (isLaunchingFade) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

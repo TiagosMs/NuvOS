@@ -226,8 +226,9 @@ class MainActivity : ComponentActivity() {
                     activeIntroPlaying = activeIntroPlayingState.value,
                     onIntroFinished = {
                         val item = pendingLaunchAppState.value
-                        activeIntroPlayingState.value = null
                         pendingLaunchAppState.value = null
+                        isLaunchingFadeState.value = true
+                        activeIntroPlayingState.value = null
                         if (item != null) {
                             launchItem(item)
                         }
@@ -444,6 +445,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        activeIntroPlayingState.value = null
         isLaunchingFadeState.value = false
         setupImmersiveMode()
     }
@@ -452,6 +454,11 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         joyRepeatJob?.cancel()
         currentJoyDir = JoystickDir.NONE
+    }
+
+    override fun onStop() {
+        super.onStop()
+        activeIntroPlayingState.value = null
     }
 
     override fun onDestroy() {
@@ -814,8 +821,9 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_NUMPAD_ENTER,
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     val item = pendingLaunchAppState.value
-                    activeIntroPlayingState.value = null
                     pendingLaunchAppState.value = null
+                    isLaunchingFadeState.value = true
+                    activeIntroPlayingState.value = null
                     if (item != null) {
                         launchItem(item)
                     }
