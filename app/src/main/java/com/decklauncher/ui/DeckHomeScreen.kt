@@ -626,7 +626,10 @@ fun DeckHomeScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (focusedFolder != null) {
-                                            FolderDetailPreview(folder = focusedFolder)
+                                            FolderDetailPreview(
+                                                folder = focusedFolder,
+                                                accentColor = accentColor
+                                            )
                                         }
                                     }
                                 }
