@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.*
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.ItemType
@@ -33,6 +35,13 @@ import com.decklauncher.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+// Paleta sóbria Steam Deck / SteamOS
+private val SteamDeckBg = Color(0xFF1B2026)
+private val SteamDeckCardBg = Color(0xFF222933)
+private val SteamDeckBorder = Color(0x33FFFFFF)
+private val SteamDeckTextMuted = Color(0xFF8A96A0)
+private val SteamDeckButtonBlue = Color(0xFF1A73E8)
 
 @Composable
 fun OptionsDialog(
@@ -48,71 +57,74 @@ fun OptionsDialog(
     onUninstallApp: () -> Unit,
     onRemoveItem: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
-                .width(380.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF222222))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
-                .padding(22.dp)
+                .width(360.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(20.dp)
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Header
+                // Header sóbrio Steam Deck
                 Text(
                     text = app.label,
                     color = TextWhite,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = when (app.itemType) {
-                        ItemType.CLOUD -> "Jogo em Nuvem (xCloud)"
+                        ItemType.CLOUD -> "Jogo em Nuvem (Better xCloud)"
                         ItemType.ROM -> "Jogo de Emulador (${app.romPath ?: ""})"
                         ItemType.APP -> "Aplicativo Android"
                     },
-                    color = TabInactiveText,
+                    color = SteamDeckTextMuted,
                     fontSize = 12.sp
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
+                HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
 
-                // Actions list
-                OptionRow(label = "▶  Iniciar", onClick = { onDismiss(); onLaunch() })
-                OptionRow(label = "🖼  Editar Capa no SteamGridDB", onClick = { onDismiss(); onRequestEditCover() })
-                OptionRow(label = "➕  Adicionar Jogos (Y)", onClick = { onDismiss(); onRequestAddGame() })
+                // Actions list - Sóbrio, sem emojis
+                SteamDeckOptionRow(label = "Iniciar", onClick = { onLaunch(); onDismiss() })
+                SteamDeckOptionRow(label = "Editar Capa (SteamGridDB)", onClick = { onRequestEditCover(); onDismiss() })
+                SteamDeckOptionRow(label = "Adicionar Jogos em Nuvem (Better xCloud)", onClick = { onRequestAddGame(); onDismiss() })
 
                 if (app.itemType == ItemType.APP) {
-                    OptionRow(label = "ℹ️  Informações do Aplicativo", onClick = { onDismiss(); onOpenAppSettings() })
-                    OptionRow(
-                        label = "🗑️  Desinstalar Aplicativo",
+                    SteamDeckOptionRow(label = "Informações do Aplicativo", onClick = { onOpenAppSettings(); onDismiss() })
+                    SteamDeckOptionRow(
+                        label = "Desinstalar Aplicativo",
                         color = Color(0xFFEF4444),
-                        onClick = { onDismiss(); onUninstallApp() }
+                        onClick = { onUninstallApp(); onDismiss() }
                     )
                 } else {
-                    OptionRow(
-                        label = "❌  Remover da Tela Inicial",
+                    SteamDeckOptionRow(
+                        label = "Remover da Tela Inicial",
                         color = Color(0xFFEF4444),
-                        onClick = { onDismiss(); onRemoveItem() }
+                        onClick = { onRemoveItem(); onDismiss() }
                     )
                 }
 
-                OptionRow(label = "🎨  Pacote de Ícones (iiSU style 1)", onClick = { onDismiss(); onRequestIconPackSettings() })
-                OptionRow(label = "📁  Re-escanear Jogos/ROMs", onClick = { onDismiss(); onRescanRoms() })
+                SteamDeckOptionRow(label = "Pacote de Ícones", onClick = { onRequestIconPackSettings(); onDismiss() })
+                SteamDeckOptionRow(label = "Re-escanear Armazenamento", onClick = { onRescanRoms(); onDismiss() })
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333)),
-                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Fechar", color = TextWhite)
+                    Text("Fechar", color = TextWhite, fontSize = 13.sp)
                 }
             }
         }
@@ -144,29 +156,31 @@ fun EditCoverSteamGridDialog(
                 statusMessage = if (grids.isNotEmpty()) "${grids.size} capas encontradas para '${game.name}'" else "Nenhuma capa 600x900 para '${game.name}'"
             } else {
                 results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse nome."
+                statusMessage = "Nenhum jogo encontrado com esse termo."
             }
             isLoading = false
         }
     }
 
-    // Auto-search on open
     LaunchedEffect(Unit) {
         doSearch(searchTitle)
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
                 .width(520.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF222222))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
                 .padding(22.dp)
         ) {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -174,16 +188,16 @@ fun EditCoverSteamGridDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "🖼 Editar Capa - ${app.label}",
+                        text = "Editar Capa - ${app.label}",
                         color = TextWhite,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     if (isLoading) {
                         CircularProgressIndicator(
                             color = DotGreen,
                             strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -209,8 +223,8 @@ fun EditCoverSteamGridDialog(
 
                     Button(
                         onClick = { doSearch(searchTitle) },
-                        colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
-                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                        shape = RoundedCornerShape(8.dp),
                         enabled = !isLoading
                     ) {
                         Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
@@ -223,22 +237,22 @@ fun EditCoverSteamGridDialog(
 
                 if (results.isNotEmpty()) {
                     Text(
-                        text = "Toque em uma capa para aplicar:",
-                        color = TabInactiveText,
+                        text = "Selecione uma capa vertical:",
+                        color = SteamDeckTextMuted,
                         fontSize = 12.sp
                     )
 
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
                             Box(
                                 modifier = Modifier
                                     .width(90.dp)
                                     .height(135.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .border(1.dp, Color(0x44FFFFFF), RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
                                     .clickable {
                                         onApplyCoverUrl(artwork.url)
                                         onDismiss()
@@ -265,7 +279,7 @@ fun EditCoverSteamGridDialog(
                                     )
                                 } else {
                                     Box(
-                                        modifier = Modifier.fillMaxSize().background(Color(0xFF333333)),
+                                        modifier = Modifier.fillMaxSize().background(Color(0xFF27303D)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
@@ -274,19 +288,13 @@ fun EditCoverSteamGridDialog(
                             }
                         }
                     }
-                } else if (!isLoading) {
-                    Text(
-                        text = "Nenhuma capa encontrada para '$searchTitle'. Tente outro termo acima.",
-                        color = TabInactiveText,
-                        fontSize = 12.sp
-                    )
                 }
 
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Cancelar", color = TabInactiveText)
+                    Text("Cancelar", color = SteamDeckTextMuted)
                 }
             }
         }
@@ -296,33 +304,46 @@ fun EditCoverSteamGridDialog(
 @Composable
 fun AddGameOptionsDialog(
     onDismiss: () -> Unit,
-    onAddCloudGame: () -> Unit,
+    onOpenCloudCatalog: () -> Unit,
     onRescanRoms: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
                 .width(360.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF222222))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
-                .padding(22.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(20.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "➕ Adicionar Jogos (Y)",
+                    text = "Adicionar Jogos",
                     color = TextWhite,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
-
-                OptionRow(
-                    label = "☁️  Adicionar Jogo em Nuvem (xCloud)",
-                    onClick = { onDismiss(); onAddCloudGame() }
+                Text(
+                    text = "Selecione o tipo de jogo para adicionar:",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
                 )
 
-                OptionRow(
-                    label = "📁  Escanear Pasta de ROMs (/sdcard/ROMs)",
+                HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
+
+                SteamDeckOptionRow(
+                    label = "Catálogo Xbox Cloud (Better xCloud)",
+                    onClick = {
+                        onOpenCloudCatalog()
+                        onDismiss()
+                    }
+                )
+
+                SteamDeckOptionRow(
+                    label = "Escanear Pasta de ROMs (/sdcard/ROMs)",
                     onClick = { onDismiss(); onRescanRoms() }
                 )
 
@@ -330,11 +351,160 @@ fun AddGameOptionsDialog(
 
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333)),
-                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Fechar", color = TextWhite)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CloudGameCatalogDialog(
+    onDismiss: () -> Unit,
+    onSelectGame: (String, String) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val catalog = remember { CloudGameManager.XBOX_CLOUD_CATALOG }
+
+    val filteredList = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            catalog
+        } else {
+            catalog.filter { it.title.contains(searchQuery.trim(), ignoreCase = true) }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(480.dp)
+                .height(520.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(20.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = "Catálogo Xbox Cloud Gaming",
+                    color = TextWhite,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Selecione um jogo para iniciar diretamente no Better xCloud:",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Pesquisar jogo no catálogo") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color(0x44FFFFFF)
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(filteredList) { item ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SteamDeckCardBg)
+                                .clickable {
+                                    onSelectGame(item.title, item.url)
+                                    onDismiss()
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = item.title,
+                                        color = TextWhite,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Xbox Cloud • Better xCloud",
+                                        color = SteamDeckTextMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Text(
+                                    text = "Adicionar",
+                                    color = BtnAGreen,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    if (filteredList.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Nenhum jogo encontrado para '$searchQuery'",
+                                        color = SteamDeckTextMuted,
+                                        fontSize = 12.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = {
+                                            val customUrl = "https://www.xbox.com/play/games/" + searchQuery.lowercase().replace(" ", "-")
+                                            onSelectGame(searchQuery.trim(), customUrl)
+                                            onDismiss()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Adicionar '$searchQuery' mesmo assim", color = Color.White, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Fechar", color = SteamDeckTextMuted)
+                    }
                 }
             }
         }
@@ -349,26 +519,29 @@ fun SteamGridApiKeyDialog(
     val context = LocalContext.current
     var currentKey by remember { mutableStateOf(SteamGridDbManager.getApiKey(context)) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
-                .width(420.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF222222))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
-                .padding(22.dp)
+                .width(400.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(20.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "🔑 Chave de API SteamGridDB",
+                    text = "Chave de API SteamGridDB",
                     color = TextWhite,
-                    fontSize = 17.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text = "Chave configurada para download de capas oficiais em alta definição (600x900):",
-                    color = TabInactiveText,
+                    text = "Chave para download de capas oficiais em alta definição (600x900):",
+                    color = SteamDeckTextMuted,
                     fontSize = 12.sp
                 )
 
@@ -379,7 +552,7 @@ fun SteamGridApiKeyDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
-                        focusedBorderColor = BtnAGreen,
+                        focusedBorderColor = Color.White,
                         unfocusedBorderColor = Color(0x44FFFFFF)
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -391,7 +564,7 @@ fun SteamGridApiKeyDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancelar", color = TabInactiveText)
+                        Text("Cancelar", color = SteamDeckTextMuted)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -419,30 +592,33 @@ fun IconPackDialog(
     val installedPacks = remember { IconPackManager.getInstalledIconPacks(context) }
     val currentPack = remember { IconPackManager.getSelectedPack(context) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
-                .width(440.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF222222))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
-                .padding(22.dp)
+                .width(420.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(20.dp)
         ) {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "🎨 Pacote de Ícones (iiSU style 1)",
+                    text = "Pacote de Ícones",
                     color = TextWhite,
-                    fontSize = 17.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Button(
                     onClick = { IconPackManager.openIconPackStudioLink(context) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
-                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -450,15 +626,15 @@ fun IconPackDialog(
                         modifier = Modifier.padding(vertical = 4.dp)
                     ) {
                         Text(
-                            text = "⚡ Abrir iiSU style 1 no Icon Pack Studio",
+                            text = "Abrir iiSU style 1 no Icon Pack Studio",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
                         Text(
                             text = "Baixe ou exporte o tema para aplicar neste launcher",
-                            color = Color(0xFFE9D5FF),
-                            fontSize = 10.sp
+                            color = SteamDeckTextMuted,
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -467,12 +643,12 @@ fun IconPackDialog(
 
                 Text(
                     text = "Pacotes instalados no dispositivo:",
-                    color = TabInactiveText,
+                    color = SteamDeckTextMuted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                IconPackOptionRow(
+                SteamDeckIconPackRow(
                     name = "Padrão do Sistema",
                     subtitle = "Ícones originais dos aplicativos",
                     isSelected = currentPack == null,
@@ -485,14 +661,14 @@ fun IconPackDialog(
                 if (installedPacks.isEmpty()) {
                     Text(
                         text = "Nenhum pacote de ícones APK detectado ainda.\nAbra o link acima no Icon Pack Studio e clique em 'Exportar' para instalar.",
-                        color = Color(0xFF9CA3AF),
+                        color = SteamDeckTextMuted,
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 } else {
                     for (pack in installedPacks) {
-                        IconPackOptionRow(
+                        SteamDeckIconPackRow(
                             name = pack.name,
                             subtitle = if (pack.isIconPackStudio) "Icon Pack Studio (iiSU style)" else pack.packageName,
                             isSelected = currentPack == pack.packageName,
@@ -508,7 +684,7 @@ fun IconPackDialog(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Fechar", color = TabInactiveText)
+                    Text("Fechar", color = SteamDeckTextMuted)
                 }
             }
         }
@@ -516,7 +692,30 @@ fun IconPackDialog(
 }
 
 @Composable
-private fun IconPackOptionRow(
+private fun SteamDeckOptionRow(
+    label: String,
+    color: Color = TextWhite,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(SteamDeckCardBg)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 11.dp)
+    ) {
+        Text(
+            text = label,
+            color = color,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun SteamDeckIconPackRow(
     name: String,
     subtitle: String,
     isSelected: Boolean,
@@ -525,12 +724,12 @@ private fun IconPackOptionRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isSelected) Color(0x3322C55E) else Color(0xFF2A2A2A))
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) Color(0x3322C55E) else SteamDeckCardBg)
             .border(
                 1.dp,
                 if (isSelected) BtnAGreen else Color(0x22FFFFFF),
-                RoundedCornerShape(10.dp)
+                RoundedCornerShape(8.dp)
             )
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -542,110 +741,11 @@ private fun IconPackOptionRow(
         ) {
             Column {
                 Text(text = name, color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text(text = subtitle, color = TabInactiveText, fontSize = 11.sp)
+                Text(text = subtitle, color = SteamDeckTextMuted, fontSize = 11.sp)
             }
             if (isSelected) {
-                Text(text = "✓ Ativo", color = BtnAGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Ativo", color = BtnAGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
-    }
-}
-
-@Composable
-fun AddCloudGameDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String, String) -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("https://www.xbox.com/play/games/") }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier
-                .width(400.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF222222))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
-                .padding(24.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(
-                    text = "Adicionar Jogo em Nuvem (xCloud)",
-                    color = TextWhite,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Nome do Jogo (ex: Forza Horizon 5)") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color(0x44FFFFFF)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text("URL do Streaming no xCloud") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color(0x44FFFFFF)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancelar", color = TabInactiveText)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (title.isNotBlank() && url.isNotBlank()) {
-                                onAdd(title.trim(), url.trim())
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Adicionar", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OptionRow(
-    label: String,
-    color: Color = TextWhite,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF2A2A2A))
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 11.dp)
-    ) {
-        Text(
-            text = label,
-            color = color,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
-        )
     }
 }

@@ -195,7 +195,18 @@ class MainActivity : ComponentActivity() {
                         val item = CloudGameManager.addCloudGame(this, title, url)
                         showAddCloudDialogState.value = false
                         loadInstalledApps()
-                        Toast.makeText(this, "Jogo $title adicionado!", Toast.LENGTH_SHORT).show()
+                        // Busca e aplica capa do SteamGridDB automaticamente em background
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val games = SteamGridDbManager.searchGames(this@MainActivity, title)
+                            if (games.isNotEmpty()) {
+                                val grids = SteamGridDbManager.getGridsForGame(this@MainActivity, games.first().id)
+                                if (grids.isNotEmpty()) {
+                                    CoverManager.downloadCover(this@MainActivity, item.id, grids.first().url)
+                                    loadInstalledApps()
+                                }
+                            }
+                        }
+                        Toast.makeText(this, "$title adicionado para Better xCloud!", Toast.LENGTH_SHORT).show()
                     },
                     onRescanRoms = {
                         loadInstalledApps()
@@ -380,10 +391,26 @@ class MainActivity : ComponentActivity() {
             ItemType.CLOUD -> {
                 val url = item.cloudUrl
                 if (!url.isNullOrBlank()) {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    var openedInBxc = false
+                    try {
+                        val bxcIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                            setPackage("com.redphx.betterxc")
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(bxcIntent)
+                        openedInBxc = true
+                    } catch (_: Exception) {}
+
+                    if (!openedInBxc) {
+                        try {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            startActivity(browserIntent)
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "Não foi possível abrir o jogo", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                    startActivity(intent)
                 } else {
                     Toast.makeText(this, "URL de streaming inválida", Toast.LENGTH_SHORT).show()
                 }
@@ -493,9 +520,9 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão Y: Adicionar Jogos
+            // Botão Y: Abre diretamente o Catálogo de Jogos em Nuvem (Better xCloud) com pesquisa
             KeyEvent.KEYCODE_BUTTON_Y -> {
-                showAddGameOptionsDialogState.value = true
+                showAddCloudDialogState.value = true
                 triggerHaptic()
                 return true
             }

@@ -420,15 +420,15 @@ fun DeckHomeScreen(
         if (showAddGameOptionsDialog) {
             AddGameOptionsDialog(
                 onDismiss = onDismissAddGameOptions,
-                onAddCloudGame = onRequestAddGame,
+                onOpenCloudCatalog = onRequestAddGame,
                 onRescanRoms = onRescanRoms
             )
         }
 
         if (showAddCloudDialog) {
-            AddCloudGameDialog(
+            CloudGameCatalogDialog(
                 onDismiss = onDismissAddCloud,
-                onAdd = onAddCloudGameConfirm
+                onSelectGame = onAddCloudGameConfirm
             )
         }
 
