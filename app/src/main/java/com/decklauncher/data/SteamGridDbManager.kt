@@ -142,4 +142,105 @@ object SteamGridDbManager {
     suspend fun downloadAndApplyGrid(context: Context, appId: String, artworkUrl: String): Bitmap? {
         return CoverManager.downloadCover(context, appId, artworkUrl)
     }
+
+    suspend fun getHeroesForGame(context: Context, gameId: Long): List<SteamGridArtwork> = withContext(Dispatchers.IO) {
+        val apiKey = getApiKey(context)
+        if (apiKey.isBlank()) return@withContext emptyList()
+
+        try {
+            val url = URL("$BASE_URL/heroes/game/$gameId")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("Authorization", "Bearer $apiKey")
+                setRequestProperty("User-Agent", "DeckLauncher/1.0 (Android)")
+            }
+
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val jsonStr = conn.inputStream.bufferedReader().use { it.readText() }
+                val root = JSONObject(jsonStr)
+                if (root.optBoolean("success", false)) {
+                    val data = root.optJSONArray("data") ?: return@withContext emptyList()
+                    val list = mutableListOf<SteamGridArtwork>()
+                    for (i in 0 until data.length()) {
+                        val obj = data.getJSONObject(i)
+                        list.add(
+                            SteamGridArtwork(
+                                id = obj.getLong("id"),
+                                url = obj.getString("url"),
+                                thumbUrl = obj.optString("thumb", obj.getString("url")),
+                                width = obj.optInt("width", 1920),
+                                height = obj.optInt("height", 1080),
+                                style = obj.optString("style", "alternate")
+                            )
+                        )
+                    }
+                    return@withContext list
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        emptyList()
+    }
+
+    suspend fun getLogosForGame(context: Context, gameId: Long): List<SteamGridArtwork> = withContext(Dispatchers.IO) {
+        val apiKey = getApiKey(context)
+        if (apiKey.isBlank()) return@withContext emptyList()
+
+        try {
+            val url = URL("$BASE_URL/logos/game/$gameId")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("Authorization", "Bearer $apiKey")
+                setRequestProperty("User-Agent", "DeckLauncher/1.0 (Android)")
+            }
+
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val jsonStr = conn.inputStream.bufferedReader().use { it.readText() }
+                val root = JSONObject(jsonStr)
+                if (root.optBoolean("success", false)) {
+                    val data = root.optJSONArray("data") ?: return@withContext emptyList()
+                    val list = mutableListOf<SteamGridArtwork>()
+                    for (i in 0 until data.length()) {
+                        val obj = data.getJSONObject(i)
+                        list.add(
+                            SteamGridArtwork(
+                                id = obj.getLong("id"),
+                                url = obj.getString("url"),
+                                thumbUrl = obj.optString("thumb", obj.getString("url")),
+                                width = obj.optInt("width", 800),
+                                height = obj.optInt("height", 400),
+                                style = obj.optString("style", "official")
+                            )
+                        )
+                    }
+                    return@withContext list
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        emptyList()
+    }
+
+    suspend fun downloadAndApplyHero(context: Context, appId: String, heroUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(heroUrl)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 8000
+                setRequestProperty("User-Agent", "DeckLauncher/1.0 (Android)")
+            }
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val bmp = android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+                if (bmp != null) {
+                    HeroManager.saveHero(context, appId, bmp)
+                    return@withContext bmp
+                }
+            }
+        } catch (_: Exception) {}
+        null
+    }
 }

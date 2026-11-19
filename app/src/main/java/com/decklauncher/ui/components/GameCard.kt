@@ -156,43 +156,6 @@ fun GameCard(
                         )
                     }
                 }
-
-                // Cloud or ROM small tag
-                if (app.itemType == ItemType.CLOUD) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xDD107C10))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "CLOUD",
-                            color = Color.White,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                } else if (app.itemType == ItemType.ROM) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xDD0284C7))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "ROM",
-                            color = Color.White,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                }
             }
         }
 

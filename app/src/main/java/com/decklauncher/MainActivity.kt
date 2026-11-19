@@ -68,6 +68,32 @@ class MainActivity : ComponentActivity() {
     private var accentColorLongState = mutableLongStateOf(0xFF1A73E8)
     private var customWallpaperBitmapState = mutableStateOf<Bitmap?>(null)
     private var hasCustomWallpaperState = mutableStateOf(false)
+    private var showEditHeroDialogState = mutableStateOf(false)
+    private var showInitialSetupDialogState = mutableStateOf(false)
+    private var romFolderNameState = mutableStateOf("")
+    private var downloadFolderNameState = mutableStateOf("")
+    private var apiKeyTextState = mutableStateOf("")
+
+    private val romFolderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            SetupManager.setRomFolder(this, uri)
+            romFolderNameState.value = SetupManager.getRomFolderName(this)
+            loadInstalledApps()
+            Toast.makeText(this, "Pasta de ISOs configurada!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val downloadFolderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            SetupManager.setDownloadFolder(this, uri)
+            downloadFolderNameState.value = SetupManager.getDownloadFolderName(this)
+            Toast.makeText(this, "Pasta de downloads configurada!", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private val wallpaperPickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -141,6 +167,13 @@ class MainActivity : ComponentActivity() {
         accentColorLongState.longValue = ThemeManager.getAccentColorLong(this)
         hasCustomWallpaperState.value = ThemeManager.hasCustomWallpaper(this)
         customWallpaperBitmapState.value = ThemeManager.loadCustomWallpaper(this)
+        romFolderNameState.value = SetupManager.getRomFolderName(this)
+        downloadFolderNameState.value = SetupManager.getDownloadFolderName(this)
+        apiKeyTextState.value = SteamGridDbManager.getApiKey(this)
+
+        if (!SetupManager.isSetupCompleted(this)) {
+            showInitialSetupDialogState.value = true
+        }
 
         setupImmersiveMode()
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -173,6 +206,8 @@ class MainActivity : ComponentActivity() {
                     isLoading = isLoadingState.value,
                     showOptionsDialog = showOptionsDialogState.value,
                     showEditCoverDialog = showEditCoverDialogState.value,
+                    showEditHeroDialog = showEditHeroDialogState.value,
+                    showInitialSetupDialog = showInitialSetupDialogState.value,
                     showAddCloudDialog = showAddCloudDialogState.value,
                     showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
                     showSteamGridDialog = showSteamGridDialogState.value,
@@ -182,6 +217,9 @@ class MainActivity : ComponentActivity() {
                     isReorderMode = isReorderModeState.value,
                     profileName = profileNameState.value,
                     avatarId = avatarIdState.value,
+                    currentRomFolder = romFolderNameState.value,
+                    currentDownloadFolder = downloadFolderNameState.value,
+                    currentApiKey = apiKeyTextState.value,
                     backgroundMode = backgroundModeState.value,
                     accentColorLong = accentColorLongState.longValue,
                     customWallpaperBitmap = customWallpaperBitmapState.value,
@@ -223,6 +261,8 @@ class MainActivity : ComponentActivity() {
                     onUninstallApp = { uninstallApp(it) },
                     onDismissOptions = { showOptionsDialogState.value = false },
                     onDismissEditCover = { showEditCoverDialogState.value = false },
+                    onDismissEditHero = { showEditHeroDialogState.value = false },
+                    onDismissInitialSetup = { showInitialSetupDialogState.value = false },
                     onDismissAddCloud = { showAddCloudDialogState.value = false },
                     onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
                     onDismissSteamGrid = { showSteamGridDialogState.value = false },
@@ -232,6 +272,33 @@ class MainActivity : ComponentActivity() {
                     onRequestEditCover = { item ->
                         activeDialogAppState.value = item
                         showEditCoverDialogState.value = true
+                    },
+                    onRequestEditHero = { item ->
+                        activeDialogAppState.value = item
+                        showEditHeroDialogState.value = true
+                    },
+                    onRequestPickRomFolder = {
+                        try {
+                            romFolderPickerLauncher.launch(null)
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity, "Erro ao abrir seletor: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onRequestPickDownloadFolder = {
+                        try {
+                            downloadFolderPickerLauncher.launch(null)
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity, "Erro ao abrir seletor: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onRequestSetupFolders = {
+                        showInitialSetupDialogState.value = true
+                    },
+                    onCompleteSetup = {
+                        SetupManager.setSetupCompleted(this@MainActivity, true)
+                        showInitialSetupDialogState.value = false
+                        loadInstalledApps()
+                        Toast.makeText(this@MainActivity, "Configuração concluída! Biblioteca atualizada.", Toast.LENGTH_LONG).show()
                     },
                     onRequestAddGame = {
                         showAddCloudDialogState.value = true
@@ -271,6 +338,18 @@ class MainActivity : ComponentActivity() {
                     },
                     onApplyCoverUrl = { item, url ->
                         downloadCoverFromUrl(item, url)
+                    },
+                    onApplyHeroUrl = { item, url ->
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val bmp = SteamGridDbManager.downloadAndApplyHero(this@MainActivity, item.id, url)
+                            if (bmp != null) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainActivity, "Fundo 16:9 atualizado!", Toast.LENGTH_SHORT).show()
+                                    showEditHeroDialogState.value = false
+                                    loadInstalledApps()
+                                }
+                            }
+                        }
                     },
                     onAddCloudGameConfirm = { title, url ->
                         val item = CloudGameManager.addCloudGame(this, title, url)
@@ -604,12 +683,15 @@ class MainActivity : ComponentActivity() {
 
         // Se algum diálogo estiver aberto, botão B fecha o diálogo
         if (showOptionsDialogState.value || showEditCoverDialogState.value ||
+            showEditHeroDialogState.value || showInitialSetupDialogState.value ||
             showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
             showSteamGridDialogState.value || showIconPackDialogState.value ||
             showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value) {
             if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK) {
                 showOptionsDialogState.value = false
                 showEditCoverDialogState.value = false
+                showEditHeroDialogState.value = false
+                showInitialSetupDialogState.value = false
                 showAddCloudDialogState.value = false
                 showAddGameOptionsDialogState.value = false
                 showSteamGridDialogState.value = false

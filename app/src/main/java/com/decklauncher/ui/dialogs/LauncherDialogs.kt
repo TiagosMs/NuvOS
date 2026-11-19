@@ -51,6 +51,7 @@ fun OptionsDialog(
     onDismiss: () -> Unit,
     onLaunch: () -> Unit,
     onRequestEditCover: () -> Unit,
+    onRequestEditHero: () -> Unit = {},
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
@@ -100,6 +101,7 @@ fun OptionsDialog(
                 SteamDeckOptionRow(label = "Iniciar", onClick = { onLaunch(); onDismiss() })
                 SteamDeckOptionRow(label = "Mover Posição / Trocar de Lugar", onClick = { onRequestReorder(); onDismiss() })
                 SteamDeckOptionRow(label = "Editar Capa (SteamGridDB)", onClick = { onRequestEditCover(); onDismiss() })
+                SteamDeckOptionRow(label = "Editar Fundo / Hero (SteamGridDB)", onClick = { onRequestEditHero(); onDismiss() })
                 SteamDeckOptionRow(label = "Adicionar Jogos em Nuvem (Better xCloud)", onClick = { onRequestAddGame(); onDismiss() })
 
                 if (app.itemType == ItemType.APP) {
@@ -763,6 +765,7 @@ fun LauncherSettingsDialog(
     onRequestAddCloudGame: () -> Unit,
     onRescanRoms: () -> Unit,
     onRequestReorderMode: () -> Unit,
+    onRequestSetupFolders: () -> Unit = {},
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
     currentBgMode: BackgroundMode = BackgroundMode.IMMERSIVE,
@@ -904,6 +907,14 @@ fun LauncherSettingsDialog(
                     label = "Re-escanear ROMs e Emuladores",
                     onClick = {
                         onRescanRoms()
+                        onDismiss()
+                    }
+                )
+
+                SteamDeckOptionRow(
+                    label = "Configurar Pastas de ISOs & Inicialização",
+                    onClick = {
+                        onRequestSetupFolders()
                         onDismiss()
                     }
                 )
@@ -1172,6 +1183,352 @@ fun ChangeAvatarDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Salvar e Fechar", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SteamGridHeroSelectDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onApplyHeroUrl: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+
+    fun doSearch(term: String) {
+        coroutineScope.launch {
+            isLoading = true
+            statusMessage = "Buscando fundos 16:9 no SteamGridDB..."
+            val games = SteamGridDbManager.searchGames(context, term)
+            if (games.isNotEmpty()) {
+                val game = games.first()
+                val heroes = SteamGridDbManager.getHeroesForGame(context, game.id)
+                results = heroes
+                statusMessage = if (heroes.isNotEmpty()) "${heroes.size} fundos 16:9 encontrados para '${game.name}'" else "Nenhum fundo 16:9 para '${game.name}'"
+            } else {
+                results = emptyList()
+                statusMessage = "Nenhum jogo encontrado com esse termo."
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        doSearch(searchTitle)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(620.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SteamDeckBg)
+                .border(1.dp, SteamDeckBorder, RoundedCornerShape(12.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Selecionar Fundo 16:9 - ${app.label}",
+                        color = TextWhite,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = BtnAGreen,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchTitle,
+                        onValueChange = { searchTitle = it },
+                        label = { Text("Nome do Jogo") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = Color.White,
+                            unfocusedBorderColor = Color(0x44FFFFFF)
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    Button(
+                        onClick = { doSearch(searchTitle) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isLoading
+                    ) {
+                        Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (statusMessage != null) {
+                    Text(text = statusMessage!!, color = Color(0xFF22C55E), fontSize = 12.sp)
+                }
+
+                if (results.isNotEmpty()) {
+                    Text(
+                        text = "Selecione o plano de fundo desejado:",
+                        color = SteamDeckTextMuted,
+                        fontSize = 12.sp
+                    )
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(results) { artwork ->
+                            Box(
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(112.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        onApplyHeroUrl(artwork.url)
+                                        onDismiss()
+                                    }
+                            ) {
+                                var thumbBmp by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+                                LaunchedEffect(artwork.thumbUrl) {
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val url = java.net.URL(artwork.thumbUrl)
+                                            val stream = url.openStream()
+                                            thumbBmp = android.graphics.BitmapFactory.decodeStream(stream)
+                                            stream.close()
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+
+                                if (thumbBmp != null) {
+                                    Image(
+                                        bitmap = thumbBmp!!.asImageBitmap(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color(0xFF222933)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = SteamDeckButtonBlue,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Fechar", color = SteamDeckTextMuted)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InitialSetupDialog(
+    currentRomFolder: String,
+    currentDownloadFolder: String,
+    currentApiKey: String,
+    onRequestPickRomFolder: () -> Unit,
+    onRequestPickDownloadFolder: () -> Unit,
+    onSaveApiKey: (String) -> Unit,
+    onCompleteSetup: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var apiKeyText by remember { mutableStateOf(currentApiKey) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .width(520.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(SteamDeckBg)
+                .border(1.5.dp, Color(0xFF2563EB), RoundedCornerShape(14.dp))
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Configuração Inicial do Launcher",
+                    color = TextWhite,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Defina suas pastas de jogos e chave de API para escanear títulos e capas automaticamente:",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
+                )
+
+                HorizontalDivider(color = Color(0x22FFFFFF))
+
+                // 1. Pasta das ISOs / ROMs
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "1. PASTA DE ISOS E ROMS",
+                        color = Color(0xFF93C5FD),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SteamDeckCardBg)
+                            .border(1.dp, SteamDeckBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = currentRomFolder,
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        )
+                        Button(
+                            onClick = onRequestPickRomFolder,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text("Selecionar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // 2. Pasta de Download / Salvar Jogos
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "2. PASTA PARA SALVAR JOGOS E DOWNLOADS",
+                        color = Color(0xFF93C5FD),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SteamDeckCardBg)
+                            .border(1.dp, SteamDeckBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = currentDownloadFolder,
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        )
+                        Button(
+                            onClick = onRequestPickDownloadFolder,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text("Selecionar", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // 3. Chave de API SteamGridDB
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "3. CHAVE DE API STEAMGRIDDB",
+                        color = Color(0xFF93C5FD),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    OutlinedTextField(
+                        value = apiKeyText,
+                        onValueChange = { apiKeyText = it },
+                        label = { Text("Chave da API") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = Color(0xFF2563EB),
+                            unfocusedBorderColor = Color(0x44FFFFFF)
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Concluir e Iniciar
+                Button(
+                    onClick = {
+                        onSaveApiKey(apiKeyText.trim())
+                        onCompleteSetup()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "Concluir e Iniciar Launcher",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

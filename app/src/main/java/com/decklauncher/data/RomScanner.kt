@@ -27,22 +27,40 @@ object RomScanner {
     fun scanRoms(context: Context): List<AppItem> {
         val results = mutableListOf<AppItem>()
 
-        val searchDirs = listOf(
-            File(Environment.getExternalStorageDirectory(), "Download/MDS"),
-            File(Environment.getExternalStorageDirectory(), "Download"),
-            File(Environment.getExternalStorageDirectory(), "ROMs"),
-            File(Environment.getExternalStorageDirectory(), "Roms"),
-            File(Environment.getExternalStorageDirectory(), "Games")
+        val searchDirs = mutableListOf<File>()
+
+        // 1. Pasta personalizada configurada pelo usuário no Setup inicial
+        val customUri = SetupManager.getRomFolderUri(context)
+        if (customUri != null) {
+            val customFile = SetupManager.getPhysicalFileForTreeUri(customUri)
+            if (customFile != null && customFile.exists() && customFile.isDirectory) {
+                searchDirs.add(customFile)
+            }
+        }
+
+        // 2. Diretórios padrão de busca
+        searchDirs.addAll(
+            listOf(
+                File(Environment.getExternalStorageDirectory(), "Download/MDS"),
+                File(Environment.getExternalStorageDirectory(), "Download"),
+                File(Environment.getExternalStorageDirectory(), "ROMs"),
+                File(Environment.getExternalStorageDirectory(), "Roms"),
+                File(Environment.getExternalStorageDirectory(), "Games"),
+                File(Environment.getExternalStorageDirectory(), "ISOs"),
+                File(Environment.getExternalStorageDirectory(), "RetroArch/downloads")
+            )
         )
 
         val foundFiles = mutableListOf<File>()
-        for (dir in searchDirs) {
+        for (dir in searchDirs.distinctBy { it.absolutePath }) {
             if (dir.exists() && dir.isDirectory) {
-                dir.walkTopDown().maxDepth(3).forEach { file ->
-                    if (file.isFile && ROM_EXTENSIONS.contains(file.extension.lowercase())) {
-                        foundFiles.add(file)
+                try {
+                    dir.walkTopDown().maxDepth(3).forEach { file ->
+                        if (file.isFile && ROM_EXTENSIONS.contains(file.extension.lowercase())) {
+                            foundFiles.add(file)
+                        }
                     }
-                }
+                } catch (_: Exception) {}
             }
         }
 

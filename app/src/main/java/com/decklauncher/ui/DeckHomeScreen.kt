@@ -43,6 +43,8 @@ import com.decklauncher.data.AppFolder
 import com.decklauncher.data.BackgroundMode
 import com.decklauncher.data.CategoryManager
 import com.decklauncher.data.HeroManager
+import com.decklauncher.data.LogoManager
+import com.decklauncher.data.SetupManager
 import com.decklauncher.data.ThemeManager
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
@@ -67,6 +69,8 @@ fun DeckHomeScreen(
     isLoading: Boolean,
     showOptionsDialog: Boolean,
     showEditCoverDialog: Boolean,
+    showEditHeroDialog: Boolean = false,
+    showInitialSetupDialog: Boolean = false,
     showAddCloudDialog: Boolean,
     showAddGameOptionsDialog: Boolean,
     showSteamGridDialog: Boolean,
@@ -76,6 +80,9 @@ fun DeckHomeScreen(
     isReorderMode: Boolean = false,
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
+    currentRomFolder: String = "",
+    currentDownloadFolder: String = "",
+    currentApiKey: String = "",
     backgroundMode: BackgroundMode = BackgroundMode.IMMERSIVE,
     accentColorLong: Long = 0xFF1A73E8L,
     customWallpaperBitmap: Bitmap? = null,
@@ -92,6 +99,8 @@ fun DeckHomeScreen(
     onUninstallApp: (AppItem) -> Unit,
     onDismissOptions: () -> Unit,
     onDismissEditCover: () -> Unit,
+    onDismissEditHero: () -> Unit = {},
+    onDismissInitialSetup: () -> Unit = {},
     onDismissAddCloud: () -> Unit,
     onDismissAddGameOptions: () -> Unit,
     onDismissSteamGrid: () -> Unit,
@@ -99,6 +108,11 @@ fun DeckHomeScreen(
     onDismissLauncherSettings: () -> Unit = {},
     onDismissChangeAvatar: () -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
+    onRequestEditHero: (AppItem) -> Unit = {},
+    onRequestPickRomFolder: () -> Unit = {},
+    onRequestPickDownloadFolder: () -> Unit = {},
+    onRequestSetupFolders: () -> Unit = {},
+    onCompleteSetup: () -> Unit = {},
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
@@ -110,6 +124,7 @@ fun DeckHomeScreen(
     onSaveSteamGridKey: (String) -> Unit,
     onSelectIconPack: (String?) -> Unit,
     onApplyCoverUrl: (AppItem, String) -> Unit,
+    onApplyHeroUrl: (AppItem, String) -> Unit = { _, _ -> },
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
@@ -160,19 +175,29 @@ fun DeckHomeScreen(
         }
     }
 
-    // Dynamic 16:9 hero background adaptativo com SteamGridDB
+    // Dynamic 16:9 hero background & 3DS Logo adaptativo com SteamGridDB
     var currentHeroBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var currentLogoBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(currentFocusedApp?.id, selectedTab) {
         if ((selectedTab == 0 || selectedTab == 1) && currentFocusedApp != null) {
             delay(120) // Debounce para navegação rápida
             val target = currentFocusedApp
-            val bmp = HeroManager.getOrFetchHero(context, target.id, target.label)
-            if (currentFocusedApp?.id == target.id) {
-                currentHeroBitmap = bmp
+            coroutineScope.launch {
+                val hero = HeroManager.getOrFetchHero(context, target.id, target.label)
+                if (currentFocusedApp?.id == target.id) {
+                    currentHeroBitmap = hero
+                }
+            }
+            coroutineScope.launch {
+                val logo = LogoManager.getOrFetchLogo(context, target.id, target.label)
+                if (currentFocusedApp?.id == target.id) {
+                    currentLogoBitmap = logo
+                }
             }
         } else {
             currentHeroBitmap = null
+            currentLogoBitmap = null
         }
     }
 
@@ -436,6 +461,21 @@ fun DeckHomeScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.Bottom
                             ) {
+                                // Logo 3D animada estilo Nintendo 3DS no centro da tela
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp, bottom = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    GameLogo3D(
+                                        currentApp = currentFocusedApp,
+                                        logoBitmap = currentLogoBitmap,
+                                        accentColor = accentColor
+                                    )
+                                }
+
                                 LazyRow(
                                     state = carouselState,
                                     flingBehavior = snapFlingBehavior,
@@ -600,6 +640,7 @@ fun DeckHomeScreen(
                 onDismiss = onDismissOptions,
                 onLaunch = { onLaunchApp(targetApp) },
                 onRequestEditCover = { onRequestEditCover(targetApp) },
+                onRequestEditHero = { onRequestEditHero(targetApp) },
                 onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
                 onRequestIconPackSettings = onRequestIconPackSettings,
@@ -616,6 +657,14 @@ fun DeckHomeScreen(
                 app = targetApp,
                 onDismiss = onDismissEditCover,
                 onApplyCoverUrl = { url -> onApplyCoverUrl(targetApp, url) }
+            )
+        }
+
+        if (showEditHeroDialog && targetApp != null) {
+            SteamGridHeroSelectDialog(
+                app = targetApp,
+                onDismiss = onDismissEditHero,
+                onApplyHeroUrl = { url -> onApplyHeroUrl(targetApp, url) }
             )
         }
 
@@ -657,6 +706,7 @@ fun DeckHomeScreen(
                 onRequestAddCloudGame = onRequestAddGame,
                 onRescanRoms = onRescanRoms,
                 onRequestReorderMode = onRequestReorderMode,
+                onRequestSetupFolders = onRequestSetupFolders,
                 profileName = profileName,
                 avatarId = avatarId,
                 currentBgMode = backgroundMode,
@@ -665,6 +715,19 @@ fun DeckHomeScreen(
                 hasCustomWallpaper = hasCustomWallpaper,
                 currentAccentColor = accentColorLong,
                 onAccentColorSelected = onAccentColorSelected
+            )
+        }
+
+        if (showInitialSetupDialog) {
+            InitialSetupDialog(
+                currentRomFolder = currentRomFolder,
+                currentDownloadFolder = currentDownloadFolder,
+                currentApiKey = currentApiKey,
+                onRequestPickRomFolder = onRequestPickRomFolder,
+                onRequestPickDownloadFolder = onRequestPickDownloadFolder,
+                onSaveApiKey = onSaveSteamGridKey,
+                onCompleteSetup = onCompleteSetup,
+                onDismiss = onDismissInitialSetup
             )
         }
 
