@@ -105,8 +105,19 @@ fun TopBar(
                 .background(profileBg)
                 .border(profileBorderWidth, Color.White, RoundedCornerShape(20.dp))
                 .clickable { onOpenProfileSettings() }
-                .padding(vertical = if (isCompactHeight) 2.dp else 4.dp, horizontal = if (isCompactHeight) 6.dp else 10.dp)
+                .padding(vertical = if (isCompactHeight) 2.dp else 4.dp, horizontal = if (isCompactHeight) 8.dp else 12.dp)
         ) {
+            // Ícone Hamburger (≡)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 2.5.dp else 3.5.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(end = if (isCompactHeight) 2.dp else 4.dp)
+            ) {
+                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
+                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
+                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
+            }
+
             // Avatar Circular com anel de destaque
             Box(
                 modifier = Modifier
@@ -229,25 +240,27 @@ fun TopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 14.dp)
         ) {
-            // Botão Adicionar Jogo (+)
-            Box(
-                modifier = Modifier
-                    .size(if (isCompactHeight) 26.dp else 34.dp)
-                    .scale(addScale)
-                    .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
-                    .clip(CircleShape)
-                    .background(if (isAddFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
-                    .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x33FFFFFF), CircleShape)
-                    .clickable { onOpenAddGame() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+",
-                    color = Color.White,
-                    fontSize = if (isCompactHeight) 15.sp else 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
+            // Botão Adicionar Jogo (+) - Apenas na aba Jogos
+            if (selectedTab == 0) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isCompactHeight) 26.dp else 34.dp)
+                        .scale(addScale)
+                        .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
+                        .clip(CircleShape)
+                        .background(if (isAddFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
+                        .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x33FFFFFF), CircleShape)
+                        .clickable { onOpenAddGame() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        color = Color.White,
+                        fontSize = if (isCompactHeight) 15.sp else 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             // Signal + Battery + Time

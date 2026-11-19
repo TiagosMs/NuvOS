@@ -6,13 +6,13 @@ import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 
 enum class FolderCategory(val id: String, val title: String) {
-    SYSTEM("system", "Sistema & Google"),
-    MEDIA("media", "Mídia & Streaming"),
-    SOCIAL("social", "Comunicação & Social"),
-    PRODUCTIVITY("productivity", "Produtividade & Notas"),
-    TOOLS("tools", "Ferramentas & Web"),
-    CREATIVE("creative", "Criatividade & Arte"),
-    OTHERS("others", "Outros Aplicativos")
+    SYSTEM("system", "Sistema"),
+    MEDIA("media", "Mídia"),
+    SOCIAL("social", "Social"),
+    PRODUCTIVITY("productivity", "Produtividade"),
+    TOOLS("tools", "Ferramentas"),
+    CREATIVE("creative", "Criatividade"),
+    OTHERS("others", "Outros")
 }
 
 data class AppFolder(

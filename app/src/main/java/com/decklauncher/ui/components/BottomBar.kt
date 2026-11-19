@@ -69,7 +69,7 @@ fun BottomBar(
                 ControllerActionPrompt(
                     buttonLetter = "A",
                     buttonColor = BtnAGreen,
-                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir Pasta" else if (isEmulatorsTab) "Ver Jogos" else "Jogar",
+                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir" else if (isEmulatorsTab) "Ver Jogos" else "Jogar",
                     isCompactHeight = isCompactHeight
                 )
                 ControllerActionPrompt(
@@ -78,12 +78,14 @@ fun BottomBar(
                     actionLabel = "Opções",
                     isCompactHeight = isCompactHeight
                 )
-                ControllerActionPrompt(
-                    buttonLetter = "Y",
-                    buttonColor = BtnYYellow,
-                    actionLabel = "Adicionar Jogos",
-                    isCompactHeight = isCompactHeight
-                )
+                if (!isAppsTab) {
+                    ControllerActionPrompt(
+                        buttonLetter = "Y",
+                        buttonColor = BtnYYellow,
+                        actionLabel = "Adicionar Jogos",
+                        isCompactHeight = isCompactHeight
+                    )
+                }
                 if (isAppsTab && isInsideFolder) {
                     ControllerActionPrompt(
                         buttonLetter = "B",

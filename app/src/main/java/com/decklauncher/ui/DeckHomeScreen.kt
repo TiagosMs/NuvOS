@@ -155,6 +155,7 @@ fun DeckHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val carouselState = rememberLazyListState()
     val folderRowState = rememberLazyListState()
+    val folderGridState = rememberLazyGridState()
     val gridState = rememberLazyGridState()
     val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
 
@@ -239,11 +240,11 @@ fun DeckHomeScreen(
         }
     }
 
-    // Auto-scroll folders row
+    // Auto-scroll folders grid
     LaunchedEffect(safeIndex, activeFolder) {
         if (selectedTab == 2 && activeFolder == null && folders.isNotEmpty()) {
             coroutineScope.launch {
-                folderRowState.animateScrollToItem(safeIndex)
+                folderGridState.animateScrollToItem(safeIndex)
             }
         }
     }
@@ -530,32 +531,102 @@ fun DeckHomeScreen(
                         } else {
                             // Tab 2: APPS - Organizados em Pastas por Categorias + Ícones Menores
                             if (activeFolder == null) {
-                                // Vista de Pastas (Folders View) - Limpo, sem textos redundantes
-                                Column(
+                                // Vista de Pastas estilo Mockup: Grid 3x3 na esquerda + Preview na direita
+                                Row(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(
-                                            horizontal = if (isCompactHeight) 20.dp else 40.dp,
-                                            vertical = if (isCompactHeight) 4.dp else 12.dp
+                                            start = if (isCompactHeight) 24.dp else 44.dp,
+                                            end = if (isCompactHeight) 24.dp else 44.dp,
+                                            top = if (isCompactHeight) 2.dp else 8.dp,
+                                            bottom = if (isCompactHeight) 4.dp else 10.dp
                                         ),
-                                    verticalArrangement = Arrangement.Center
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    LazyRow(
-                                        state = folderRowState,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 12.dp else 18.dp),
-                                        contentPadding = PaddingValues(horizontal = if (isCompactHeight) 6.dp else 8.dp)
+                                    // 1. Grid 3x3 de Pastas + Barra de Rolagem (Lado Esquerdo)
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(0.48f)
+                                            .fillMaxHeight(),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        itemsIndexed(
-                                            items = folders,
-                                            key = { _, folder -> folder.id }
-                                        ) { index, folder ->
-                                            AppFolderCard(
-                                                folder = folder,
-                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
-                                                onSelect = { onSelectedIndexChange(index) },
-                                                onOpen = { onOpenFolder(folder) }
-                                            )
+                                        LazyVerticalGrid(
+                                            columns = GridCells.Fixed(3),
+                                            state = folderGridState,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight(),
+                                            contentPadding = PaddingValues(
+                                                top = if (isCompactHeight) 4.dp else 8.dp,
+                                                bottom = if (isCompactHeight) 4.dp else 8.dp,
+                                                start = 2.dp,
+                                                end = 8.dp
+                                            ),
+                                            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp),
+                                            verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp)
+                                        ) {
+                                            itemsIndexed(
+                                                items = folders,
+                                                key = { _, folder -> folder.id }
+                                            ) { index, folder ->
+                                                AppFolderCard(
+                                                    folder = folder,
+                                                    isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
+                                                    onSelect = { onSelectedIndexChange(index) },
+                                                    onOpen = { onOpenFolder(folder) }
+                                                )
+                                            }
+                                        }
+
+                                        // Scrollbar vertical do Grid de Pastas
+                                        val folderScrollFraction = remember {
+                                            derivedStateOf {
+                                                val totalRows = (folders.size + 2) / 3
+                                                val firstRow = folderGridState.firstVisibleItemIndex / 3
+                                                if (totalRows <= 3) 0f
+                                                else (firstRow.toFloat() / (totalRows - 3).coerceAtLeast(1)).coerceIn(0f, 1f)
+                                            }
+                                        }
+                                        val animatedFolderScroll by animateFloatAsState(
+                                            targetValue = folderScrollFraction.value,
+                                            label = "folder_scroll"
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .fillMaxHeight(0.6f)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(Color(0x28FFFFFF))
+                                        ) {
+                                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                                val trackHeight = maxHeight
+                                                val thumbHeight = (trackHeight * 0.45f).coerceAtLeast(18.dp)
+                                                val maxOffset = trackHeight - thumbHeight
+                                                val thumbOffset = maxOffset * animatedFolderScroll
+
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(thumbHeight)
+                                                        .offset(y = thumbOffset)
+                                                        .clip(RoundedCornerShape(2.dp))
+                                                        .background(Color(0x88FFFFFF))
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // 2. Pré-visualização da Pasta Ativa (Lado Direito do Mockup)
+                                    val focusedFolder = folders.getOrNull(safeIndex.coerceIn(0, (folders.size - 1).coerceAtLeast(0)))
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(0.52f)
+                                            .fillMaxHeight(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (focusedFolder != null) {
+                                            FolderDetailPreview(folder = focusedFolder)
                                         }
                                     }
                                 }

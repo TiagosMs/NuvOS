@@ -1039,6 +1039,10 @@ class MainActivity : ComponentActivity() {
                         selectedIndexState.intValue -= GRID_COLUMNS
                         triggerHaptic()
                         return true
+                    } else if (isAppsTab && !isInsideFolder && selectedIndexState.intValue >= 3) {
+                        selectedIndexState.intValue -= 3
+                        triggerHaptic()
+                        return true
                     } else {
                         focusAreaState.value = FocusArea.TOP_BAR
                         topBarIndexState.intValue = 0
@@ -1263,6 +1267,9 @@ class MainActivity : ComponentActivity() {
                     if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
                         selectedIndexState.intValue -= GRID_COLUMNS
                         triggerHaptic()
+                    } else if (isAppsTab && !isInsideFolder && selectedIndexState.intValue >= 3) {
+                        selectedIndexState.intValue -= 3
+                        triggerHaptic()
                     } else {
                         focusAreaState.value = FocusArea.TOP_BAR
                         topBarIndexState.intValue = 0
@@ -1276,6 +1283,12 @@ class MainActivity : ComponentActivity() {
                     triggerHaptic()
                 } else if (isInsideFolder && count > 0) {
                     val next = selectedIndexState.intValue + GRID_COLUMNS
+                    if (next < count) {
+                        selectedIndexState.intValue = next
+                        triggerHaptic()
+                    }
+                } else if (isAppsTab && !isInsideFolder && count > 0) {
+                    val next = selectedIndexState.intValue + 3
                     if (next < count) {
                         selectedIndexState.intValue = next
                         triggerHaptic()
