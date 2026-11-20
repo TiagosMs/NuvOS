@@ -10,10 +10,12 @@ import androidx.compose.animation.togetherWith
 import com.decklauncher.ui.theme.Motion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -42,15 +44,20 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decklauncher.data.AppFolder
 import com.decklauncher.model.AppItem
+import com.decklauncher.ui.theme.BtnAGreen
+import com.decklauncher.ui.theme.BtnBRed
+import com.decklauncher.ui.theme.BtnXBlue
 import com.decklauncher.ui.theme.DotGreen
 import com.decklauncher.ui.theme.TextWhite
 import kotlin.math.PI
@@ -333,8 +340,8 @@ fun FolderIconGraphic(
 }
 
 /**
- * Card da pasta no grid 3x3 à esquerda (Mockup da Aba Apps),
- * agora com símbolo diferenciado para cada categoria e moldura de foco limpa.
+ * Card da pasta no carrossel horizontal (Aba Apps),
+ * com símbolo diferenciado para cada categoria, título e contagem de apps.
  */
 @Composable
 fun AppFolderCard(
@@ -348,27 +355,29 @@ fun AppFolderCard(
     val isCompactHeight = configuration.screenHeightDp < 520
 
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.04f else 0.98f,
+        targetValue = if (isSelected) 1.06f else 0.96f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "folder_scale"
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.5.dp else 0.dp,
+        targetValue = if (isSelected) 2.5.dp else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 200f),
         label = "folder_border"
     )
 
-    val shape = RoundedCornerShape(if (isCompactHeight) 16.dp else 22.dp)
+    val shape = RoundedCornerShape(if (isCompactHeight) 16.dp else 20.dp)
+    val cardWidth = if (isCompactHeight) 130.dp else 165.dp
+    val cardHeight = if (isCompactHeight) 88.dp else 115.dp
 
     Card(
         modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1.12f)
+            .width(cardWidth)
+            .height(cardHeight)
             .scale(scale)
             .clip(shape)
             .border(
-                BorderStroke(borderWidth, if (isSelected) Color.White else Color.Transparent),
+                BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x28FFFFFF)),
                 shape = shape
             )
             .clickable(
@@ -379,24 +388,43 @@ fun AppFolderCard(
             }
             .semantics { contentDescription = "Pasta ${folder.title}" },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF383838) else Color(0xFF303030)
+            containerColor = if (isSelected) Color(0xFF383838) else Color(0xFF262626)
         ),
         shape = shape
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(if (isCompactHeight) 10.dp else 16.dp),
-            contentAlignment = Alignment.Center
+                .padding(if (isCompactHeight) 8.dp else 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             FolderIconGraphic(
                 modifier = Modifier.size(
-                    width = if (isCompactHeight) 48.dp else 64.dp,
-                    height = if (isCompactHeight) 35.dp else 47.dp
+                    width = if (isCompactHeight) 44.dp else 56.dp,
+                    height = if (isCompactHeight) 32.dp else 40.dp
                 ),
                 folderId = folder.id,
                 color = if (isSelected) Color(0xFFE4E4E4) else Color(0xFFCBCBCB),
                 symbolColor = if (isSelected) Color(0xFF22262E) else Color(0xFF2D323B)
+            )
+
+            Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 6.dp))
+
+            Text(
+                text = folder.title,
+                color = if (isSelected) Color.White else Color(0xFFC0C0C0),
+                fontSize = if (isCompactHeight) 12.sp else 13.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "${folder.apps.size} ${if (folder.apps.size == 1) "app" else "apps"}",
+                color = if (isSelected) DotGreen else Color(0x88FFFFFF),
+                fontSize = if (isCompactHeight) 10.sp else 11.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -475,8 +503,8 @@ fun FolderDetailPreview(
         label = "folder_phase"
     )
 
-    val folderWidth = if (isCompactHeight) 175.dp else 235.dp
-    val folderHeight = if (isCompactHeight) 120.dp else 160.dp
+    val folderWidth = if (isCompactHeight) 155.dp else 215.dp
+    val folderHeight = if (isCompactHeight) 105.dp else 145.dp
 
     Column(
         modifier = modifier,
@@ -726,18 +754,18 @@ fun FolderDetailPreview(
             }
         }
 
-        Spacer(modifier = Modifier.height(if (isCompactHeight) 10.dp else 18.dp))
+        Spacer(modifier = Modifier.height(if (isCompactHeight) 6.dp else 10.dp))
 
         // Título em destaque da categoria
         Text(
             text = folder.title,
             color = Color.White,
-            fontSize = if (isCompactHeight) 24.sp else 32.sp,
+            fontSize = if (isCompactHeight) 22.sp else 28.sp,
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 6.dp))
+        Spacer(modifier = Modifier.height(if (isCompactHeight) 3.dp else 5.dp))
 
         // Pílula com contagem de aplicativos estilo console
         Row(
@@ -763,5 +791,313 @@ fun FolderDetailPreview(
                 letterSpacing = 0.8.sp
             )
         }
+    }
+}
+
+/**
+ * Tile de aplicativo no carrossel de console dentro de pastas,
+ * com ícones 100% preenchidos de ponta a ponta (sem bordas/padding interno),
+ * cantos suaves em squircle, escala de foco animada e suporte a controle.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ConsoleAppTile(
+    app: AppItem,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onLaunch: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val configuration = LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
+
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.08f else 0.94f,
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 170f),
+        label = "console_tile_scale"
+    )
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 3.dp else 1.dp,
+        animationSpec = spring(dampingRatio = 0.88f, stiffness = 200f),
+        label = "console_tile_border"
+    )
+
+    val tileSize = if (isCompactHeight) 80.dp else 105.dp
+    val tileShape = RoundedCornerShape(if (isCompactHeight) 16.dp else 22.dp)
+
+    Column(
+        modifier = modifier
+            .width(tileSize + 12.dp)
+            .scale(scale)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    if (isSelected) onLaunch() else onSelect()
+                },
+                onLongClick = {
+                    onSelect()
+                    onLongClick?.invoke()
+                }
+            )
+            .semantics { contentDescription = app.label },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(tileSize)
+                .clip(tileShape)
+                .background(Color(0xFF22242B))
+                .border(
+                    BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x28FFFFFF)),
+                    shape = tileShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val icon = com.decklauncher.data.rememberAppIcon(app)
+            if (icon != null) {
+                Image(
+                    bitmap = icon,
+                    contentDescription = app.label,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(tileShape)
+                )
+            } else {
+                Text(
+                    text = app.label.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = if (isCompactHeight) 24.sp else 30.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 6.dp))
+
+        Text(
+            text = app.label,
+            color = if (isSelected) Color.White else Color(0xFF9E9E9E),
+            fontSize = if (isCompactHeight) 10.sp else 12.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
+        )
+    }
+}
+
+/**
+ * Showcase superior de aplicativo focado no estilo console,
+ * apresentando ícone amplo edge-to-edge, título de alto impacto, tag da pasta
+ * e botões de ação interativos do controle ([A] Iniciar, [X] Opções, [B] Voltar).
+ */
+@Composable
+fun FolderAppShowcase(
+    app: AppItem?,
+    folderTitle: String,
+    currentIndex: Int,
+    totalApps: Int,
+    accentColor: Color,
+    onLaunch: () -> Unit,
+    onManage: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val configuration = LocalConfiguration.current
+    val isCompactHeight = configuration.screenHeightDp < 520
+
+    if (app == null) return
+
+    val iconSize = if (isCompactHeight) 76.dp else 105.dp
+    val iconShape = RoundedCornerShape(if (isCompactHeight) 18.dp else 24.dp)
+    val appIcon = com.decklauncher.data.rememberAppIcon(app)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (isCompactHeight) 28.dp else 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 20.dp else 28.dp)
+    ) {
+        // Grande Ícone do App em destaque (100% preenchido)
+        Box(
+            modifier = Modifier
+                .size(iconSize)
+                .clip(iconShape)
+                .background(Color(0xFF252830))
+                .border(2.5.dp, Color.White, iconShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (appIcon != null) {
+                Image(
+                    bitmap = appIcon,
+                    contentDescription = app.label,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(iconShape)
+                )
+            } else {
+                Text(
+                    text = app.label.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = if (isCompactHeight) 28.sp else 38.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+
+        // Coluna de Informações e Botões Console
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Tag da Pasta e Contagem
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0x28FFFFFF))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(DotGreen)
+                )
+                Text(
+                    text = "$folderTitle  •  ${currentIndex + 1} DE $totalApps".uppercase(),
+                    color = Color(0xFFDDDDDD),
+                    fontSize = if (isCompactHeight) 9.sp else 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(if (isCompactHeight) 4.dp else 8.dp))
+
+            // Título do App
+            Text(
+                text = app.label,
+                color = Color.White,
+                fontSize = if (isCompactHeight) 22.sp else 30.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Pacote / Subtítulo
+            Text(
+                text = app.packageName,
+                color = Color(0x88FFFFFF),
+                fontSize = if (isCompactHeight) 10.sp else 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(if (isCompactHeight) 8.dp else 14.dp))
+
+            // Linha de Ações Estilo Console ([A] Iniciar, [X] Opções, [B] Voltar)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Botão [A] INICIAR
+                ConsoleActionButton(
+                    buttonLabel = "A",
+                    actionText = "INICIAR",
+                    badgeBgColor = BtnAGreen,
+                    badgeTextColor = Color.Black,
+                    containerBg = Color(0x3328A745),
+                    borderColor = BtnAGreen.copy(alpha = 0.5f),
+                    onClick = onLaunch,
+                    isCompact = isCompactHeight
+                )
+
+                // Botão [X] OPÇÕES
+                ConsoleActionButton(
+                    buttonLabel = "X",
+                    actionText = "OPÇÕES",
+                    badgeBgColor = BtnXBlue,
+                    badgeTextColor = Color.White,
+                    containerBg = Color(0x28FFFFFF),
+                    borderColor = Color(0x33FFFFFF),
+                    onClick = onManage,
+                    isCompact = isCompactHeight
+                )
+
+                // Botão [B] VOLTAR
+                ConsoleActionButton(
+                    buttonLabel = "B",
+                    actionText = "VOLTAR",
+                    badgeBgColor = BtnBRed,
+                    badgeTextColor = Color.White,
+                    containerBg = Color(0x28FFFFFF),
+                    borderColor = Color(0x33FFFFFF),
+                    onClick = onBack,
+                    isCompact = isCompactHeight
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConsoleActionButton(
+    buttonLabel: String,
+    actionText: String,
+    badgeBgColor: Color,
+    badgeTextColor: Color,
+    containerBg: Color,
+    borderColor: Color,
+    onClick: () -> Unit,
+    isCompact: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(containerBg)
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(
+                horizontal = if (isCompact) 10.dp else 12.dp,
+                vertical = if (isCompact) 4.dp else 6.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (isCompact) 16.dp else 19.dp)
+                .clip(CircleShape)
+                .background(badgeBgColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = buttonLabel,
+                color = badgeTextColor,
+                fontSize = if (isCompact) 9.sp else 11.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+        Text(
+            text = actionText,
+            color = Color.White,
+            fontSize = if (isCompact) 10.sp else 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
+        )
     }
 }

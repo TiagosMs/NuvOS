@@ -177,9 +177,11 @@ fun DeckHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val carouselState = rememberLazyListState()
     val folderRowState = rememberLazyListState()
-    val folderGridState = rememberLazyGridState()
-    val gridState = rememberLazyGridState()
+    val folderCarouselState = rememberLazyListState()
+    val folderAppsCarouselState = rememberLazyListState()
     val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
+    val folderSnapFling = rememberSnapFlingBehavior(lazyListState = folderCarouselState)
+    val folderAppsSnapFling = rememberSnapFlingBehavior(lazyListState = folderAppsCarouselState)
 
     // Current category based on tab:
     // Tab 0: Jogos (Android Games, Cloud Games, ROMs)
@@ -273,43 +275,25 @@ fun DeckHomeScreen(
         }
     }
 
-    // Auto-scroll inside folder
-    LaunchedEffect(safeIndex, activeFolder) {
-        if (selectedTab == 2 && activeFolder != null && activeFolder.apps.isNotEmpty()) {
-            coroutineScope.launch {
-                gridState.animateScrollToItem(safeIndex)
-            }
-        }
-    }
-
-    // Auto-scroll folders grid
-    LaunchedEffect(safeIndex, activeFolder) {
+    // Auto-scroll folder carousel with horizontal centering
+    LaunchedEffect(safeIndex, activeFolder, selectedTab) {
         if (selectedTab == 2 && activeFolder == null && folders.isNotEmpty()) {
-            coroutineScope.launch {
-                folderGridState.animateScrollToItem(safeIndex)
-            }
+            val info = folderCarouselState.layoutInfo
+            val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+            val offset = if (itemW > 0) -(info.viewportSize.width - itemW) / 2 else 0
+            folderCarouselState.animateScrollToItem(safeIndex, offset)
         }
     }
 
-    // Dynamic scrollbar thumb position for Grid
-    val scrollFraction by remember {
-        derivedStateOf {
-            val layoutInfo = gridState.layoutInfo
-            val totalItems = layoutInfo.totalItemsCount
-            val visibleItems = layoutInfo.visibleItemsInfo.size
-            if (totalItems <= visibleItems || totalItems == 0) {
-                0f
-            } else {
-                val firstIndex = gridState.firstVisibleItemIndex.toFloat()
-                (firstIndex / (totalItems - visibleItems).coerceAtLeast(1)).coerceIn(0f, 1f)
-            }
+    // Auto-scroll inside folder apps carousel with horizontal centering
+    LaunchedEffect(safeIndex, activeFolder, selectedTab) {
+        if (selectedTab == 2 && activeFolder != null && activeFolder.apps.isNotEmpty()) {
+            val info = folderAppsCarouselState.layoutInfo
+            val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+            val offset = if (itemW > 0) -(info.viewportSize.width - itemW) / 2 else 0
+            folderAppsCarouselState.animateScrollToItem(safeIndex, offset)
         }
     }
-
-    val animatedThumbOffset by animateFloatAsState(
-        targetValue = scrollFraction,
-        label = "scrollbar_thumb"
-    )
 
     Box(
         modifier = modifier
@@ -562,100 +546,22 @@ fun DeckHomeScreen(
                                 }
                             }
                         } else {
-                            // Tab 2: APPS - Organizados em Pastas por Categorias + Ícones Menores
+                            // Tab 2: APPS - Organizados em Pastas por Categorias
                             if (activeFolder == null) {
-                                // Vista de Pastas estilo Mockup: Grid 3x3 na esquerda + Preview na direita
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            start = if (isCompactHeight) 24.dp else 44.dp,
-                                            end = if (isCompactHeight) 24.dp else 44.dp,
-                                            top = if (isCompactHeight) 2.dp else 8.dp,
-                                            bottom = if (isCompactHeight) 4.dp else 10.dp
-                                        ),
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Vista de Pastas: 3D Preview em cima + Carrossel Horizontal embaixo
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.Bottom
                                 ) {
-                                    // 1. Grid 3x3 de Pastas + Barra de Rolagem (Lado Esquerdo)
-                                    Row(
-                                        modifier = Modifier
-                                            .weight(0.48f)
-                                            .fillMaxHeight(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        LazyVerticalGrid(
-                                            columns = GridCells.Fixed(3),
-                                            state = folderGridState,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight(),
-                                            contentPadding = PaddingValues(
-                                                top = if (isCompactHeight) 4.dp else 8.dp,
-                                                bottom = if (isCompactHeight) 4.dp else 8.dp,
-                                                start = 2.dp,
-                                                end = 8.dp
-                                            ),
-                                            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp),
-                                            verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp)
-                                        ) {
-                                            itemsIndexed(
-                                                items = folders,
-                                                key = { _, folder -> folder.id }
-                                            ) { index, folder ->
-                                                AppFolderCard(
-                                                    folder = folder,
-                                                    isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
-                                                    onSelect = { onSelectedIndexChange(index) },
-                                                    onOpen = { onOpenFolder(folder) }
-                                                )
-                                            }
-                                        }
-
-                                        // Scrollbar vertical do Grid de Pastas
-                                        val folderScrollFraction = remember {
-                                            derivedStateOf {
-                                                val totalRows = (folders.size + 2) / 3
-                                                val firstRow = folderGridState.firstVisibleItemIndex / 3
-                                                if (totalRows <= 3) 0f
-                                                else (firstRow.toFloat() / (totalRows - 3).coerceAtLeast(1)).coerceIn(0f, 1f)
-                                            }
-                                        }
-                                        val animatedFolderScroll by animateFloatAsState(
-                                            targetValue = folderScrollFraction.value,
-                                            label = "folder_scroll"
-                                        )
-
-                                        Box(
-                                            modifier = Modifier
-                                                .width(4.dp)
-                                                .fillMaxHeight(0.6f)
-                                                .clip(RoundedCornerShape(2.dp))
-                                                .background(Color(0x28FFFFFF))
-                                        ) {
-                                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                                val trackHeight = maxHeight
-                                                val thumbHeight = (trackHeight * 0.45f).coerceAtLeast(18.dp)
-                                                val maxOffset = trackHeight - thumbHeight
-                                                val thumbOffset = maxOffset * animatedFolderScroll
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(thumbHeight)
-                                                        .offset(y = thumbOffset)
-                                                        .clip(RoundedCornerShape(2.dp))
-                                                        .background(Color(0x88FFFFFF))
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // 2. Pré-visualização da Pasta Ativa (Lado Direito do Mockup)
                                     val focusedFolder = folders.getOrNull(safeIndex.coerceIn(0, (folders.size - 1).coerceAtLeast(0)))
                                     Box(
                                         modifier = Modifier
-                                            .weight(0.52f)
-                                            .fillMaxHeight(),
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(
+                                                top = if (isCompactHeight) 2.dp else 10.dp,
+                                                bottom = if (isCompactHeight) 2.dp else 4.dp
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (focusedFolder != null) {
@@ -665,103 +571,88 @@ fun DeckHomeScreen(
                                             )
                                         }
                                     }
-                                }
-                            } else {
-                                // Vista dentro da Pasta (Folder Contents View) - Sem corte no topo, sem textos redundantes
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            horizontal = if (isCompactHeight) 20.dp else 40.dp,
-                                            vertical = if (isCompactHeight) 2.dp else 4.dp
-                                        )
-                                    ) {
-                                    Row(
+
+                                    LazyRow(
+                                        state = folderCarouselState,
+                                        flingBehavior = folderSnapFling,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(bottom = if (isCompactHeight) 2.dp else 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(bottom = if (isCompactHeight) 4.dp else 12.dp),
+                                        contentPadding = PaddingValues(horizontal = if (isCompactHeight) 24.dp else 40.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 12.dp else 16.dp),
+                                        verticalAlignment = Alignment.Bottom
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFF222222))
-                                                .clickable { onCloseFolder() }
-                                                .padding(horizontal = 12.dp, vertical = if (isCompactHeight) 4.dp else 6.dp)
-                                        ) {
-                                            Text(text = "◀ (B) Voltar", color = Color.White, fontSize = if (isCompactHeight) 11.sp else 12.sp, fontWeight = FontWeight.Bold)
-                                            Text(text = "|", color = Color(0x44FFFFFF))
-                                            Text(
-                                                text = "${activeFolder.title} (${activeFolder.apps.size})",
-                                                color = Color.White,
-                                                fontSize = if (isCompactHeight) 12.sp else 13.sp,
-                                                fontWeight = FontWeight.Bold
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.id }
+                                        ) { index, folder ->
+                                            AppFolderCard(
+                                                folder = folder,
+                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
+                                                onSelect = { onSelectedIndexChange(index) },
+                                                onOpen = { onOpenFolder(folder) }
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Vista dentro da Pasta (Folder Contents View) - Console Showcase em cima + Carrossel embaixo
+                                // Sem corte no topo, sem textos redundantes (inscrição "volta | sistema" completamente removida)
+                                val focusedApp = activeFolder.apps.getOrNull(safeIndex.coerceIn(0, (activeFolder.apps.size - 1).coerceAtLeast(0)))
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.Bottom
+                                ) {
+                                    // Showcase de topo do App em destaque com ações [A] Iniciar, [X] Opções, [B] Voltar
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(
+                                                top = if (isCompactHeight) 2.dp else 10.dp,
+                                                bottom = if (isCompactHeight) 2.dp else 4.dp
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (focusedApp != null) {
+                                            FolderAppShowcase(
+                                                app = focusedApp,
+                                                folderTitle = activeFolder.title,
+                                                currentIndex = safeIndex,
+                                                totalApps = activeFolder.apps.size,
+                                                accentColor = accentColor,
+                                                onLaunch = { onLaunchApp(focusedApp) },
+                                                onManage = { onRequestManageMetadata(focusedApp) },
+                                                onBack = { onCloseFolder() }
                                             )
                                         }
                                     }
 
-                                    // Compact Grid de Colunas com Padding superior ampliado (sem corte de topo)
-                                    Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                                        LazyVerticalGrid(
-                                            columns = GridCells.Fixed(if (isCompactHeight) 6 else 8),
-                                            state = gridState,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight(),
-                                            contentPadding = PaddingValues(
-                                                top = if (isCompactHeight) 6.dp else 16.dp,
-                                                bottom = if (isCompactHeight) 8.dp else 16.dp,
-                                                start = 4.dp,
-                                                end = 4.dp
-                                            ),
-                                            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp),
-                                            verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp)
-                                        ) {
-                                            itemsIndexed(
-                                                items = activeFolder.apps,
-                                                key = { _, app -> app.id }
-                                            ) { index, app ->
-                                                AppGridCard(
-                                                    app = app,
-                                                    isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
-                                                    onSelect = { onSelectedIndexChange(index) },
-                                                    onLaunch = { onLaunchApp(app) },
-                                                    onLongClick = {
-                                                        onSelectedIndexChange(index)
-                                                        onRequestManageMetadata(app)
-                                                    },
-                                                    showLabel = true
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.width(10.dp))
-
-                                        // Dynamic Scrollbar
-                                        Box(
-                                            modifier = Modifier
-                                                .width(4.dp)
-                                                .fillMaxHeight(0.7f)
-                                                .align(Alignment.CenterVertically)
-                                                .clip(RoundedCornerShape(2.dp))
-                                                .background(ScrollbarColor.copy(alpha = 0.35f))
-                                        ) {
-                                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                                val trackHeight = maxHeight
-                                                val thumbHeight = (trackHeight * 0.35f).coerceAtLeast(20.dp)
-                                                val maxOffset = trackHeight - thumbHeight
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(thumbHeight)
-                                                        .offset(y = maxOffset * animatedThumbOffset)
-                                                        .clip(RoundedCornerShape(2.dp))
-                                                        .background(ScrollbarColor)
-                                                )
-                                            }
+                                    // Carrossel horizontal de aplicativos com ícones 100% preenchidos de ponta a ponta
+                                    LazyRow(
+                                        state = folderAppsCarouselState,
+                                        flingBehavior = folderAppsSnapFling,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = if (isCompactHeight) 4.dp else 12.dp),
+                                        contentPadding = PaddingValues(horizontal = if (isCompactHeight) 24.dp else 40.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp),
+                                        verticalAlignment = Alignment.Bottom
+                                    ) {
+                                        itemsIndexed(
+                                            items = activeFolder.apps,
+                                            key = { _, app -> app.id }
+                                        ) { index, app ->
+                                            ConsoleAppTile(
+                                                app = app,
+                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
+                                                onSelect = { onSelectedIndexChange(index) },
+                                                onLaunch = { onLaunchApp(app) },
+                                                onLongClick = {
+                                                    onSelectedIndexChange(index)
+                                                    onRequestManageMetadata(app)
+                                                }
+                                            )
                                         }
                                     }
                                 }

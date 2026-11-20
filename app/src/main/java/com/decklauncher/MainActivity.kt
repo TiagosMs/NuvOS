@@ -184,6 +184,8 @@ class MainActivity : ComponentActivity() {
         private const val GRID_COLUMNS = 8
     }
 
+    private var lastFolderIndex = 0
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -333,13 +335,14 @@ class MainActivity : ComponentActivity() {
                         focusAreaState.value = FocusArea.CAROUSEL
                     },
                     onOpenFolder = { folder ->
+                        lastFolderIndex = selectedIndexState.intValue
                         activeFolderState.value = folder
                         selectedIndexState.intValue = 0
                         triggerHaptic()
                     },
                     onCloseFolder = {
                         activeFolderState.value = null
-                        selectedIndexState.intValue = 0
+                        selectedIndexState.intValue = lastFolderIndex
                         triggerHaptic()
                     },
                     onLaunchApp = { app ->
@@ -1183,8 +1186,17 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão Y: Abre diretamente o Catálogo de Jogos em Nuvem (Better xCloud) com pesquisa
+            // Botão Y: No interior de pastas abre opções do app focado, na tela inicial abre Better xCloud
             KeyEvent.KEYCODE_BUTTON_Y -> {
+                if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
+                    val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
+                    if (app != null) {
+                        activeDialogAppState.value = app
+                        showOptionsDialogState.value = true
+                        triggerHaptic()
+                        return true
+                    }
+                }
                 showAddCloudDialogState.value = true
                 triggerHaptic()
                 return true
@@ -1237,22 +1249,10 @@ class MainActivity : ComponentActivity() {
             }
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if (focusAreaState.value == FocusArea.CAROUSEL) {
-                    val isAppsTab = selectedTabState.intValue == 2
-                    val isInsideFolder = isAppsTab && activeFolderState.value != null
-                    if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
-                        selectedIndexState.intValue -= GRID_COLUMNS
-                        triggerHaptic()
-                        return true
-                    } else if (isAppsTab && !isInsideFolder && selectedIndexState.intValue >= 3) {
-                        selectedIndexState.intValue -= 3
-                        triggerHaptic()
-                        return true
-                    } else {
-                        focusAreaState.value = FocusArea.TOP_BAR
-                        topBarIndexState.intValue = 0
-                        triggerHaptic()
-                        return true
-                    }
+                    focusAreaState.value = FocusArea.TOP_BAR
+                    topBarIndexState.intValue = 0
+                    triggerHaptic()
+                    return true
                 }
                 return true
             }
@@ -1286,7 +1286,7 @@ class MainActivity : ComponentActivity() {
                 }
                 if (activeFolderState.value != null) {
                     activeFolderState.value = null
-                    selectedIndexState.intValue = 0
+                    selectedIndexState.intValue = lastFolderIndex
                     triggerHaptic()
                     return true
                 }
@@ -1420,35 +1420,15 @@ class MainActivity : ComponentActivity() {
             }
             JoystickDir.UP -> {
                 if (focusAreaState.value == FocusArea.CAROUSEL) {
-                    if (isInsideFolder && selectedIndexState.intValue >= GRID_COLUMNS) {
-                        selectedIndexState.intValue -= GRID_COLUMNS
-                        triggerHaptic()
-                    } else if (isAppsTab && !isInsideFolder && selectedIndexState.intValue >= 3) {
-                        selectedIndexState.intValue -= 3
-                        triggerHaptic()
-                    } else {
-                        focusAreaState.value = FocusArea.TOP_BAR
-                        topBarIndexState.intValue = 0
-                        triggerHaptic()
-                    }
+                    focusAreaState.value = FocusArea.TOP_BAR
+                    topBarIndexState.intValue = 0
+                    triggerHaptic()
                 }
             }
             JoystickDir.DOWN -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
                     focusAreaState.value = FocusArea.CAROUSEL
                     triggerHaptic()
-                } else if (isInsideFolder && count > 0) {
-                    val next = selectedIndexState.intValue + GRID_COLUMNS
-                    if (next < count) {
-                        selectedIndexState.intValue = next
-                        triggerHaptic()
-                    }
-                } else if (isAppsTab && !isInsideFolder && count > 0) {
-                    val next = selectedIndexState.intValue + 3
-                    if (next < count) {
-                        selectedIndexState.intValue = next
-                        triggerHaptic()
-                    }
                 }
             }
             JoystickDir.NONE -> {}
@@ -1472,6 +1452,7 @@ class MainActivity : ComponentActivity() {
             if (activeFolderState.value == null) {
                 val folder = folders.getOrNull(selectedIndexState.intValue)
                 if (folder != null) {
+                    lastFolderIndex = selectedIndexState.intValue
                     activeFolderState.value = folder
                     selectedIndexState.intValue = 0
                 }
