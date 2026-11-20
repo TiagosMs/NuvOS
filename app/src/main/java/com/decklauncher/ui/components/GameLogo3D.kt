@@ -128,7 +128,7 @@ fun GameLogo3D(
                         .drawBehind {
                             val p = phase.value
                             val normSine = (sin(p) * 0.5f + 0.5f)
-                            val sAlpha = 0.32f + 0.16f * normSine
+                            val sAlpha = (0.32f + 0.16f * normSine).coerceIn(0f, 1f)
                             val scaleW = 0.92f + 0.16f * normSine
 
                             val sw = size.width * scaleW
@@ -140,8 +140,8 @@ fun GameLogo3D(
                             drawOval(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        accentColor.copy(alpha = 0.40f * sAlpha),
-                                        accentColor.copy(alpha = 0.10f * sAlpha),
+                                        accentColor.copy(alpha = (0.40f * sAlpha).coerceIn(0f, 1f)),
+                                        accentColor.copy(alpha = (0.10f * sAlpha).coerceIn(0f, 1f)),
                                         Color.Transparent
                                     ),
                                     center = Offset(size.width * 0.5f, size.height * 0.5f),
@@ -156,7 +156,7 @@ fun GameLogo3D(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
                                         Color.Black.copy(alpha = sAlpha),
-                                        Color.Black.copy(alpha = sAlpha * 0.35f),
+                                        Color.Black.copy(alpha = (sAlpha * 0.35f).coerceIn(0f, 1f)),
                                         Color.Transparent
                                     ),
                                     center = Offset(size.width * 0.5f, size.height * 0.5f),

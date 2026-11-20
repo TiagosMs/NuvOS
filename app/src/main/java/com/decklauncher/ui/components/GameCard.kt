@@ -101,14 +101,14 @@ fun GameCard(
                     scaleY = s
                 }
                 .drawBehind {
-                    val a = sel.value
+                    val a = sel.value.coerceIn(0f, 1f)
                     if (a > 0.01f) {
                         val glowColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor
                         val baseRadius = cornerRadiusDp.toPx()
                         repeat(3) { i ->
                             val grow = (4 + i * 5).dp.toPx()
                             drawRoundRect(
-                                color = glowColor.copy(alpha = 0.22f * a / (i + 1)),
+                                color = glowColor.copy(alpha = (0.22f * a / (i + 1)).coerceIn(0f, 1f)),
                                 topLeft = Offset(-grow, -grow),
                                 size = Size(size.width + grow * 2, size.height + grow * 2),
                                 cornerRadius = CornerRadius(baseRadius + grow)
@@ -119,7 +119,7 @@ fun GameCard(
                 .clip(shape)
                 .drawWithContent {
                     drawContent()
-                    val a = sel.value
+                    val a = sel.value.coerceIn(0f, 1f)
                     if (a > 0.01f) {
                         val strokeColor = if (isReorderMode) Color(0xFFF59E0B) else Color.White
                         val strokeWidth = if (isCompactHeight) 2.8.dp.toPx() else 3.5.dp.toPx()

@@ -500,7 +500,7 @@ fun FolderDetailPreview(
                     .drawBehind {
                         val p = phase.value
                         val norm = sin(p) * 0.5f + 0.5f
-                        val sAlpha = 0.35f + 0.15f * norm
+                        val sAlpha = (0.35f + 0.15f * norm).coerceIn(0f, 1f)
                         val scaleW = 0.94f + 0.12f * norm
 
                         val sw = size.width * scaleW
@@ -511,7 +511,7 @@ fun FolderDetailPreview(
                         drawOval(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    accentColor.copy(alpha = 0.30f * sAlpha),
+                                    accentColor.copy(alpha = (0.30f * sAlpha).coerceIn(0f, 1f)),
                                     Color.Transparent
                                 ),
                                 center = Offset(size.width * 0.5f, size.height * 0.5f),
@@ -526,7 +526,7 @@ fun FolderDetailPreview(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.Black.copy(alpha = sAlpha),
-                                    Color.Black.copy(alpha = sAlpha * 0.4f),
+                                    Color.Black.copy(alpha = (sAlpha * 0.4f).coerceIn(0f, 1f)),
                                     Color.Transparent
                                 ),
                                 center = Offset(size.width * 0.5f, size.height * 0.5f),
