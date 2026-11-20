@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +26,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -55,8 +58,12 @@ fun TopBar(
     onOpenAddGame: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val activePreset = remember(avatarId) {
         ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
+    }
+    val customAvatar = remember(avatarId, ProfileManager.avatarVersion) {
+        if (avatarId == ProfileManager.CUSTOM_AVATAR_ID) ProfileManager.loadCustomAvatar(context) else null
     }
 
     var currentTime by remember {
@@ -77,9 +84,10 @@ fun TopBar(
 
     // Animações de cursor e foco para TopBar
     val isProfileFocused = isTopBarFocused && topBarIndex == 0
-    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.08f else 1.0f, label = "profile_scale")
-    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 2.5.dp else 0.dp, label = "profile_border")
-    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x40FFFFFF) else Color.Transparent, label = "profile_bg")
+    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.06f else 1.0f, label = "profile_scale")
+    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 2.dp else 1.dp, label = "profile_border")
+    val profileBorderColor by animateColorAsState(targetValue = if (isProfileFocused) Color.White else Color(0x35FFFFFF), label = "profile_border_color")
+    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x40FFFFFF) else Color(0x1AFFFFFF), label = "profile_bg")
 
     val isAddFocused = isTopBarFocused && topBarIndex == 1
     val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.15f else 1.0f, label = "add_scale")
@@ -95,51 +103,55 @@ fun TopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Canto superior esquerdo: Ícone de Perfil / Menu de Configurações do Launcher
+        // Canto superior esquerdo: Pílula de Perfil com moldura (sem tracinhos do select e sem aro sobre o avatar)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 9.dp),
             modifier = Modifier
                 .scale(profileScale)
                 .clip(RoundedCornerShape(20.dp))
                 .background(profileBg)
-                .border(profileBorderWidth, Color.White, RoundedCornerShape(20.dp))
+                .border(profileBorderWidth, profileBorderColor, RoundedCornerShape(20.dp))
                 .clickable { onOpenProfileSettings() }
-                .padding(vertical = if (isCompactHeight) 2.dp else 4.dp, horizontal = if (isCompactHeight) 8.dp else 12.dp)
+                .padding(
+                    vertical = if (isCompactHeight) 3.dp else 5.dp,
+                    horizontal = if (isCompactHeight) 8.dp else 12.dp
+                )
         ) {
-            // Ícone Hamburger (≡)
-            Column(
-                verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 2.5.dp else 3.5.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(end = if (isCompactHeight) 2.dp else 4.dp)
-            ) {
-                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
-                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
-                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
-            }
-
-            // Avatar Circular com anel de destaque
+            // Avatar Circular sem aro sobreposto
             Box(
                 modifier = Modifier
-                    .size(if (isCompactHeight) 26.dp else 34.dp)
+                    .size(if (isCompactHeight) 24.dp else 30.dp)
                     .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(activePreset.primaryColor),
-                                Color(activePreset.accentColor)
+                    .then(
+                        if (customAvatar == null) {
+                            Modifier.background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color(activePreset.primaryColor),
+                                        Color(activePreset.accentColor)
+                                    )
+                                )
                             )
-                        )
-                    )
-                    .border(if (isProfileFocused) 2.dp else 1.5.dp, Color.White, CircleShape),
+                        } else Modifier
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = activePreset.initial,
-                    color = Color.White,
-                    fontSize = if (isCompactHeight) 12.sp else 15.sp,
-                    fontWeight = FontWeight.Black
-                )
+                if (customAvatar != null) {
+                    Image(
+                        bitmap = customAvatar.asImageBitmap(),
+                        contentDescription = "Foto de Perfil",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = activePreset.initial,
+                        color = Color.White,
+                        fontSize = if (isCompactHeight) 12.sp else 15.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
 
             Text(

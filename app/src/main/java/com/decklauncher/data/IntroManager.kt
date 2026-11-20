@@ -212,11 +212,29 @@ object IntroManager {
             return ALL_INTROS.firstOrNull { it.id == "xbox_series" }
         }
 
-        // 5. Detecção por ROM (extensão de arquivo)
+        // 5. Detecção por ROM (sistema detectado ou extensão de arquivo)
         if (app.itemType == ItemType.ROM) {
             val path = app.romPath?.lowercase() ?: ""
-            val ext = path.substringAfterLast(".", "")
+            val file = java.io.File(path)
+            if (file.exists()) {
+                val sys = RomSystemDetector.detectSystem(file)
+                val intro = when (sys) {
+                    "psp" -> ALL_INTROS.firstOrNull { it.id == "psp" }
+                    "ps2" -> ALL_INTROS.firstOrNull { it.id == "ps2" }
+                    "ps1" -> ALL_INTROS.firstOrNull { it.id == "ps1" }
+                    "gamecube" -> ALL_INTROS.firstOrNull { it.id == "gamecube" }
+                    "wii" -> ALL_INTROS.firstOrNull { it.id == "wii" }
+                    "nds" -> ALL_INTROS.firstOrNull { it.id == "nds" }
+                    "3ds" -> ALL_INTROS.firstOrNull { it.id == "3ds" }
+                    "xbox" -> ALL_INTROS.firstOrNull { it.id == "xbox_classic" }
+                    "dreamcast" -> ALL_INTROS.firstOrNull { it.id == "dreamcast" }
+                    "switch" -> ALL_INTROS.firstOrNull { it.id == "switch" }
+                    else -> null
+                }
+                if (intro != null) return intro
+            }
 
+            val ext = path.substringAfterLast(".", "")
             when (ext) {
                 "nds" -> return ALL_INTROS.firstOrNull { it.id == "nds" }
                 "3ds" -> return ALL_INTROS.firstOrNull { it.id == "3ds" }
@@ -227,7 +245,6 @@ object IntroManager {
                 "wua", "rpx" -> return ALL_INTROS.firstOrNull { it.id == "wiiu" }
                 "nsp", "xci" -> return ALL_INTROS.firstOrNull { it.id == "switch" }
                 "iso", "cso" -> {
-                    // Diferencia PSP, PS2, GameCube ou Wii
                     val targetPkg = app.packageName.lowercase()
                     if (targetPkg.contains("aethersx2") || targetPkg.contains("nether") || path.contains("ps2")) {
                         return ALL_INTROS.firstOrNull { it.id == "ps2" }

@@ -160,6 +160,9 @@ fun BootIntroPlayer(
                                             }
                                         }
 
+                                        setOnPreparedListener { player ->
+                                            player.start()
+                                        }
                                         setOnCompletionListener {
                                             triggerFinishWithFade()
                                         }
@@ -167,8 +170,7 @@ fun BootIntroPlayer(
                                             triggerFinishWithFade()
                                             true
                                         }
-                                        prepare()
-                                        start()
+                                        prepareAsync()
                                     }
                                     mediaPlayer = mp
                                 } catch (e: Exception) {

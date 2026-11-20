@@ -3,6 +3,7 @@ package com.decklauncher.ui
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -30,10 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -41,6 +43,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.decklauncher.data.*
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
@@ -64,6 +69,8 @@ fun DeckHomeScreen(
     activeDialogApp: AppItem?,
     isLoading: Boolean,
     showOptionsDialog: Boolean,
+    showGameMetadataDialog: Boolean = false,
+    showSelectMusicDialog: Boolean = false,
     showEditCoverDialog: Boolean,
     showEditHeroDialog: Boolean = false,
     showEditLogoDialog: Boolean = false,
@@ -106,6 +113,8 @@ fun DeckHomeScreen(
     onOpenSettings: (AppItem?) -> Unit,
     onUninstallApp: (AppItem) -> Unit,
     onDismissOptions: () -> Unit,
+    onDismissGameMetadata: () -> Unit = {},
+    onDismissSelectMusic: () -> Unit = {},
     onDismissEditCover: () -> Unit,
     onDismissEditHero: () -> Unit = {},
     onDismissEditLogo: () -> Unit = {},
@@ -118,8 +127,16 @@ fun DeckHomeScreen(
     onDismissLauncherSettings: () -> Unit = {},
     onDismissChangeAvatar: () -> Unit = {},
     onDismissEmulatorGames: () -> Unit = {},
+    showIidbKeyDialog: Boolean = false,
+    onDismissIidbKey: () -> Unit = {},
+    onRequestIidbKey: () -> Unit = {},
+    onRequestFetchIidb: (AppItem) -> Unit = {},
+    onSaveIidbKey: (String) -> Unit = {},
     onTogglePinGame: (AppItem) -> Unit = {},
     onLaunchRom: (AppItem) -> Unit = {},
+    onRequestManageMetadata: (AppItem) -> Unit = {},
+    onRequestEditMusic: (AppItem) -> Unit = {},
+    onDeleteAllGameMetadata: (AppItem) -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
     onRequestEditHero: (AppItem) -> Unit = {},
     onRequestEditLogo: (AppItem) -> Unit = {},
@@ -137,12 +154,17 @@ fun DeckHomeScreen(
     onRequestReorderMode: () -> Unit = {},
     onAvatarSelected: (String) -> Unit = {},
     onProfileNameUpdated: (String) -> Unit = {},
+    onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
     onSaveSteamGridKey: (String) -> Unit,
     onSelectIconPack: (String?) -> Unit,
     onApplyCoverUrl: (AppItem, String) -> Unit,
     onApplyHeroUrl: (AppItem, String) -> Unit = { _, _ -> },
     onApplyLogoUrl: (AppItem, String) -> Unit = { _, _ -> },
     onIntroSelected: (AppItem, String?) -> Unit = { _, _ -> },
+    onApplySoundbiteUrl: (AppItem, String) -> Unit = { _, _ -> },
+    onRemoveSoundbite: (AppItem) -> Unit = {},
+    onClearAllMetadata: () -> Unit = {},
+    metadataUpdateCounter: Int = 0,
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
@@ -155,9 +177,11 @@ fun DeckHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val carouselState = rememberLazyListState()
     val folderRowState = rememberLazyListState()
-    val folderGridState = rememberLazyGridState()
-    val gridState = rememberLazyGridState()
+    val folderCarouselState = rememberLazyListState()
+    val folderAppsCarouselState = rememberLazyListState()
     val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
+    val folderSnapFling = rememberSnapFlingBehavior(lazyListState = folderCarouselState)
+    val folderAppsSnapFling = rememberSnapFlingBehavior(lazyListState = folderAppsCarouselState)
 
     // Current category based on tab:
     // Tab 0: Jogos (Android Games, Cloud Games, ROMs)
@@ -196,78 +220,80 @@ fun DeckHomeScreen(
         }
     }
 
-    // Dynamic 16:9 hero background & 3DS Logo adaptativo com SteamGridDB
-    var currentHeroBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var currentLogoBitmap by remember { mutableStateOf<Bitmap?>(null) }
-
-    LaunchedEffect(currentFocusedApp?.id, selectedTab) {
-        if ((selectedTab == 0 || selectedTab == 1) && currentFocusedApp != null) {
-            delay(120) // Debounce para navegação rápida
-            val target = currentFocusedApp
-            coroutineScope.launch {
-                val hero = HeroManager.getOrFetchHero(context, target.id, target.label)
-                if (currentFocusedApp?.id == target.id) {
-                    currentHeroBitmap = hero
-                }
+    // Dynamic 3DS Logo com produceState anti-race e debounce estrito por appId (Fase 2.7)
+    val currentLogoState by produceState<Pair<String, Bitmap?>?>(
+        initialValue = null,
+        key1 = currentFocusedApp?.id,
+        key2 = selectedTab,
+        key3 = metadataUpdateCounter
+    ) {
+        val app = currentFocusedApp
+        if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            val targetId = app.id
+            val local = withContext(Dispatchers.IO) {
+                LogoManager.loadLocalLogo(context, targetId)
             }
-            coroutineScope.launch {
-                val logo = LogoManager.getOrFetchLogo(context, target.id, target.label)
-                if (currentFocusedApp?.id == target.id) {
-                    currentLogoBitmap = logo
-                }
-            }
+            value = Pair(targetId, local)
         } else {
-            currentHeroBitmap = null
-            currentLogoBitmap = null
+            value = null
         }
     }
 
-    // Auto-scroll Carousel (Jogos / Emuladores)
+    val currentLogoBitmap = if (currentLogoState?.first == currentFocusedApp?.id) currentLogoState?.second else null
+
+    // Theme Music playback com debounce de 350ms (iiDB soundbite loop)
+    LaunchedEffect(currentFocusedApp?.id, selectedTab) {
+        val app = currentFocusedApp
+        if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            delay(350)
+            ThemeMusicManager.playTheme(context, app.id, app.label)
+        } else {
+            ThemeMusicManager.stopTheme()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            ThemeMusicManager.stopTheme()
+        }
+    }
+
+    val heroFile = remember(currentFocusedApp?.id, metadataUpdateCounter) {
+        currentFocusedApp?.let { HeroManager.getHeroFile(context, it.id).takeIf { f -> f.exists() } }
+    }
+    val blurFile = remember(currentFocusedApp?.id, metadataUpdateCounter) {
+        currentFocusedApp?.let { HeroManager.getHeroBlurFile(context, it.id).takeIf { f -> f.exists() } }
+    }
+
+    // Auto-scroll Carousel (Jogos / Emuladores) com centralização (Fase 4.6)
     LaunchedEffect(safeIndex, selectedTab) {
         if (selectedTab != 2 && filteredApps.isNotEmpty()) {
-            coroutineScope.launch {
-                carouselState.animateScrollToItem(safeIndex)
-            }
+            val info = carouselState.layoutInfo
+            val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+            val offset = if (itemW > 0) -(info.viewportSize.width - itemW) / 2 else 0
+            carouselState.animateScrollToItem(safeIndex, offset)
         }
     }
 
-    // Auto-scroll inside folder
-    LaunchedEffect(safeIndex, activeFolder) {
-        if (selectedTab == 2 && activeFolder != null && activeFolder.apps.isNotEmpty()) {
-            coroutineScope.launch {
-                gridState.animateScrollToItem(safeIndex)
-            }
-        }
-    }
-
-    // Auto-scroll folders grid
-    LaunchedEffect(safeIndex, activeFolder) {
+    // Auto-scroll folder carousel with horizontal centering
+    LaunchedEffect(safeIndex, activeFolder, selectedTab) {
         if (selectedTab == 2 && activeFolder == null && folders.isNotEmpty()) {
-            coroutineScope.launch {
-                folderGridState.animateScrollToItem(safeIndex)
-            }
+            val info = folderCarouselState.layoutInfo
+            val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+            val offset = if (itemW > 0) -(info.viewportSize.width - itemW) / 2 else 0
+            folderCarouselState.animateScrollToItem(safeIndex, offset)
         }
     }
 
-    // Dynamic scrollbar thumb position for Grid
-    val scrollFraction by remember {
-        derivedStateOf {
-            val layoutInfo = gridState.layoutInfo
-            val totalItems = layoutInfo.totalItemsCount
-            val visibleItems = layoutInfo.visibleItemsInfo.size
-            if (totalItems <= visibleItems || totalItems == 0) {
-                0f
-            } else {
-                val firstIndex = gridState.firstVisibleItemIndex.toFloat()
-                (firstIndex / (totalItems - visibleItems).coerceAtLeast(1)).coerceIn(0f, 1f)
-            }
+    // Auto-scroll inside folder apps carousel with horizontal centering
+    LaunchedEffect(safeIndex, activeFolder, selectedTab) {
+        if (selectedTab == 2 && activeFolder != null && activeFolder.apps.isNotEmpty()) {
+            val info = folderAppsCarouselState.layoutInfo
+            val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+            val offset = if (itemW > 0) -(info.viewportSize.width - itemW) / 2 else 0
+            folderAppsCarouselState.animateScrollToItem(safeIndex, offset)
         }
     }
-
-    val animatedThumbOffset by animateFloatAsState(
-        targetValue = scrollFraction,
-        label = "scrollbar_thumb"
-    )
 
     Box(
         modifier = modifier
@@ -323,53 +349,38 @@ fun DeckHomeScreen(
                 )
             }
             BackgroundMode.IMMERSIVE -> {
-                // Solução Madura de Console (PlayStation 5 / Steam Deck Cinema Stage):
-                // A arte 16:9 fica posicionada no topo/centro com nitidez suave (blur sutil 6dp),
-                // com um degradê cinematográfico que desce até o grafite escuro onde fica o carrossel,
-                // eliminando corte feio e visual borrado/lavado.
-                AnimatedContent(
-                    targetState = currentHeroBitmap,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(600, easing = FastOutSlowInEasing)) togetherWith
-                        fadeOut(animationSpec = tween(450, easing = FastOutSlowInEasing))
-                    },
+                // Fundo Imersivo otimizado (Fase 4.4):
+                // Crossfade leve com hero pré-renderizado e blurFile reduzido (sem blurs ao vivo em tela cheia)
+                Crossfade(
+                    targetState = heroFile,
+                    animationSpec = tween(Motion.Slow),
                     label = "hero_bg_fade"
-                ) { heroBmp ->
-                    if (heroBmp != null) {
+                ) { file ->
+                    if (file != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            // 1. Camada de fundo ambiente suave (Bloom)
-                            Image(
-                                bitmap = heroBmp.asImageBitmap(),
+                            if (blurFile != null) {
+                                AsyncImage(
+                                    model = blurFile,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    filterQuality = FilterQuality.Low,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            AsyncImage(
+                                model = file,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .blur(radius = 32.dp)
-                            )
-
-                            // 2. Arte 16:9 Cinema Stage no topo da tela com softening sutil (preserva arte e personagens)
-                            Box(
+                                alignment = Alignment.TopCenter,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight(0.72f)
-                            ) {
-                                Image(
-                                    bitmap = heroBmp.asImageBitmap(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    alignment = Alignment.TopCenter,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .blur(radius = 6.dp)
-                                )
-                            }
-
-                            // 3. Multi-stop Cinema Scrim
+                            )
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
+                                    .drawWithCache {
+                                        val brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
                                                 0.00f to Color(0xCC111418),
                                                 0.15f to Color(0x66111418),
@@ -378,7 +389,8 @@ fun DeckHomeScreen(
                                                 1.00f to Color(0xFF111418)
                                             )
                                         )
-                                    )
+                                        onDrawBehind { drawRect(brush) }
+                                    }
                             )
                         }
                     } else {
@@ -499,7 +511,8 @@ fun DeckHomeScreen(
                                     GameLogo3D(
                                         currentApp = currentFocusedApp,
                                         logoBitmap = currentLogoBitmap,
-                                        accentColor = accentColor
+                                        accentColor = accentColor,
+                                        metadataUpdateCounter = metadataUpdateCounter
                                     )
                                 }
 
@@ -522,6 +535,10 @@ fun DeckHomeScreen(
                                             isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                             onSelect = { onSelectedIndexChange(index) },
                                             onLaunch = { onLaunchApp(app) },
+                                            onLongClick = {
+                                                onSelectedIndexChange(index)
+                                                onRequestManageMetadata(app)
+                                            },
                                             isReorderMode = isReorderMode,
                                             accentColor = accentColor
                                         )
@@ -529,100 +546,22 @@ fun DeckHomeScreen(
                                 }
                             }
                         } else {
-                            // Tab 2: APPS - Organizados em Pastas por Categorias + Ícones Menores
+                            // Tab 2: APPS - Organizados em Pastas por Categorias
                             if (activeFolder == null) {
-                                // Vista de Pastas estilo Mockup: Grid 3x3 na esquerda + Preview na direita
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            start = if (isCompactHeight) 24.dp else 44.dp,
-                                            end = if (isCompactHeight) 24.dp else 44.dp,
-                                            top = if (isCompactHeight) 2.dp else 8.dp,
-                                            bottom = if (isCompactHeight) 4.dp else 10.dp
-                                        ),
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Vista de Pastas: 3D Preview em cima + Carrossel Horizontal embaixo
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.Bottom
                                 ) {
-                                    // 1. Grid 3x3 de Pastas + Barra de Rolagem (Lado Esquerdo)
-                                    Row(
-                                        modifier = Modifier
-                                            .weight(0.48f)
-                                            .fillMaxHeight(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        LazyVerticalGrid(
-                                            columns = GridCells.Fixed(3),
-                                            state = folderGridState,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight(),
-                                            contentPadding = PaddingValues(
-                                                top = if (isCompactHeight) 4.dp else 8.dp,
-                                                bottom = if (isCompactHeight) 4.dp else 8.dp,
-                                                start = 2.dp,
-                                                end = 8.dp
-                                            ),
-                                            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp),
-                                            verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp)
-                                        ) {
-                                            itemsIndexed(
-                                                items = folders,
-                                                key = { _, folder -> folder.id }
-                                            ) { index, folder ->
-                                                AppFolderCard(
-                                                    folder = folder,
-                                                    isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
-                                                    onSelect = { onSelectedIndexChange(index) },
-                                                    onOpen = { onOpenFolder(folder) }
-                                                )
-                                            }
-                                        }
-
-                                        // Scrollbar vertical do Grid de Pastas
-                                        val folderScrollFraction = remember {
-                                            derivedStateOf {
-                                                val totalRows = (folders.size + 2) / 3
-                                                val firstRow = folderGridState.firstVisibleItemIndex / 3
-                                                if (totalRows <= 3) 0f
-                                                else (firstRow.toFloat() / (totalRows - 3).coerceAtLeast(1)).coerceIn(0f, 1f)
-                                            }
-                                        }
-                                        val animatedFolderScroll by animateFloatAsState(
-                                            targetValue = folderScrollFraction.value,
-                                            label = "folder_scroll"
-                                        )
-
-                                        Box(
-                                            modifier = Modifier
-                                                .width(4.dp)
-                                                .fillMaxHeight(0.6f)
-                                                .clip(RoundedCornerShape(2.dp))
-                                                .background(Color(0x28FFFFFF))
-                                        ) {
-                                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                                val trackHeight = maxHeight
-                                                val thumbHeight = (trackHeight * 0.45f).coerceAtLeast(18.dp)
-                                                val maxOffset = trackHeight - thumbHeight
-                                                val thumbOffset = maxOffset * animatedFolderScroll
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(thumbHeight)
-                                                        .offset(y = thumbOffset)
-                                                        .clip(RoundedCornerShape(2.dp))
-                                                        .background(Color(0x88FFFFFF))
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // 2. Pré-visualização da Pasta Ativa (Lado Direito do Mockup)
                                     val focusedFolder = folders.getOrNull(safeIndex.coerceIn(0, (folders.size - 1).coerceAtLeast(0)))
                                     Box(
                                         modifier = Modifier
-                                            .weight(0.52f)
-                                            .fillMaxHeight(),
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(
+                                                top = if (isCompactHeight) 2.dp else 10.dp,
+                                                bottom = if (isCompactHeight) 2.dp else 4.dp
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (focusedFolder != null) {
@@ -632,99 +571,88 @@ fun DeckHomeScreen(
                                             )
                                         }
                                     }
-                                }
-                            } else {
-                                // Vista dentro da Pasta (Folder Contents View) - Sem corte no topo, sem textos redundantes
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            horizontal = if (isCompactHeight) 20.dp else 40.dp,
-                                            vertical = if (isCompactHeight) 2.dp else 4.dp
-                                        )
-                                    ) {
-                                    Row(
+
+                                    LazyRow(
+                                        state = folderCarouselState,
+                                        flingBehavior = folderSnapFling,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(bottom = if (isCompactHeight) 2.dp else 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(bottom = if (isCompactHeight) 4.dp else 12.dp),
+                                        contentPadding = PaddingValues(horizontal = if (isCompactHeight) 24.dp else 40.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 12.dp else 16.dp),
+                                        verticalAlignment = Alignment.Bottom
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFF222222))
-                                                .clickable { onCloseFolder() }
-                                                .padding(horizontal = 12.dp, vertical = if (isCompactHeight) 4.dp else 6.dp)
-                                        ) {
-                                            Text(text = "◀ (B) Voltar", color = Color.White, fontSize = if (isCompactHeight) 11.sp else 12.sp, fontWeight = FontWeight.Bold)
-                                            Text(text = "|", color = Color(0x44FFFFFF))
-                                            Text(
-                                                text = "${activeFolder.title} (${activeFolder.apps.size})",
-                                                color = Color.White,
-                                                fontSize = if (isCompactHeight) 12.sp else 13.sp,
-                                                fontWeight = FontWeight.Bold
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.id }
+                                        ) { index, folder ->
+                                            AppFolderCard(
+                                                folder = folder,
+                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
+                                                onSelect = { onSelectedIndexChange(index) },
+                                                onOpen = { onOpenFolder(folder) }
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Vista dentro da Pasta (Folder Contents View) - Console Showcase em cima + Carrossel embaixo
+                                // Sem corte no topo, sem textos redundantes (inscrição "volta | sistema" completamente removida)
+                                val focusedApp = activeFolder.apps.getOrNull(safeIndex.coerceIn(0, (activeFolder.apps.size - 1).coerceAtLeast(0)))
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.Bottom
+                                ) {
+                                    // Showcase de topo do App em destaque com ações [A] Iniciar, [X] Opções, [B] Voltar
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(
+                                                top = if (isCompactHeight) 2.dp else 10.dp,
+                                                bottom = if (isCompactHeight) 2.dp else 4.dp
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (focusedApp != null) {
+                                            FolderAppShowcase(
+                                                app = focusedApp,
+                                                folderTitle = activeFolder.title,
+                                                currentIndex = safeIndex,
+                                                totalApps = activeFolder.apps.size,
+                                                accentColor = accentColor,
+                                                onLaunch = { onLaunchApp(focusedApp) },
+                                                onManage = { onRequestManageMetadata(focusedApp) },
+                                                onBack = { onCloseFolder() }
                                             )
                                         }
                                     }
 
-                                    // Compact Grid de Colunas com Padding superior ampliado (sem corte de topo)
-                                    Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                                        LazyVerticalGrid(
-                                            columns = GridCells.Fixed(if (isCompactHeight) 6 else 8),
-                                            state = gridState,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight(),
-                                            contentPadding = PaddingValues(
-                                                top = if (isCompactHeight) 6.dp else 16.dp,
-                                                bottom = if (isCompactHeight) 8.dp else 16.dp,
-                                                start = 4.dp,
-                                                end = 4.dp
-                                            ),
-                                            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp),
-                                            verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp)
-                                        ) {
-                                            itemsIndexed(
-                                                items = activeFolder.apps,
-                                                key = { _, app -> app.id }
-                                            ) { index, app ->
-                                                AppGridCard(
-                                                    app = app,
-                                                    isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
-                                                    onSelect = { onSelectedIndexChange(index) },
-                                                    onLaunch = { onLaunchApp(app) },
-                                                    showLabel = true
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.width(10.dp))
-
-                                        // Dynamic Scrollbar
-                                        Box(
-                                            modifier = Modifier
-                                                .width(4.dp)
-                                                .fillMaxHeight(0.7f)
-                                                .align(Alignment.CenterVertically)
-                                                .clip(RoundedCornerShape(2.dp))
-                                                .background(ScrollbarColor.copy(alpha = 0.35f))
-                                        ) {
-                                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                                val trackHeight = maxHeight
-                                                val thumbHeight = (trackHeight * 0.35f).coerceAtLeast(20.dp)
-                                                val maxOffset = trackHeight - thumbHeight
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(thumbHeight)
-                                                        .offset(y = maxOffset * animatedThumbOffset)
-                                                        .clip(RoundedCornerShape(2.dp))
-                                                        .background(ScrollbarColor)
-                                                )
-                                            }
+                                    // Carrossel horizontal de aplicativos com ícones 100% preenchidos de ponta a ponta
+                                    LazyRow(
+                                        state = folderAppsCarouselState,
+                                        flingBehavior = folderAppsSnapFling,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = if (isCompactHeight) 4.dp else 12.dp),
+                                        contentPadding = PaddingValues(horizontal = if (isCompactHeight) 24.dp else 40.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 14.dp),
+                                        verticalAlignment = Alignment.Bottom
+                                    ) {
+                                        itemsIndexed(
+                                            items = activeFolder.apps,
+                                            key = { _, app -> app.id }
+                                        ) { index, app ->
+                                            ConsoleAppTile(
+                                                app = app,
+                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
+                                                onSelect = { onSelectedIndexChange(index) },
+                                                onLaunch = { onLaunchApp(app) },
+                                                onLongClick = {
+                                                    onSelectedIndexChange(index)
+                                                    onRequestManageMetadata(app)
+                                                }
+                                            )
                                         }
                                     }
                                 }
@@ -744,49 +672,80 @@ fun DeckHomeScreen(
         }
 
         // Dialogs
-        val targetApp = activeDialogApp ?: currentFocusedApp ?: apps.firstOrNull()
+        val targetApp = activeDialogApp ?: currentFocusedApp
 
         if (showOptionsDialog && targetApp != null) {
+            val appItem = targetApp
             OptionsDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissOptions,
-                onLaunch = { onLaunchApp(targetApp) },
-                onRequestEditCover = { onRequestEditCover(targetApp) },
-                onRequestEditHero = { onRequestEditHero(targetApp) },
-                onRequestEditLogo = { onRequestEditLogo(targetApp) },
-                onRequestSelectIntro = { onRequestSelectIntro(targetApp) },
+                onLaunch = { onLaunchApp(appItem) },
+                onRequestManageMetadata = { onRequestManageMetadata(appItem) },
+                onRequestEditCover = { onRequestEditCover(appItem) },
+                onRequestEditHero = { onRequestEditHero(appItem) },
+                onRequestEditLogo = { onRequestEditLogo(appItem) },
+                onRequestSelectIntro = { onRequestSelectIntro(appItem) },
+                onRequestFetchIidb = { onRequestFetchIidb(appItem) },
                 onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
                 onRequestIconPackSettings = onRequestIconPackSettings,
                 onRescanRoms = onRescanRoms,
-                onOpenAppSettings = { onOpenSettings(targetApp) },
-                onUninstallApp = { onUninstallApp(targetApp) },
-                onRemoveItem = { onRemoveItem(targetApp) },
+                onOpenAppSettings = { onOpenSettings(appItem) },
+                onUninstallApp = { onUninstallApp(appItem) },
+                onRemoveItem = { onRemoveItem(appItem) },
                 onRequestReorder = onRequestReorderMode
             )
         }
 
+        if (showGameMetadataDialog && targetApp != null) {
+            val appItem = targetApp
+            GameMetadataDialog(
+                app = appItem,
+                onDismiss = onDismissGameMetadata,
+                onRequestEditCover = { onRequestEditCover(appItem) },
+                onRequestEditHero = { onRequestEditHero(appItem) },
+                onRequestEditLogo = { onRequestEditLogo(appItem) },
+                onRequestEditMusic = { onRequestEditMusic(appItem) },
+                onRequestReorder = onRequestReorderMode,
+                onDeleteAll = { onDeleteAllGameMetadata(appItem) },
+                metadataUpdateCounter = metadataUpdateCounter
+            )
+        }
+
+        if (showSelectMusicDialog && targetApp != null) {
+            val appItem = targetApp
+            SelectMusicDialog(
+                app = appItem,
+                onDismiss = onDismissSelectMusic,
+                onApplySoundbiteUrl = { url -> onApplySoundbiteUrl(appItem, url) },
+                onRemoveSoundbite = { onRemoveSoundbite(appItem) }
+            )
+        }
+
         if (showEditCoverDialog && targetApp != null) {
+            val appItem = targetApp
             EditCoverSteamGridDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissEditCover,
-                onApplyCoverUrl = { url -> onApplyCoverUrl(targetApp, url) }
+                onApplyCoverUrl = { url -> onApplyCoverUrl(appItem, url) }
             )
         }
 
         if (showEditHeroDialog && targetApp != null) {
+            val appItem = targetApp
             SteamGridHeroSelectDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissEditHero,
-                onApplyHeroUrl = { url -> onApplyHeroUrl(targetApp, url) }
+                onApplyHeroUrl = { url -> onApplyHeroUrl(appItem, url) }
             )
         }
 
         if (showEditLogoDialog && targetApp != null) {
+            val appItem = targetApp
             SteamGridLogoSelectDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissEditLogo,
-                onApplyLogoUrl = { url -> onApplyLogoUrl(targetApp, url) }
+                onApplyLogoUrl = { url -> onApplyLogoUrl(appItem, url) }
             )
         }
 
@@ -820,6 +779,13 @@ fun DeckHomeScreen(
             )
         }
 
+        if (showIidbKeyDialog) {
+            IidbApiKeyDialog(
+                onDismiss = onDismissIidbKey,
+                onSaveKey = onSaveIidbKey
+            )
+        }
+
         if (showIconPackDialog) {
             IconPackDialog(
                 onDismiss = onDismissIconPack,
@@ -832,6 +798,8 @@ fun DeckHomeScreen(
                 onDismiss = onDismissLauncherSettings,
                 onRequestChangeAvatar = onRequestChangeAvatar,
                 onRequestSteamGridKey = onRequestSteamGridSettings,
+                onRequestIidbKey = onRequestIidbKey,
+                onArtworkProviderSelected = onArtworkProviderSelected,
                 onRequestIconPack = onRequestIconPackSettings,
                 onRequestAddCloudGame = onRequestAddGame,
                 onRescanRoms = onRescanRoms,
@@ -846,7 +814,8 @@ fun DeckHomeScreen(
                 currentAccentColor = accentColorLong,
                 onAccentColorSelected = onAccentColorSelected,
                 currentLaunchTransition = currentLaunchTransition,
-                onLaunchTransitionSelected = onLaunchTransitionSelected
+                onLaunchTransitionSelected = onLaunchTransitionSelected,
+                onClearAllMetadata = onClearAllMetadata
             )
         }
 

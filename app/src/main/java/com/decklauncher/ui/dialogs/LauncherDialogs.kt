@@ -3,6 +3,8 @@ package com.decklauncher.ui.dialogs
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.view.KeyEvent as AndroidKeyEvent
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -12,21 +14,31 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
@@ -81,14 +93,20 @@ fun EnableWindowBlur(blurRadius: Int = 100) {
     val view = LocalView.current
     SideEffect {
         val window = (view.parent as? DialogWindowProvider)?.window
-        if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            window.attributes = window.attributes.apply {
-                blurBehindRadius = blurRadius
-            }
+        if (window != null) {
+            window.setDimAmount(0.70f)
         }
     }
 }
+
+data class ArtworkCandidate(
+    val id: Long,
+    val url: String,
+    val thumbUrl: String,
+    val width: Int = 0,
+    val height: Int = 0,
+    val label: String? = null
+)
 
 private data class DialogActionItem(
     val label: String,
@@ -101,10 +119,12 @@ fun OptionsDialog(
     app: AppItem,
     onDismiss: () -> Unit,
     onLaunch: () -> Unit,
+    onRequestManageMetadata: () -> Unit = {},
     onRequestEditCover: () -> Unit,
     onRequestEditHero: () -> Unit = {},
     onRequestEditLogo: () -> Unit = {},
     onRequestSelectIntro: () -> Unit = {},
+    onRequestFetchIidb: () -> Unit = {},
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
@@ -114,13 +134,17 @@ fun OptionsDialog(
     onRemoveItem: () -> Unit,
     onRequestReorder: () -> Unit = {}
 ) {
-    val actions = remember(app) {
+    val context = LocalContext.current
+    val preferredProvider = remember { ArtworkProviderManager.getPreferredProvider(context) }
+    val actions = remember(app, preferredProvider) {
         val list = mutableListOf<DialogActionItem>()
         list.add(DialogActionItem("Iniciar") { onLaunch(); onDismiss() })
+        list.add(DialogActionItem("Personalizar Metadados (Capa, Banner, Logo, Som)", Color(0xFF818CF8)) { onRequestManageMetadata(); onDismiss() })
         list.add(DialogActionItem("Mover Posição / Trocar de Lugar") { onRequestReorder(); onDismiss() })
-        list.add(DialogActionItem("Editar Capa (SteamGridDB)") { onRequestEditCover(); onDismiss() })
-        list.add(DialogActionItem("Editar Fundo / Hero (SteamGridDB)") { onRequestEditHero(); onDismiss() })
-        list.add(DialogActionItem("Editar Logo 3D (SteamGridDB)") { onRequestEditLogo(); onDismiss() })
+        list.add(DialogActionItem("Baixar Tudo do iiDB (Capa, Hero, Logo, Áudio)", Color(0xFF60A5FA)) { onRequestFetchIidb(); onDismiss() })
+        list.add(DialogActionItem("Editar Capa (${preferredProvider.shortName})") { onRequestEditCover(); onDismiss() })
+        list.add(DialogActionItem("Editar Fundo / Hero (${preferredProvider.shortName})") { onRequestEditHero(); onDismiss() })
+        list.add(DialogActionItem("Editar Logo 3D (${preferredProvider.shortName})") { onRequestEditLogo(); onDismiss() })
         list.add(DialogActionItem("Trocar Intro do Console") { onRequestSelectIntro(); onDismiss() })
         list.add(DialogActionItem("Adicionar Jogos em Nuvem (Better xCloud)") { onRequestAddGame(); onDismiss() })
         if (app.itemType == ItemType.APP) {
@@ -271,31 +295,81 @@ fun EditCoverSteamGridDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(app.label) }
-    var isLoading by remember { mutableStateOf(false) }
-    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(app.label) }
+    var activeProvider by remember(app.id) { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var results by remember(app.id) { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
+    var statusMessage by remember(app.id) { mutableStateOf<String?>(null) }
 
-    fun doSearch(term: String) {
+    fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
             isLoading = true
-            statusMessage = "Buscando capas verticais no SteamGridDB..."
-            val games = SteamGridDbManager.searchGames(context, term)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val grids = SteamGridDbManager.getGridsForGame(context, game.id)
-                results = grids
-                statusMessage = if (grids.isNotEmpty()) "${grids.size} capas encontradas para '${game.name}'" else "Nenhuma capa 600x900 para '${game.name}'"
+            results = emptyList()
+            if (provider == ArtworkProvider.STEAMGRID_DB) {
+                statusMessage = "Buscando capas verticais no SteamGridDB..."
+                val games = SteamGridDbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val grids = SteamGridDbManager.getGridsForGame(context, game.id)
+                    results = grids.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbUrl,
+                            width = it.width,
+                            height = it.height,
+                            label = it.style
+                        )
+                    }
+                    statusMessage = if (grids.isNotEmpty()) "${grids.size} capas encontradas no SteamGridDB para '${game.name}'" else "Nenhuma capa no SteamGridDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no SteamGridDB."
+                }
             } else {
-                results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse termo."
+                statusMessage = "Buscando capas oficiais no iiDB..."
+                if (!IidbManager.hasApiKey(context)) {
+                    statusMessage = "Configure sua Chave iiDB nas Configurações primeiro."
+                    isLoading = false
+                    return@launch
+                }
+                val games = IidbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val gallery = IidbManager.getGalleryForParent(context, game.id, "boxart")
+                    val list = gallery.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbnailUrl ?: it.url,
+                            label = it.displayName ?: "Box Art"
+                        )
+                    }.toMutableList()
+                    if (list.isEmpty()) {
+                        val assets = IidbManager.getArtworkForParent(context, game.id)
+                        val boxartUrl = assets?.boxartUrl
+                        if (!boxartUrl.isNullOrBlank()) {
+                            list.add(
+                                ArtworkCandidate(
+                                    id = game.id,
+                                    url = boxartUrl,
+                                    thumbUrl = boxartUrl,
+                                    label = "Box Art Oficial"
+                                )
+                            )
+                        }
+                    }
+                    results = list
+                    statusMessage = if (list.isNotEmpty()) "${list.size} capas encontradas no iiDB para '${game.name}'" else "Nenhuma capa no iiDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no iiDB."
+                }
             }
             isLoading = false
         }
     }
 
-    LaunchedEffect(Unit) {
-        doSearch(searchTitle)
+    LaunchedEffect(app.id) {
+        doSearch(searchTitle, activeProvider)
     }
 
     Dialog(
@@ -332,6 +406,40 @@ fun EditCoverSteamGridDialog(
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+                }
+
+                // Seletor de Database / Provedor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArtworkProvider.values().forEach { prov ->
+                        val isSel = activeProvider == prov
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    activeProvider = prov
+                                    doSearch(searchTitle, prov)
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = prov.title,
+                                color = if (isSel) TextWhite else SteamDeckTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
@@ -380,12 +488,19 @@ fun EditCoverSteamGridDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
+                            var isCandidateFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .width(90.dp)
                                     .height(135.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                                    .border(
+                                        width = if (isCandidateFocused) 3.dp else 1.dp,
+                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .onFocusChanged { isCandidateFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         onApplyCoverUrl(artwork.url)
                                         onDismiss()
@@ -698,9 +813,10 @@ fun EmulatorGamesDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            if (emulatorApp.iconBitmap != null) {
+                            val emuIcon = com.decklauncher.data.rememberAppIcon(emulatorApp)
+                            if (emuIcon != null) {
                                 Image(
-                                    bitmap = emulatorApp.iconBitmap,
+                                    bitmap = emuIcon,
                                     contentDescription = emulatorApp.label,
                                     modifier = Modifier
                                         .size(46.dp)
@@ -874,9 +990,13 @@ fun EmulatorRomItemRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (rom.coverBitmap != null) {
-                Image(
-                    bitmap = rom.coverBitmap,
+            if (rom.coverPath != null) {
+                coil.compose.AsyncImage(
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(java.io.File(rom.coverPath))
+                        .size(100, 150)
+                        .crossfade(false)
+                        .build(),
                     contentDescription = rom.label,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -1177,6 +1297,80 @@ fun SteamGridApiKeyDialog(
 }
 
 @Composable
+fun IidbApiKeyDialog(
+    onDismiss: () -> Unit,
+    onSaveKey: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var currentKey by remember { mutableStateOf(IidbManager.getApiKey(context)) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .width(420.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(SteamDeckBg)
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
+                .padding(20.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Chave de API iiDB (iiSU Network)",
+                    color = TextWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Gere sua chave pessoal em iisu.network para baixar capas oficiais, fundos 16:9, logos 3D e áudios tema.",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
+                )
+
+                OutlinedTextField(
+                    value = currentKey,
+                    onValueChange = { currentKey = it },
+                    label = { Text("Chave de API iiDB") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color(0x44FFFFFF)
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar", color = SteamDeckTextMuted)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onSaveKey(currentKey.trim())
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text("Salvar", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun IconPackDialog(
     onDismiss: () -> Unit,
     onSelectPack: (String?) -> Unit
@@ -1390,6 +1584,8 @@ fun LauncherSettingsDialog(
     onDismiss: () -> Unit,
     onRequestChangeAvatar: () -> Unit,
     onRequestSteamGridKey: () -> Unit,
+    onRequestIidbKey: () -> Unit = {},
+    onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
     onRequestIconPack: () -> Unit,
     onRequestAddCloudGame: () -> Unit,
     onRescanRoms: () -> Unit,
@@ -1404,7 +1600,8 @@ fun LauncherSettingsDialog(
     currentAccentColor: Long = 0xFF1A73E8,
     onAccentColorSelected: (Long) -> Unit = {},
     currentLaunchTransition: LaunchTransitionType = LaunchTransitionType.FADE,
-    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {}
+    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {},
+    onClearAllMetadata: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activePreset = remember(avatarId) {
@@ -1492,27 +1689,44 @@ fun LauncherSettingsDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        val customAvatar = remember(avatarId, ProfileManager.avatarVersion) {
+                            if (avatarId == ProfileManager.CUSTOM_AVATAR_ID) ProfileManager.loadCustomAvatar(context) else null
+                        }
+
+                        // Avatar circular sem moldura
                         Box(
                             modifier = Modifier
                                 .size(46.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(
-                                            Color(activePreset.primaryColor),
-                                            Color(activePreset.accentColor)
+                                .then(
+                                    if (customAvatar == null) {
+                                        Modifier.background(
+                                            Brush.linearGradient(
+                                                listOf(
+                                                    Color(activePreset.primaryColor),
+                                                    Color(activePreset.accentColor)
+                                                )
+                                            )
                                         )
-                                    )
-                                )
-                                .border(1.5.dp, Color(0x66FFFFFF), CircleShape),
+                                    } else Modifier
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = activePreset.initial,
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black
-                            )
+                            if (customAvatar != null) {
+                                Image(
+                                    bitmap = customAvatar.asImageBitmap(),
+                                    contentDescription = "Foto de Perfil",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Text(
+                                    text = activePreset.initial,
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
                         }
 
                         Column {
@@ -1793,11 +2007,61 @@ fun LauncherSettingsDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "INTEGRAÇÕES & SISTEMA",
+                    text = "DATABASE DE ARTES & SISTEMA",
                     color = Color(0xFF6B7D8E),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
+
+                // Provedor Padrão de Artes
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Provedor Padrão de Artes", color = SteamDeckTextMuted, fontSize = 11.sp)
+                    var preferredProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ArtworkProvider.values().forEach { provider ->
+                            val isSelected = preferredProvider == provider
+                            val accentCol = Color(currentAccentColor)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(if (isSelected) accentCol.copy(alpha = 0.25f) else SteamDeckCardBg)
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) accentCol else Color(0x22FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .clickable {
+                                        preferredProvider = provider
+                                        ArtworkProviderManager.setPreferredProvider(context, provider)
+                                        onArtworkProviderSelected(provider)
+                                    }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = provider.title,
+                                    color = if (isSelected) TextWhite else SteamDeckTextMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = when (preferredProvider) {
+                            ArtworkProvider.STEAMGRID_DB -> "SteamGridDB ativo: foco em capas verticais 600x900 da comunidade."
+                            ArtworkProvider.IIDB -> "iiDB ativo: banco oficial com capas, banners 16:9, logos 3D e áudios tema."
+                        },
+                        color = Color(0xFF93C5FD),
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
 
                 SteamDeckOptionRow(
                     label = "Configurar Chave de API SteamGridDB",
@@ -1808,12 +2072,89 @@ fun LauncherSettingsDialog(
                 )
 
                 SteamDeckOptionRow(
+                    label = "Configurar Chave iiDB (iiSU Network)",
+                    onClick = {
+                        onRequestIidbKey()
+                        onDismiss()
+                    }
+                )
+
+                var musicActive by remember { mutableStateOf(IidbManager.isThemeMusicEnabled(context)) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SteamDeckCardBg)
+                        .clickable {
+                            val newActive = !musicActive
+                            musicActive = newActive
+                            IidbManager.setThemeMusicEnabled(context, newActive)
+                            if (!newActive) {
+                                ThemeMusicManager.stopTheme()
+                            }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Música Tema ao Focar Jogo (iiDB)",
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (musicActive) "Toca áudio oficial do jogo no carrossel" else "Desativado",
+                            color = if (musicActive) Color(0xFF10B981) else SteamDeckTextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = if (musicActive) "Ativado" else "Desativado",
+                        color = if (musicActive) Color(0xFF10B981) else SteamDeckTextMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                SteamDeckOptionRow(
                     label = "Selecionar Pacote de Ícones",
                     onClick = {
                         onRequestIconPack()
                         onDismiss()
                     }
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                var isClearAllFocused by remember { mutableStateOf(false) }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFFDC2626).copy(alpha = 0.2f))
+                        .border(
+                            width = if (isClearAllFocused) 2.dp else 1.dp,
+                            color = if (isClearAllFocused) Color.White else Color(0xFFDC2626),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .onFocusChanged { isClearAllFocused = it.isFocused }
+                        .focusable()
+                        .clickable {
+                            onClearAllMetadata()
+                            onDismiss()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Excluir Todos os Metadados (Resetar Capas/Logos/Sons)",
+                        color = Color(0xFFFCA5A5),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1843,8 +2184,31 @@ fun ChangeAvatarDialog(
     onNameUpdated: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var currentName by remember { mutableStateOf(ProfileManager.getProfileName(context)) }
     var currentAvatarId by remember { mutableStateOf(ProfileManager.getAvatarId(context)) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val ok = ProfileManager.saveCustomAvatarFromUri(context, uri)
+                if (ok) {
+                    currentAvatarId = ProfileManager.CUSTOM_AVATAR_ID
+                    onAvatarSelected(ProfileManager.CUSTOM_AVATAR_ID)
+                    Toast.makeText(context, "Foto de perfil atualizada!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Erro ao carregar imagem da galeria", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val customAvatarBmp = remember(currentAvatarId, ProfileManager.avatarVersion) {
+        if (ProfileManager.hasCustomAvatar(context)) ProfileManager.loadCustomAvatar(context) else null
+    }
+    val isCustomSelected = currentAvatarId == ProfileManager.CUSTOM_AVATAR_ID
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1893,7 +2257,68 @@ fun ChangeAvatarDialog(
                     )
                 }
 
-                Text("Escolher Ícone de Perfil", color = SteamDeckTextMuted, fontSize = 11.sp)
+                Text("Foto de Perfil Personalizada", color = SteamDeckTextMuted, fontSize = 11.sp)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(if (isCustomSelected) Color(0x353B82F6) else SteamDeckCardBg)
+                        .border(
+                            width = if (isCustomSelected) 2.dp else 1.dp,
+                            color = if (isCustomSelected) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                            shape = RoundedCornerShape(18.dp)
+                        )
+                        .clickable { galleryLauncher.launch("image/*") }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF27303D)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (customAvatarBmp != null) {
+                            Image(
+                                bitmap = customAvatarBmp.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text("🖼️", fontSize = 18.sp)
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isCustomSelected && customAvatarBmp != null) "Foto da Galeria Ativa" else "Escolher Foto da Galeria",
+                            color = TextWhite,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Toque para abrir a galeria e cortar imagem",
+                            color = SteamDeckTextMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        colors = ButtonDefaults.buttonColors(containerColor = SteamDeckButtonBlue),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Galeria", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Text("Ou use um Ícone Predefinido:", color = SteamDeckTextMuted, fontSize = 11.sp)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1903,7 +2328,7 @@ fun ChangeAvatarDialog(
                         val isSelected = currentAvatarId == preset.id
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
@@ -1914,8 +2339,8 @@ fun ChangeAvatarDialog(
                                     )
                                 )
                                 .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) Color.White else Color(0x44FFFFFF),
+                                    width = if (isSelected) 2.5.dp else 1.dp,
+                                    color = if (isSelected) Color.White else Color(0x33FFFFFF),
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -1928,7 +2353,7 @@ fun ChangeAvatarDialog(
                             Text(
                                 text = preset.initial,
                                 color = Color.White,
-                                fontSize = 18.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Black
                             )
                         }
@@ -1958,31 +2383,83 @@ fun SteamGridHeroSelectDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var activeProvider by remember(app.id) { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var results by remember(app.id) { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var statusMessage by remember(app.id) { mutableStateOf<String?>(null) }
 
-    fun doSearch(term: String) {
+    fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
             isLoading = true
-            statusMessage = "Buscando fundos 16:9 no SteamGridDB..."
-            val games = SteamGridDbManager.searchGames(context, term)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val heroes = SteamGridDbManager.getHeroesForGame(context, game.id)
-                results = heroes
-                statusMessage = if (heroes.isNotEmpty()) "${heroes.size} fundos 16:9 encontrados para '${game.name}'" else "Nenhum fundo 16:9 para '${game.name}'"
+            results = emptyList()
+            if (provider == ArtworkProvider.STEAMGRID_DB) {
+                statusMessage = "Buscando fundos 16:9 no SteamGridDB..."
+                val games = SteamGridDbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val heroes = SteamGridDbManager.getHeroesForGame(context, game.id)
+                    results = heroes.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbUrl,
+                            width = it.width,
+                            height = it.height,
+                            label = it.style
+                        )
+                    }
+                    statusMessage = if (heroes.isNotEmpty()) "${heroes.size} fundos 16:9 encontrados no SteamGridDB para '${game.name}'" else "Nenhum fundo 16:9 no SteamGridDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no SteamGridDB."
+                }
             } else {
-                results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse termo."
+                statusMessage = "Buscando fundos 16:9 no iiDB..."
+                if (!IidbManager.hasApiKey(context)) {
+                    statusMessage = "Configure sua Chave iiDB nas Configurações primeiro."
+                    isLoading = false
+                    return@launch
+                }
+                val games = IidbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val banners = IidbManager.getGalleryForParent(context, game.id, "banner")
+                    val heroes = IidbManager.getGalleryForParent(context, game.id, "hero")
+                    val gallery = (banners + heroes).distinctBy { it.id }
+                    val list = gallery.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbnailUrl ?: it.url,
+                            label = it.displayName ?: "Fundo 16:9 Oficial"
+                        )
+                    }.toMutableList()
+                    if (list.isEmpty()) {
+                        val assets = IidbManager.getArtworkForParent(context, game.id)
+                        val bannerUrl = assets?.bannerUrl
+                        if (!bannerUrl.isNullOrBlank()) {
+                            list.add(
+                                ArtworkCandidate(
+                                    id = game.id,
+                                    url = bannerUrl,
+                                    thumbUrl = bannerUrl,
+                                    label = "Banner Oficial"
+                                )
+                            )
+                        }
+                    }
+                    results = list
+                    statusMessage = if (list.isNotEmpty()) "${list.size} fundos encontrados no iiDB para '${game.name}'" else "Nenhum fundo no iiDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no iiDB."
+                }
             }
             isLoading = false
         }
     }
 
-    LaunchedEffect(Unit) {
-        doSearch(searchTitle)
+    LaunchedEffect(app.id) {
+        doSearch(searchTitle, activeProvider)
     }
 
     Dialog(
@@ -2019,6 +2496,40 @@ fun SteamGridHeroSelectDialog(
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+                }
+
+                // Seletor de Database / Provedor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArtworkProvider.values().forEach { prov ->
+                        val isSel = activeProvider == prov
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    activeProvider = prov
+                                    doSearch(searchTitle, prov)
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = prov.title,
+                                color = if (isSel) TextWhite else SteamDeckTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
@@ -2067,12 +2578,19 @@ fun SteamGridHeroSelectDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
+                            var isCandidateFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .width(200.dp)
                                     .height(112.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                                    .border(
+                                        width = if (isCandidateFocused) 3.dp else 1.dp,
+                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .onFocusChanged { isCandidateFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         onApplyHeroUrl(artwork.url)
                                         onDismiss()
@@ -2137,31 +2655,83 @@ fun SteamGridLogoSelectDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var activeProvider by remember(app.id) { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var results by remember(app.id) { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var statusMessage by remember(app.id) { mutableStateOf<String?>(null) }
 
-    fun doSearch(term: String) {
+    fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
             isLoading = true
-            statusMessage = "Buscando logos transparentes no SteamGridDB..."
-            val games = SteamGridDbManager.searchGames(context, term)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val logos = SteamGridDbManager.getLogosForGame(context, game.id)
-                results = logos
-                statusMessage = if (logos.isNotEmpty()) "${logos.size} logos encontradas para '${game.name}'" else "Nenhuma logo para '${game.name}'"
+            results = emptyList()
+            if (provider == ArtworkProvider.STEAMGRID_DB) {
+                statusMessage = "Buscando logos transparentes no SteamGridDB..."
+                val games = SteamGridDbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val logos = SteamGridDbManager.getLogosForGame(context, game.id)
+                    results = logos.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbUrl,
+                            width = it.width,
+                            height = it.height,
+                            label = it.style
+                        )
+                    }
+                    statusMessage = if (logos.isNotEmpty()) "${logos.size} logos encontradas no SteamGridDB para '${game.name}'" else "Nenhuma logo no SteamGridDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no SteamGridDB."
+                }
             } else {
-                results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse termo."
+                statusMessage = "Buscando logos oficiais no iiDB..."
+                if (!IidbManager.hasApiKey(context)) {
+                    statusMessage = "Configure sua Chave iiDB nas Configurações primeiro."
+                    isLoading = false
+                    return@launch
+                }
+                val games = IidbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val logos = IidbManager.getGalleryForParent(context, game.id, "logo")
+                    val icons = IidbManager.getGalleryForParent(context, game.id, "icon")
+                    val gallery = (logos + icons).distinctBy { it.id }
+                    val list = gallery.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbnailUrl ?: it.url,
+                            label = it.displayName ?: "Logo Oficial"
+                        )
+                    }.toMutableList()
+                    if (list.isEmpty()) {
+                        val assets = IidbManager.getArtworkForParent(context, game.id)
+                        val logoUrl = assets?.logoUrl ?: assets?.iconUrl
+                        if (!logoUrl.isNullOrBlank()) {
+                            list.add(
+                                ArtworkCandidate(
+                                    id = game.id,
+                                    url = logoUrl,
+                                    thumbUrl = logoUrl,
+                                    label = "Logo Oficial"
+                                )
+                            )
+                        }
+                    }
+                    results = list
+                    statusMessage = if (list.isNotEmpty()) "${list.size} logos encontradas no iiDB para '${game.name}'" else "Nenhuma logo no iiDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no iiDB."
+                }
             }
             isLoading = false
         }
     }
 
-    LaunchedEffect(Unit) {
-        doSearch(searchTitle)
+    LaunchedEffect(app.id) {
+        doSearch(searchTitle, activeProvider)
     }
 
     Dialog(
@@ -2198,6 +2768,40 @@ fun SteamGridLogoSelectDialog(
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+                }
+
+                // Seletor de Database / Provedor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArtworkProvider.values().forEach { prov ->
+                        val isSel = activeProvider == prov
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    activeProvider = prov
+                                    doSearch(searchTitle, prov)
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = prov.title,
+                                color = if (isSel) TextWhite else SteamDeckTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
@@ -2246,13 +2850,20 @@ fun SteamGridLogoSelectDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
+                            var isCandidateFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .width(180.dp)
                                     .height(95.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .background(Color(0xFF161A20))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                                    .border(
+                                        width = if (isCandidateFocused) 3.dp else 1.dp,
+                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .onFocusChanged { isCandidateFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         onApplyLogoUrl(artwork.url)
                                         onDismiss()
@@ -2587,5 +3198,807 @@ fun SelectConsoleIntroDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun GameMetadataDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onRequestEditCover: () -> Unit,
+    onRequestEditHero: () -> Unit,
+    onRequestEditLogo: () -> Unit,
+    onRequestEditMusic: () -> Unit,
+    onRequestReorder: () -> Unit = {},
+    onDeleteAll: () -> Unit,
+    metadataUpdateCounter: Int = 0
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var activeProvider by remember {
+        mutableStateOf(ArtworkProviderManager.getPreferredProvider(context))
+    }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var isPlayingMusic by remember {
+        mutableStateOf(ThemeMusicManager.isPlayingForApp(app.id))
+    }
+
+    val coverBmp = remember(app.id, metadataUpdateCounter, refreshKey) {
+        CoverManager.loadLocalCover(context, app.id)
+    }
+    val heroBmp = remember(app.id, metadataUpdateCounter, refreshKey) {
+        HeroManager.loadLocalHero(context, app.id)
+    }
+    val logoBmp = remember(app.id, metadataUpdateCounter, refreshKey) {
+        LogoManager.loadLocalLogo(context, app.id)
+    }
+    val soundbiteFile = remember(app.id, metadataUpdateCounter, refreshKey) {
+        IidbManager.getSoundbiteFile(context, app.id)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(530.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Color(0xFF323337))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {} // Previne dismiss ao tocar dentro do card
+                    )
+                    .padding(horizontal = 24.dp, vertical = 20.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 1. Top Provider Switcher (Capsule)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(21.dp))
+                            .background(Color(0xFF1E1E22))
+                            .padding(4.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxSize()) {
+                            // IIDB Tab
+                            val isIidb = activeProvider == ArtworkProvider.IIDB
+                            var isIidbFocused by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(if (isIidb) Color(0xFFE2E2E6) else Color.Transparent)
+                                    .border(
+                                        width = if (isIidbFocused) 2.dp else 0.dp,
+                                        color = if (isIidbFocused) Color.White else Color.Transparent,
+                                        shape = RoundedCornerShape(18.dp)
+                                    )
+                                    .onFocusChanged { isIidbFocused = it.isFocused }
+                                    .focusable()
+                                    .clickable {
+                                        activeProvider = ArtworkProvider.IIDB
+                                        ArtworkProviderManager.setPreferredProvider(context, ArtworkProvider.IIDB)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "IIDB",
+                                    color = if (isIidb) Color(0xFF1E1E22) else Color(0xFF9E9EA4),
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isIidb) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+
+                            // SteamgridDB Tab
+                            val isSgdb = activeProvider == ArtworkProvider.STEAMGRID_DB
+                            var isSgdbFocused by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(if (isSgdb) Color(0xFFE2E2E6) else Color.Transparent)
+                                    .border(
+                                        width = if (isSgdbFocused) 2.dp else 0.dp,
+                                        color = if (isSgdbFocused) Color.White else Color.Transparent,
+                                        shape = RoundedCornerShape(18.dp)
+                                    )
+                                    .onFocusChanged { isSgdbFocused = it.isFocused }
+                                    .focusable()
+                                    .clickable {
+                                        activeProvider = ArtworkProvider.STEAMGRID_DB
+                                        ArtworkProviderManager.setPreferredProvider(context, ArtworkProvider.STEAMGRID_DB)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "SteamgridDB",
+                                    color = if (isSgdb) Color(0xFF1E1E22) else Color(0xFF9E9EA4),
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSgdb) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // 2. Main Content Grid (Two Columns)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(210.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Left Column: Icone (Cover)
+                        var isIconFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF222226))
+                                .border(
+                                    width = if (isIconFocused) 2.5.dp else 0.dp,
+                                    color = if (isIconFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .onFocusChanged { isIconFocused = it.isFocused }
+                                .focusable()
+                                .clickable {
+                                    onRequestEditCover()
+                                }
+                        ) {
+                            if (coverBmp != null) {
+                                Image(
+                                    bitmap = coverBmp.asImageBitmap(),
+                                    contentDescription = "Icone",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = app.label.take(2).uppercase(),
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            // Bottom Scrim & Label
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color.Transparent,
+                                                Color(0x99000000),
+                                                Color(0xEE000000)
+                                            )
+                                        )
+                                    )
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Icone",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        // Right Column: Banner on top, Musica + Logo 3D below
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Top: Banner (Hero)
+                            var isBannerFocused by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color(0xFF222226))
+                                    .border(
+                                        width = if (isBannerFocused) 2.5.dp else 0.dp,
+                                        color = if (isBannerFocused) Color.White else Color.Transparent,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .onFocusChanged { isBannerFocused = it.isFocused }
+                                    .focusable()
+                                    .clickable {
+                                        onRequestEditHero()
+                                    }
+                            ) {
+                                if (heroBmp != null) {
+                                    Image(
+                                        bitmap = heroBmp.asImageBitmap(),
+                                        contentDescription = "Banner",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Sem banner",
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+
+                                // Bottom Scrim & Label
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.BottomCenter)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    Color.Transparent,
+                                                    Color(0x99000000),
+                                                    Color(0xEE000000)
+                                                )
+                                            )
+                                        )
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Banner",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            // Bottom Row: Musica + Logo 3D
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Musica Card (Square)
+                                var isMusicFocused by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color(0xFF222226))
+                                        .border(
+                                            width = if (isMusicFocused) 2.5.dp else 0.dp,
+                                            color = if (isMusicFocused) Color.White else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .onFocusChanged { isMusicFocused = it.isFocused }
+                                        .focusable()
+                                        .clickable {
+                                            onRequestEditMusic()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        MetadataDiscIcon(isPlaying = isPlayingMusic)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Musica",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                // Logo 3D Card
+                                var isLogoFocused by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color(0xFF222226))
+                                        .border(
+                                            width = if (isLogoFocused) 2.5.dp else 0.dp,
+                                            color = if (isLogoFocused) Color.White else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .onFocusChanged { isLogoFocused = it.isFocused }
+                                        .focusable()
+                                        .clickable {
+                                            onRequestEditLogo()
+                                        }
+                                ) {
+                                    if (logoBmp != null) {
+                                        Image(
+                                            bitmap = logoBmp.asImageBitmap(),
+                                            contentDescription = "Logo 3D",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 50.dp)
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                                .align(Alignment.Center)
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .align(Alignment.Center),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Sem logo 3D",
+                                                color = Color.White.copy(alpha = 0.35f),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "Logo 3D",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 3. Bottom Buttons: "Mover Posição" e "Deletar tudo"
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        var isMoveFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color(0xFF2563EB))
+                                .border(
+                                    width = if (isMoveFocused) 2.5.dp else 0.dp,
+                                    color = if (isMoveFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .onFocusChanged { isMoveFocused = it.isFocused }
+                                .focusable()
+                                .clickable {
+                                    onDismiss()
+                                    onRequestReorder()
+                                }
+                                .padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Mover Posição",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        var isDeleteFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color(0xFFDC2626))
+                                .border(
+                                    width = if (isDeleteFocused) 2.5.dp else 0.dp,
+                                    color = if (isDeleteFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .onFocusChanged { isDeleteFocused = it.isFocused }
+                                .focusable()
+                                .clickable {
+                                    onDeleteAll()
+                                    refreshKey++
+                                    isPlayingMusic = false
+                                }
+                                .padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Deletar tudo",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SelectMusicDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onApplySoundbiteUrl: (String) -> Unit,
+    onRemoveSoundbite: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var searchTitle by remember(app.id) { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var results by remember(app.id) { mutableStateOf<List<IidbArtwork>>(emptyList()) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var previewPlayingUrl by remember(app.id) { mutableStateOf<String?>(null) }
+    val previewPlayer = remember { android.media.MediaPlayer() }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                if (previewPlayer.isPlaying) previewPlayer.stop()
+                previewPlayer.release()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun doSearch(term: String) {
+        coroutineScope.launch {
+            isLoading = true
+            results = emptyList()
+            try {
+                results = IidbManager.searchSoundbites(context, term)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(app.id) {
+        doSearch(searchTitle)
+    }
+
+    val currentSoundbiteFile = remember(app.id) { IidbManager.getSoundbiteFile(context, app.id) }
+    val hasLocalSoundbite = currentSoundbiteFile.exists() && currentSoundbiteFile.length() > 0
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(520.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(SteamDeckBg)
+                    .border(1.2.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
+                    .padding(22.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Música Tema - ${app.label}",
+                                color = TextWhite,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "iiDB (iiSU Network)",
+                                color = SteamDeckTextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF60A5FA),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Search row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = searchTitle,
+                            onValueChange = { searchTitle = it },
+                            label = { Text("Nome do Jogo") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                focusedBorderColor = Color.White,
+                                unfocusedBorderColor = Color(0x44FFFFFF)
+                            ),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+
+                        Button(
+                            onClick = { doSearch(searchTitle) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                            shape = RoundedCornerShape(20.dp),
+                            enabled = !isLoading
+                        ) {
+                            Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Results
+                    if (results.isNotEmpty()) {
+                        Text(
+                            text = "Selecione uma faixa para ouvir ou aplicar:",
+                            color = SteamDeckTextMuted,
+                            fontSize = 12.sp
+                        )
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 240.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(results) { track ->
+                                val isPreviewing = previewPlayingUrl == track.url
+                                var isTrackFocused by remember { mutableStateOf(false) }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isPreviewing) Color(0xFF1E3A8A) else SteamDeckCardBg)
+                                        .border(
+                                            width = if (isTrackFocused) 2.5.dp else 1.dp,
+                                            color = if (isTrackFocused) Color.White else Color(0x22FFFFFF),
+                                            shape = RoundedCornerShape(14.dp)
+                                        )
+                                        .onFocusChanged { isTrackFocused = it.isFocused }
+                                        .focusable()
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        MetadataDiscIcon(isPlaying = isPreviewing, modifier = Modifier.size(32.dp))
+                                        Column {
+                                            Text(
+                                                text = track.displayName ?: "Tema de Áudio",
+                                                color = TextWhite,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (track.durationMs != null && track.durationMs > 0) {
+                                                val secs = (track.durationMs / 1000) % 60
+                                                val mins = (track.durationMs / 1000) / 60
+                                                Text(
+                                                    text = String.format("%d:%02d", mins, secs),
+                                                    color = SteamDeckTextMuted,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        // Preview button
+                                        Button(
+                                            onClick = {
+                                                if (isPreviewing) {
+                                                    try {
+                                                        if (previewPlayer.isPlaying) previewPlayer.stop()
+                                                        previewPlayer.reset()
+                                                    } catch (_: Exception) {}
+                                                    previewPlayingUrl = null
+                                                } else {
+                                                    try {
+                                                        if (previewPlayer.isPlaying) previewPlayer.stop()
+                                                        previewPlayer.reset()
+                                                        previewPlayer.setDataSource(track.url)
+                                                        previewPlayer.isLooping = false
+                                                        previewPlayer.setOnPreparedListener { it.start() }
+                                                        previewPlayer.setOnCompletionListener { previewPlayingUrl = null }
+                                                        previewPlayer.prepareAsync()
+                                                        previewPlayingUrl = track.url
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Erro ao reproduzir prévia", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isPreviewing) Color(0xFFEF4444) else Color(0xFF3B82F6)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isPreviewing) "Parar" else "Ouvir",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        // Apply button
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    if (previewPlayer.isPlaying) previewPlayer.stop()
+                                                } catch (_: Exception) {}
+                                                onApplySoundbiteUrl(track.url)
+                                                onDismiss()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(
+                                                text = "Aplicar",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (!isLoading) {
+                        Text(
+                            text = "Nenhuma música encontrada no iiDB para \"$searchTitle\".",
+                            color = SteamDeckTextMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+
+                    // Bottom actions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (hasLocalSoundbite) {
+                            TextButton(
+                                onClick = {
+                                    onRemoveSoundbite()
+                                    onDismiss()
+                                }
+                            ) {
+                                Text("Remover Música Atual", color = Color(0xFFEF4444), fontSize = 12.sp)
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
+
+                        TextButton(onClick = onDismiss) {
+                            Text("Fechar", color = SteamDeckTextMuted, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataDiscIcon(
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val rotation = if (isPlaying) {
+        val infiniteTransition = rememberInfiniteTransition(label = "disc_spin")
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(2800, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "disc_rotation"
+        ).value
+    } else 0f
+
+    Canvas(
+        modifier = modifier
+            .size(38.dp)
+            .graphicsLayer(rotationZ = rotation)
+    ) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val outerRadius = size.minDimension / 2f
+        val innerHoleRadius = outerRadius * 0.28f
+        val grooveRadius = outerRadius * 0.65f
+
+        // Outer white disc
+        drawCircle(
+            color = Color(0xFFE2E2E6),
+            radius = outerRadius,
+            center = center
+        )
+        // Subtle vinyl groove line
+        drawCircle(
+            color = Color(0xFFB0B0B6),
+            radius = grooveRadius,
+            center = center,
+            style = Stroke(width = 1.2f)
+        )
+        // Center hole
+        drawCircle(
+            color = Color(0xFF222226),
+            radius = innerHoleRadius,
+            center = center
+        )
     }
 }

@@ -9,6 +9,9 @@
 .cxx
 local.properties
 app/build
+scratch/
+*.apk
 marketing/*.mp4
 marketing/*.m4a
+
 

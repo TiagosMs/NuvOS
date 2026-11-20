@@ -4,10 +4,11 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,12 +35,14 @@ import com.decklauncher.model.AppItem
 import com.decklauncher.ui.theme.CardBgDark
 import com.decklauncher.ui.theme.TextWhite
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppGridCard(
     app: AppItem,
     isSelected: Boolean,
     onSelect: () -> Unit,
     onLaunch: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     showLabel: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -61,12 +64,17 @@ fun AppGridCard(
         modifier = modifier
             .padding(horizontal = 2.dp, vertical = 4.dp)
             .scale(scale)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                if (isSelected) onLaunch() else onSelect()
-            }
+                indication = null,
+                onClick = {
+                    if (isSelected) onLaunch() else onSelect()
+                },
+                onLongClick = {
+                    onSelect()
+                    onLongClick?.invoke()
+                }
+            )
             .semantics { contentDescription = app.label },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -89,9 +97,10 @@ fun AppGridCard(
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
-                if (app.iconBitmap != null) {
+                val icon = com.decklauncher.data.rememberAppIcon(app)
+                if (icon != null) {
                     Image(
-                        bitmap = app.iconBitmap,
+                        bitmap = icon,
                         contentDescription = app.label,
                         modifier = Modifier
                             .fillMaxSize()

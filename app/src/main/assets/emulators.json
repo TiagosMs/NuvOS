@@ -1,0 +1,215 @@
+[
+  {
+    "package": "org.ppsspp.ppsspp",
+    "name": "PPSSPP",
+    "systems": ["psp"],
+    "extensions": ["iso", "cso", "pbp"],
+    "intro": "psp",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "type": "application/octet-stream",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "org.ppsspp.ppssppgold",
+    "name": "PPSSPP Gold",
+    "systems": ["psp"],
+    "extensions": ["iso", "cso", "pbp"],
+    "intro": "psp",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "type": "application/octet-stream",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "xyz.aethersx2.android",
+    "name": "AetherSX2",
+    "systems": ["ps2"],
+    "extensions": ["iso", "chd", "bin", "cso", "gz"],
+    "intro": "ps2",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "xyz.nethersx2.android",
+    "name": "NetherSX2",
+    "systems": ["ps2"],
+    "extensions": ["iso", "chd", "bin", "cso", "gz"],
+    "intro": "ps2",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "org.dolphinemu.dolphinemu",
+    "name": "Dolphin Emulator",
+    "systems": ["gamecube", "wii"],
+    "extensions": ["gcm", "iso", "wbfs", "rvz", "ciso"],
+    "intro": "gamecube",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "me.magnum.melonds",
+    "name": "melonDS",
+    "systems": ["nds"],
+    "extensions": ["nds"],
+    "intro": "nds",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.dsemu.drastic",
+    "name": "DraStic",
+    "systems": ["nds"],
+    "extensions": ["nds"],
+    "intro": "nds",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "org.citra.citra_emu",
+    "name": "Citra",
+    "systems": ["3ds"],
+    "extensions": ["3ds", "cia", "cxi"],
+    "intro": "3ds",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "io.github.lime3ds.android",
+    "name": "Lime3DS",
+    "systems": ["3ds"],
+    "extensions": ["3ds", "cia", "cxi"],
+    "intro": "3ds",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.github.stenzek.duckstation",
+    "name": "DuckStation",
+    "systems": ["ps1"],
+    "extensions": ["chd", "cue", "iso", "bin", "pbp"],
+    "intro": "ps1",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.explusalpha.Snes9xPlus",
+    "name": "Snes9x EX+",
+    "systems": ["snes"],
+    "extensions": ["sfc", "smc"],
+    "intro": "snes",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.fastemulator.gba",
+    "name": "My Boy!",
+    "systems": ["gba"],
+    "extensions": ["gba"],
+    "intro": "gba",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "org.mupen64plusae.v3.fzurita",
+    "name": "Mupen64Plus FZ",
+    "systems": ["n64"],
+    "extensions": ["n64", "z64", "v64"],
+    "intro": "n64",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "io.recompiled.redream",
+    "name": "Redream",
+    "systems": ["dreamcast"],
+    "extensions": ["cdi", "gdi", "chd"],
+    "intro": "dreamcast",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.flycast.emulator",
+    "name": "Flycast",
+    "systems": ["dreamcast"],
+    "extensions": ["cdi", "gdi", "chd"],
+    "intro": "dreamcast",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "org.vita3k.emulator",
+    "name": "Vita3K",
+    "systems": ["psvita"],
+    "extensions": ["vpk", "zip"],
+    "intro": "psvita",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.rfandango.haku_x",
+    "name": "Haku X",
+    "systems": ["xbox"],
+    "extensions": ["xbe"],
+    "intro": "xbox_classic",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "component": "com.rfandango.haku_x/com.rfandango.haku_x.LauncherActivity",
+      "type": "*/*",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.retroarch.aarch64",
+    "name": "RetroArch (64-bit)",
+    "systems": ["arcade", "snes", "nes", "gba", "gb", "gbc", "n64", "genesis", "ps1", "nds"],
+    "extensions": ["zip", "sfc", "smc", "nes", "gba", "gb", "gbc", "z64", "n64", "md", "chd", "cue", "nds"],
+    "intro": "retroarch",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  },
+  {
+    "package": "com.retroarch",
+    "name": "RetroArch",
+    "systems": ["arcade", "snes", "nes", "gba", "gb", "gbc", "n64", "genesis", "ps1", "nds"],
+    "extensions": ["zip", "sfc", "smc", "nes", "gba", "gb", "gbc", "z64", "n64", "md", "chd", "cue", "nds"],
+    "intro": "retroarch",
+    "launch": {
+      "action": "android.intent.action.VIEW",
+      "data": "{uri}"
+    }
+  }
+]

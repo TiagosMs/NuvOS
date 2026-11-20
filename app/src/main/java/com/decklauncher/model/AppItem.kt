@@ -1,6 +1,5 @@
 package com.decklauncher.model
 
-import androidx.compose.ui.graphics.ImageBitmap
 import com.decklauncher.data.FolderCategory
 
 enum class AppCategory {
@@ -25,6 +24,5 @@ data class AppItem(
     val itemType: ItemType = ItemType.APP,
     val romPath: String? = null,
     val cloudUrl: String? = null,
-    val iconBitmap: ImageBitmap? = null,
-    val coverBitmap: ImageBitmap? = null
+    val coverPath: String? = null
 )
