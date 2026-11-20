@@ -1,5 +1,7 @@
 package com.decklauncher.ui.components
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.*
@@ -44,6 +46,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
@@ -1078,19 +1082,25 @@ private fun ConsoleActionButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(if (isCompact) 16.dp else 19.dp)
-                .clip(CircleShape)
-                .background(badgeBgColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = buttonLabel,
-                color = badgeTextColor,
-                fontSize = if (isCompact) 9.sp else 11.sp,
-                fontWeight = FontWeight.Black
+        val badgeSize = if (isCompact) 16.dp else 19.dp
+        Canvas(modifier = Modifier.size(badgeSize)) {
+            val radius = size.minDimension / 2f
+            drawCircle(
+                color = badgeBgColor,
+                radius = radius,
+                center = center
             )
+
+            val paint = Paint().apply {
+                color = badgeTextColor.toArgb()
+                textSize = (if (isCompact) 9.sp else 11.sp).toPx()
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                isAntiAlias = true
+            }
+
+            val yOffset = center.y - ((paint.descent() + paint.ascent()) / 2f)
+            drawContext.canvas.nativeCanvas.drawText(buttonLabel, center.x, yOffset, paint)
         }
         Text(
             text = actionText,
