@@ -3,6 +3,8 @@ package com.decklauncher.ui.dialogs
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.view.KeyEvent as AndroidKeyEvent
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -1687,27 +1689,44 @@ fun LauncherSettingsDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        val customAvatar = remember(avatarId, ProfileManager.avatarVersion) {
+                            if (avatarId == ProfileManager.CUSTOM_AVATAR_ID) ProfileManager.loadCustomAvatar(context) else null
+                        }
+
+                        // Avatar circular sem moldura
                         Box(
                             modifier = Modifier
                                 .size(46.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(
-                                            Color(activePreset.primaryColor),
-                                            Color(activePreset.accentColor)
+                                .then(
+                                    if (customAvatar == null) {
+                                        Modifier.background(
+                                            Brush.linearGradient(
+                                                listOf(
+                                                    Color(activePreset.primaryColor),
+                                                    Color(activePreset.accentColor)
+                                                )
+                                            )
                                         )
-                                    )
-                                )
-                                .border(1.5.dp, Color(0x66FFFFFF), CircleShape),
+                                    } else Modifier
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = activePreset.initial,
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black
-                            )
+                            if (customAvatar != null) {
+                                Image(
+                                    bitmap = customAvatar.asImageBitmap(),
+                                    contentDescription = "Foto de Perfil",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Text(
+                                    text = activePreset.initial,
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
                         }
 
                         Column {
@@ -2165,8 +2184,31 @@ fun ChangeAvatarDialog(
     onNameUpdated: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var currentName by remember { mutableStateOf(ProfileManager.getProfileName(context)) }
     var currentAvatarId by remember { mutableStateOf(ProfileManager.getAvatarId(context)) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val ok = ProfileManager.saveCustomAvatarFromUri(context, uri)
+                if (ok) {
+                    currentAvatarId = ProfileManager.CUSTOM_AVATAR_ID
+                    onAvatarSelected(ProfileManager.CUSTOM_AVATAR_ID)
+                    Toast.makeText(context, "Foto de perfil atualizada!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Erro ao carregar imagem da galeria", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val customAvatarBmp = remember(currentAvatarId, ProfileManager.avatarVersion) {
+        if (ProfileManager.hasCustomAvatar(context)) ProfileManager.loadCustomAvatar(context) else null
+    }
+    val isCustomSelected = currentAvatarId == ProfileManager.CUSTOM_AVATAR_ID
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -2215,7 +2257,68 @@ fun ChangeAvatarDialog(
                     )
                 }
 
-                Text("Escolher Ícone de Perfil", color = SteamDeckTextMuted, fontSize = 11.sp)
+                Text("Foto de Perfil Personalizada", color = SteamDeckTextMuted, fontSize = 11.sp)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(if (isCustomSelected) Color(0x353B82F6) else SteamDeckCardBg)
+                        .border(
+                            width = if (isCustomSelected) 2.dp else 1.dp,
+                            color = if (isCustomSelected) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                            shape = RoundedCornerShape(18.dp)
+                        )
+                        .clickable { galleryLauncher.launch("image/*") }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF27303D)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (customAvatarBmp != null) {
+                            Image(
+                                bitmap = customAvatarBmp.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text("🖼️", fontSize = 18.sp)
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isCustomSelected && customAvatarBmp != null) "Foto da Galeria Ativa" else "Escolher Foto da Galeria",
+                            color = TextWhite,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Toque para abrir a galeria e cortar imagem",
+                            color = SteamDeckTextMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        colors = ButtonDefaults.buttonColors(containerColor = SteamDeckButtonBlue),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Galeria", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Text("Ou use um Ícone Predefinido:", color = SteamDeckTextMuted, fontSize = 11.sp)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2225,7 +2328,7 @@ fun ChangeAvatarDialog(
                         val isSelected = currentAvatarId == preset.id
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
@@ -2236,8 +2339,8 @@ fun ChangeAvatarDialog(
                                     )
                                 )
                                 .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) Color.White else Color(0x44FFFFFF),
+                                    width = if (isSelected) 2.5.dp else 1.dp,
+                                    color = if (isSelected) Color.White else Color(0x33FFFFFF),
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -2250,7 +2353,7 @@ fun ChangeAvatarDialog(
                             Text(
                                 text = preset.initial,
                                 color = Color.White,
-                                fontSize = 18.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Black
                             )
                         }
@@ -3762,8 +3865,9 @@ fun SelectMusicDialog(
                                                         if (previewPlayer.isPlaying) previewPlayer.stop()
                                                         previewPlayer.reset()
                                                         previewPlayer.setDataSource(track.url)
-                                                        previewPlayer.isLooping = true
+                                                        previewPlayer.isLooping = false
                                                         previewPlayer.setOnPreparedListener { it.start() }
+                                                        previewPlayer.setOnCompletionListener { previewPlayingUrl = null }
                                                         previewPlayer.prepareAsync()
                                                         previewPlayingUrl = track.url
                                                     } catch (e: Exception) {

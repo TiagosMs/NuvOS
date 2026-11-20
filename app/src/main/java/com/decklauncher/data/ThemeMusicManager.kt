@@ -63,13 +63,19 @@ object ThemeMusicManager {
                         .build()
                 )
                 setDataSource(path)
-                isLooping = true
+                isLooping = false
                 setVolume(0.70f, 0.70f)
                 setOnPreparedListener { player ->
                     if (currentPlayingAppId == appId) {
                         player.start()
                     } else {
                         player.release()
+                    }
+                }
+                setOnCompletionListener { player ->
+                    player.release()
+                    if (mediaPlayer === player) {
+                        mediaPlayer = null
                     }
                 }
                 setOnErrorListener { player, _, _ ->
