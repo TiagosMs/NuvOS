@@ -82,9 +82,6 @@ fun EnableWindowBlur(blurRadius: Int = 100) {
     SideEffect {
         val window = (view.parent as? DialogWindowProvider)?.window
         if (window != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            }
             window.setDimAmount(0.70f)
         }
     }

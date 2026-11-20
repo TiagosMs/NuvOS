@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            CoroutineScope(Dispatchers.Main).launch {
+            lifecycleScope.launch(Dispatchers.Main) {
                 val ok = ThemeManager.saveCustomWallpaperFromUri(this@MainActivity, uri)
                 if (ok) {
                     val bmp = ThemeManager.loadCustomWallpaper(this@MainActivity)
@@ -434,7 +434,7 @@ class MainActivity : ComponentActivity() {
                         downloadCoverFromUrl(item, url)
                     },
                     onApplyHeroUrl = { item, url ->
-                        CoroutineScope(Dispatchers.IO).launch {
+                        lifecycleScope.launch(Dispatchers.IO) {
                             val bmp = SteamGridDbManager.downloadAndApplyHero(this@MainActivity, item.id, url)
                             if (bmp != null) {
                                 withContext(Dispatchers.Main) {
@@ -446,7 +446,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onApplyLogoUrl = { item, url ->
-                        CoroutineScope(Dispatchers.IO).launch {
+                        lifecycleScope.launch(Dispatchers.IO) {
                             val bmp = SteamGridDbManager.downloadAndApplyLogo(this@MainActivity, item.id, url)
                             if (bmp != null) {
                                 withContext(Dispatchers.Main) {
@@ -466,7 +466,7 @@ class MainActivity : ComponentActivity() {
                         showAddCloudDialogState.value = false
                         loadInstalledApps()
                         // Busca e aplica capa do SteamGridDB automaticamente em background
-                        CoroutineScope(Dispatchers.IO).launch {
+                        lifecycleScope.launch(Dispatchers.IO) {
                             val games = SteamGridDbManager.searchGames(this@MainActivity, title)
                             if (games.isNotEmpty()) {
                                 val grids = SteamGridDbManager.getGridsForGame(this@MainActivity, games.first().id)
@@ -590,7 +590,7 @@ class MainActivity : ComponentActivity() {
 
     private fun loadInstalledApps(forceReloadPack: Boolean = false) {
         isLoadingState.value = true
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             IconPackManager.loadIconPack(this@MainActivity, forceReload = forceReloadPack)
 
             val pm = packageManager
@@ -779,7 +779,7 @@ class MainActivity : ComponentActivity() {
             val trans = launchTransitionState.value
             if (trans == LaunchTransitionType.FADE) {
                 isLaunchingFadeState.value = true
-                CoroutineScope(Dispatchers.Main).launch {
+                lifecycleScope.launch(Dispatchers.Main) {
                     delay(220)
                     launchItem(item)
                 }
@@ -871,7 +871,7 @@ class MainActivity : ComponentActivity() {
 
     private fun downloadCoverFromUrl(item: AppItem, url: String) {
         isLoadingState.value = true
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val bmp = CoverManager.downloadCover(this@MainActivity, item.id, url)
             withContext(Dispatchers.Main) {
                 isLoadingState.value = false
@@ -1191,7 +1191,7 @@ class MainActivity : ComponentActivity() {
             executeNavigation(newDir, isAutoRepeat = false)
 
             // 2. Repetição acelerada (Fase 3.3): delay 350ms, intervalo 120ms acelerando até 45ms
-            joyRepeatJob = CoroutineScope(Dispatchers.Main).launch {
+            joyRepeatJob = lifecycleScope.launch(Dispatchers.Main) {
                 delay(350)
                 var interval = 120L
                 while (currentJoyDir == newDir && isActive) {
