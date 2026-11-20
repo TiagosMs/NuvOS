@@ -102,6 +102,7 @@ fun OptionsDialog(
     onRequestEditHero: () -> Unit = {},
     onRequestEditLogo: () -> Unit = {},
     onRequestSelectIntro: () -> Unit = {},
+    onRequestFetchIidb: () -> Unit = {},
     onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
     onRequestIconPackSettings: () -> Unit,
@@ -115,6 +116,7 @@ fun OptionsDialog(
         val list = mutableListOf<DialogActionItem>()
         list.add(DialogActionItem("Iniciar") { onLaunch(); onDismiss() })
         list.add(DialogActionItem("Mover Posição / Trocar de Lugar") { onRequestReorder(); onDismiss() })
+        list.add(DialogActionItem("Baixar Artes e Tema do iiDB") { onRequestFetchIidb(); onDismiss() })
         list.add(DialogActionItem("Editar Capa (SteamGridDB)") { onRequestEditCover(); onDismiss() })
         list.add(DialogActionItem("Editar Fundo / Hero (SteamGridDB)") { onRequestEditHero(); onDismiss() })
         list.add(DialogActionItem("Editar Logo 3D (SteamGridDB)") { onRequestEditLogo(); onDismiss() })
@@ -1179,6 +1181,80 @@ fun SteamGridApiKeyDialog(
 }
 
 @Composable
+fun IidbApiKeyDialog(
+    onDismiss: () -> Unit,
+    onSaveKey: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var currentKey by remember { mutableStateOf(IidbManager.getApiKey(context)) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .width(420.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(SteamDeckBg)
+                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
+                .padding(20.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Chave de API iiDB (iiSU Network)",
+                    color = TextWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Gere sua chave pessoal em iisu.network para baixar capas oficiais, fundos 16:9, logos 3D e áudios tema.",
+                    color = SteamDeckTextMuted,
+                    fontSize = 12.sp
+                )
+
+                OutlinedTextField(
+                    value = currentKey,
+                    onValueChange = { currentKey = it },
+                    label = { Text("Chave de API iiDB") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color(0x44FFFFFF)
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar", color = SteamDeckTextMuted)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onSaveKey(currentKey.trim())
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text("Salvar", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun IconPackDialog(
     onDismiss: () -> Unit,
     onSelectPack: (String?) -> Unit
@@ -1392,6 +1468,7 @@ fun LauncherSettingsDialog(
     onDismiss: () -> Unit,
     onRequestChangeAvatar: () -> Unit,
     onRequestSteamGridKey: () -> Unit,
+    onRequestIidbKey: () -> Unit = {},
     onRequestIconPack: () -> Unit,
     onRequestAddCloudGame: () -> Unit,
     onRescanRoms: () -> Unit,
@@ -1808,6 +1885,53 @@ fun LauncherSettingsDialog(
                         onDismiss()
                     }
                 )
+
+                SteamDeckOptionRow(
+                    label = "Configurar Chave iiDB (iiSU Network)",
+                    onClick = {
+                        onRequestIidbKey()
+                        onDismiss()
+                    }
+                )
+
+                var musicActive by remember { mutableStateOf(IidbManager.isThemeMusicEnabled(context)) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SteamDeckCardBg)
+                        .clickable {
+                            val newActive = !musicActive
+                            musicActive = newActive
+                            IidbManager.setThemeMusicEnabled(context, newActive)
+                            if (!newActive) {
+                                ThemeMusicManager.stopTheme()
+                            }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Música Tema ao Focar Jogo (iiDB)",
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (musicActive) "Toca áudio oficial do jogo no carrossel" else "Desativado",
+                            color = if (musicActive) Color(0xFF10B981) else SteamDeckTextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = if (musicActive) "Ativado" else "Desativado",
+                        color = if (musicActive) Color(0xFF10B981) else SteamDeckTextMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 SteamDeckOptionRow(
                     label = "Selecionar Pacote de Ícones",

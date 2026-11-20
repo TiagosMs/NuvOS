@@ -121,6 +121,11 @@ fun DeckHomeScreen(
     onDismissLauncherSettings: () -> Unit = {},
     onDismissChangeAvatar: () -> Unit = {},
     onDismissEmulatorGames: () -> Unit = {},
+    showIidbKeyDialog: Boolean = false,
+    onDismissIidbKey: () -> Unit = {},
+    onRequestIidbKey: () -> Unit = {},
+    onRequestFetchIidb: (AppItem) -> Unit = {},
+    onSaveIidbKey: (String) -> Unit = {},
     onTogglePinGame: (AppItem) -> Unit = {},
     onLaunchRom: (AppItem) -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
@@ -217,6 +222,23 @@ fun DeckHomeScreen(
             value = LogoManager.getOrFetchLogo(context, app.id, app.label)
         } else {
             value = null
+        }
+    }
+
+    // Theme Music playback com debounce de 350ms (iiDB soundbite loop)
+    LaunchedEffect(currentFocusedApp?.id, selectedTab) {
+        val app = currentFocusedApp
+        if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            delay(350)
+            ThemeMusicManager.playTheme(context, app.id, app.label)
+        } else {
+            ThemeMusicManager.stopTheme()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            ThemeMusicManager.stopTheme()
         }
     }
 
@@ -775,6 +797,7 @@ fun DeckHomeScreen(
                 onRequestEditHero = { onRequestEditHero(targetApp) },
                 onRequestEditLogo = { onRequestEditLogo(targetApp) },
                 onRequestSelectIntro = { onRequestSelectIntro(targetApp) },
+                onRequestFetchIidb = { onRequestFetchIidb(targetApp) },
                 onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
                 onRequestIconPackSettings = onRequestIconPackSettings,
@@ -840,6 +863,13 @@ fun DeckHomeScreen(
             )
         }
 
+        if (showIidbKeyDialog) {
+            IidbApiKeyDialog(
+                onDismiss = onDismissIidbKey,
+                onSaveKey = onSaveIidbKey
+            )
+        }
+
         if (showIconPackDialog) {
             IconPackDialog(
                 onDismiss = onDismissIconPack,
@@ -852,6 +882,7 @@ fun DeckHomeScreen(
                 onDismiss = onDismissLauncherSettings,
                 onRequestChangeAvatar = onRequestChangeAvatar,
                 onRequestSteamGridKey = onRequestSteamGridSettings,
+                onRequestIidbKey = onRequestIidbKey,
                 onRequestIconPack = onRequestIconPackSettings,
                 onRequestAddCloudGame = onRequestAddGame,
                 onRescanRoms = onRescanRoms,

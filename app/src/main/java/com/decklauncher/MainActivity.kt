@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
             showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
             showSteamGridDialogState.value || showIconPackDialogState.value ||
             showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value ||
-            showEmulatorGamesDialogState.value
+            showEmulatorGamesDialogState.value || showIidbKeyDialogState.value
 
     private fun closeAllDialogs() {
         showOptionsDialogState.value = false
@@ -91,12 +91,14 @@ class MainActivity : ComponentActivity() {
         showAddCloudDialogState.value = false
         showAddGameOptionsDialogState.value = false
         showSteamGridDialogState.value = false
+        showIidbKeyDialogState.value = false
         showIconPackDialogState.value = false
         showLauncherSettingsDialogState.value = false
         showChangeAvatarDialogState.value = false
         showEmulatorGamesDialogState.value = false
         activeEmulatorAppState.value = null
     }
+    private var showIidbKeyDialogState = mutableStateOf(false)
     private var showEmulatorGamesDialogState = mutableStateOf(false)
     private var activeEmulatorAppState = mutableStateOf<AppItem?>(null)
     private var allScannedRomsState = mutableStateOf<List<AppItem>>(emptyList())
@@ -259,6 +261,14 @@ class MainActivity : ComponentActivity() {
                     showAddCloudDialog = showAddCloudDialogState.value,
                     showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
                     showSteamGridDialog = showSteamGridDialogState.value,
+                    showIidbKeyDialog = showIidbKeyDialogState.value,
+                    onDismissIidbKey = { showIidbKeyDialogState.value = false },
+                    onRequestIidbKey = { showIidbKeyDialogState.value = true },
+                    onSaveIidbKey = { key ->
+                        IidbManager.setApiKey(this@MainActivity, key)
+                        Toast.makeText(this@MainActivity, "Chave iiDB salva!", Toast.LENGTH_SHORT).show()
+                    },
+                    onRequestFetchIidb = { item -> fetchIidbAssets(item) },
                     showIconPackDialog = showIconPackDialogState.value,
                     showLauncherSettingsDialog = showLauncherSettingsDialogState.value,
                     showChangeAvatarDialog = showChangeAvatarDialogState.value,
@@ -521,6 +531,7 @@ class MainActivity : ComponentActivity() {
         isLaunchingFadeState.value = false
         setupImmersiveMode()
         requestHighestRefreshRate()
+        ThemeMusicManager.resumeTheme()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -536,11 +547,13 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         joyRepeatJob?.cancel()
         currentJoyDir = JoystickDir.NONE
+        ThemeMusicManager.pauseTheme()
     }
 
     override fun onStop() {
         super.onStop()
         activeIntroPlayingState.value = null
+        ThemeMusicManager.stopTheme()
         try {
             unregisterReceiver(batteryReceiver)
             unregisterReceiver(packageReceiver)
@@ -549,6 +562,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        ThemeMusicManager.stopTheme()
     }
 
     @Suppress("DEPRECATION")
@@ -771,6 +785,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestLaunchItem(item: AppItem) {
+        ThemeMusicManager.stopTheme()
         val intro = IntroManager.detectIntroForApp(this, item, isLaunching = true)
         if (intro != null && intro.assetFileName != null) {
             activeIntroPlayingState.value = intro
@@ -843,6 +858,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openAppOptions(app: AppItem?) {
+        ThemeMusicManager.pauseTheme()
         if (app != null && app.itemType == ItemType.APP) {
             try {
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -853,6 +869,29 @@ class MainActivity : ComponentActivity() {
             } catch (_: Exception) {}
         }
         startActivity(Intent(Settings.ACTION_SETTINGS))
+    }
+
+    private fun fetchIidbAssets(item: AppItem) {
+        if (!IidbManager.hasApiKey(this)) {
+            Toast.makeText(this, "Configure sua Chave iiDB nas Configurações primeiro!", Toast.LENGTH_LONG).show()
+            showIidbKeyDialogState.value = true
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, "Buscando artes e áudio no iiDB...", Toast.LENGTH_SHORT).show()
+            }
+            val ok = IidbManager.fetchAndApplyAllAssets(this@MainActivity, item.id, item.label)
+            withContext(Dispatchers.Main) {
+                if (ok) {
+                    Toast.makeText(this@MainActivity, "Artes e música do iiDB aplicadas!", Toast.LENGTH_SHORT).show()
+                    loadInstalledApps()
+                    ThemeMusicManager.playTheme(this@MainActivity, item.id, item.label)
+                } else {
+                    Toast.makeText(this@MainActivity, "Nenhum resultado encontrado no iiDB para \"${item.label}\"", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun uninstallApp(app: AppItem?) {
