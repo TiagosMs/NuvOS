@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
     // Dialog & Interaction states
     private var showOptionsDialogState = mutableStateOf(false)
     private var showGameMetadataDialogState = mutableStateOf(false)
+    private var showSelectMusicDialogState = mutableStateOf(false)
     private var showEditCoverDialogState = mutableStateOf(false)
     private var showAddCloudDialogState = mutableStateOf(false)
     private var showAddGameOptionsDialogState = mutableStateOf(false)
@@ -72,9 +73,13 @@ class MainActivity : ComponentActivity() {
     private var avatarIdState = mutableStateOf("deck_blue")
     private var activeDialogAppState = mutableStateOf<AppItem?>(null)
     private var backgroundModeState = mutableStateOf(BackgroundMode.IMMERSIVE)
+    private var metadataUpdateCounter = mutableIntStateOf(0)
+    private var buttonALongPressJob: Job? = null
+    private var isButtonALongPressed = false
 
     private val isAnyDialogOpen: Boolean
         get() = showOptionsDialogState.value || showGameMetadataDialogState.value ||
+            showSelectMusicDialogState.value ||
             showEditCoverDialogState.value || showEditHeroDialogState.value ||
             showEditLogoDialogState.value || showSelectIntroDialogState.value ||
             showInitialSetupDialogState.value || showAddCloudDialogState.value ||
@@ -86,6 +91,7 @@ class MainActivity : ComponentActivity() {
     private fun closeAllDialogs() {
         showOptionsDialogState.value = false
         showGameMetadataDialogState.value = false
+        showSelectMusicDialogState.value = false
         showEditCoverDialogState.value = false
         showEditHeroDialogState.value = false
         showEditLogoDialogState.value = false
@@ -247,6 +253,7 @@ class MainActivity : ComponentActivity() {
                     isLoading = isLoadingState.value,
                     showOptionsDialog = showOptionsDialogState.value,
                     showGameMetadataDialog = showGameMetadataDialogState.value,
+                    showSelectMusicDialog = showSelectMusicDialogState.value,
                     showEditCoverDialog = showEditCoverDialogState.value,
                     showEditHeroDialog = showEditHeroDialogState.value,
                     showEditLogoDialog = showEditLogoDialogState.value,
@@ -341,6 +348,7 @@ class MainActivity : ComponentActivity() {
                     onUninstallApp = { uninstallApp(it) },
                     onDismissOptions = { showOptionsDialogState.value = false },
                     onDismissGameMetadata = { showGameMetadataDialogState.value = false },
+                    onDismissSelectMusic = { showSelectMusicDialogState.value = false },
                     onDismissEditCover = { showEditCoverDialogState.value = false },
                     onDismissEditHero = { showEditHeroDialogState.value = false },
                     onDismissEditLogo = { showEditLogoDialogState.value = false },
@@ -370,6 +378,10 @@ class MainActivity : ComponentActivity() {
                     onRequestManageMetadata = { item ->
                         activeDialogAppState.value = item
                         showGameMetadataDialogState.value = true
+                    },
+                    onRequestEditMusic = { item ->
+                        activeDialogAppState.value = item
+                        showSelectMusicDialogState.value = true
                     },
                     onDeleteAllGameMetadata = { item ->
                         deleteAllGameMetadata(item)
@@ -464,6 +476,7 @@ class MainActivity : ComponentActivity() {
                             val bmp = SteamGridDbManager.downloadAndApplyHero(this@MainActivity, item.id, url)
                             if (bmp != null) {
                                 withContext(Dispatchers.Main) {
+                                    metadataUpdateCounter.intValue++
                                     Toast.makeText(this@MainActivity, "Fundo 16:9 atualizado!", Toast.LENGTH_SHORT).show()
                                     showEditHeroDialogState.value = false
                                     loadInstalledApps()
@@ -476,6 +489,7 @@ class MainActivity : ComponentActivity() {
                             val bmp = SteamGridDbManager.downloadAndApplyLogo(this@MainActivity, item.id, url)
                             if (bmp != null) {
                                 withContext(Dispatchers.Main) {
+                                    metadataUpdateCounter.intValue++
                                     Toast.makeText(this@MainActivity, "Logo 3D atualizada com sucesso!", Toast.LENGTH_SHORT).show()
                                     showEditLogoDialogState.value = false
                                     loadInstalledApps()
@@ -483,6 +497,13 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
+                    onApplySoundbiteUrl = { item, url ->
+                        downloadSoundbiteFromUrl(item, url)
+                    },
+                    onRemoveSoundbite = { item ->
+                        removeSoundbite(item)
+                    },
+                    metadataUpdateCounter = metadataUpdateCounter.intValue,
                     onIntroSelected = { item, introId ->
                         IntroManager.setCustomIntroId(this@MainActivity, item.id, introId)
                         Toast.makeText(this@MainActivity, "Intro do console atualizada!", Toast.LENGTH_SHORT).show()
@@ -922,8 +943,31 @@ class MainActivity : ComponentActivity() {
         LogoManager.deleteLogo(this, item.id)
         IidbManager.deleteSoundbite(this, item.id)
         ThemeMusicManager.stopTheme()
+        metadataUpdateCounter.intValue++
         Toast.makeText(this, "Metadados de \"${item.label}\" restaurados!", Toast.LENGTH_SHORT).show()
         loadInstalledApps()
+    }
+
+    private fun downloadSoundbiteFromUrl(item: AppItem, url: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val f = IidbManager.downloadSoundbite(this@MainActivity, item.id, url, force = true)
+            withContext(Dispatchers.Main) {
+                if (f != null && f.exists()) {
+                    ThemeMusicManager.playTheme(this@MainActivity, item.id, item.label)
+                    metadataUpdateCounter.intValue++
+                    Toast.makeText(this@MainActivity, "Música tema atualizada!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Erro ao baixar música tema.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun removeSoundbite(item: AppItem) {
+        IidbManager.deleteSoundbite(this, item.id)
+        ThemeMusicManager.stopTheme()
+        metadataUpdateCounter.intValue++
+        Toast.makeText(this, "Música tema removida!", Toast.LENGTH_SHORT).show()
     }
 
     private fun uninstallApp(app: AppItem?) {
@@ -947,6 +991,7 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 isLoadingState.value = false
                 if (bmp != null) {
+                    metadataUpdateCounter.intValue++
                     showEditCoverDialogState.value = false
                     loadInstalledApps()
                     Toast.makeText(this@MainActivity, "Capa atualizada com sucesso!", Toast.LENGTH_SHORT).show()
@@ -960,12 +1005,8 @@ class MainActivity : ComponentActivity() {
     // --- Suporte Total a Controles Físicos / Gamepads ---
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) {
-            return super.dispatchKeyEvent(event)
-        }
-
         // Se uma intro de boot estiver em execução, qualquer botão de ação ou retorno pula a intro
-        if (activeIntroPlayingState.value != null) {
+        if (activeIntroPlayingState.value != null && event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_BUTTON_A,
                 KeyEvent.KEYCODE_BUTTON_B,
@@ -989,12 +1030,14 @@ class MainActivity : ComponentActivity() {
             return true
         }
 
-        // Se algum diálogo estiver aberto, controla foco interno e impede ação no fundo
+        // Se algum diálogo estiver aberto, mapeia DPAD e ações com foco completo
         if (isAnyDialogOpen) {
-            if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
-                closeAllDialogs()
-                triggerHaptic()
-                return true
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                    closeAllDialogs()
+                    triggerHaptic()
+                    return true
+                }
             }
             if (event.keyCode == KeyEvent.KEYCODE_BUTTON_A) {
                 val centerEvent = KeyEvent(
@@ -1013,12 +1056,11 @@ class MainActivity : ComponentActivity() {
             )) {
                 return super.dispatchKeyEvent(event)
             }
-            // Consome outros botões (X, Y, L1, R1) para não acionar ações no fundo
             return true
         }
 
         // Se estiver no Modo Reordenar Itens
-        if (isReorderModeState.value) {
+        if (isReorderModeState.value && event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     swapSelectedItem(-1)
@@ -1039,6 +1081,43 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
             }
+        }
+
+        // Detecção de clique longo (segurar botão de abrir por 450ms abre metadados/opções)
+        if (focusAreaState.value == FocusArea.CAROUSEL && selectedTabState.intValue != 2) {
+            if (event.keyCode in listOf(KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER)) {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    if (event.repeatCount == 0) {
+                        isButtonALongPressed = false
+                        buttonALongPressJob?.cancel()
+                        buttonALongPressJob = lifecycleScope.launch(Dispatchers.Main) {
+                            delay(450)
+                            isButtonALongPressed = true
+                            triggerHaptic()
+                            val filtered = getFilteredApps()
+                            val current = filtered.getOrNull(selectedIndexState.intValue)
+                            if (current != null) {
+                                activeDialogAppState.value = current
+                                showGameMetadataDialogState.value = true
+                            }
+                        }
+                    }
+                    return true
+                } else if (event.action == KeyEvent.ACTION_UP) {
+                    buttonALongPressJob?.cancel()
+                    buttonALongPressJob = null
+                    if (isButtonALongPressed) {
+                        isButtonALongPressed = false
+                        return true
+                    }
+                    handleConfirmPress()
+                    return true
+                }
+            }
+        }
+
+        if (event.action != KeyEvent.ACTION_DOWN) {
+            return super.dispatchKeyEvent(event)
         }
 
         val folders = CategoryManager.groupIntoFolders(appsListState.value)
@@ -1151,39 +1230,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
             KeyEvent.KEYCODE_DPAD_CENTER -> {
-                if (focusAreaState.value == FocusArea.TOP_BAR) {
-                    when (topBarIndexState.intValue) {
-                        0 -> showLauncherSettingsDialogState.value = true
-                        1 -> showAddGameOptionsDialogState.value = true
-                    }
-                    triggerHaptic()
-                    return true
-                }
-                if (selectedTabState.intValue == 2) {
-                    // Aba Apps
-                    if (activeFolderState.value == null) {
-                        val folder = folders.getOrNull(selectedIndexState.intValue)
-                        if (folder != null) {
-                            activeFolderState.value = folder
-                            selectedIndexState.intValue = 0
-                        }
-                    } else {
-                        val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
-                        if (app != null) requestLaunchItem(app)
-                    }
-                } else {
-                    // Abas Jogos e Emuladores
-                    val current = filtered.getOrNull(selectedIndexState.intValue)
-                    if (current != null) {
-                        if (current.category == AppCategory.EMULADORES && current.itemType == ItemType.APP) {
-                            activeEmulatorAppState.value = current
-                            showEmulatorGamesDialogState.value = true
-                        } else {
-                            requestLaunchItem(current)
-                        }
-                    }
-                }
-                triggerHaptic()
+                handleConfirmPress()
                 return true
             }
 
@@ -1366,5 +1413,43 @@ class MainActivity : ComponentActivity() {
             JoystickDir.NONE -> {}
         }
         return true
+    }
+
+    private fun handleConfirmPress() {
+        if (focusAreaState.value == FocusArea.TOP_BAR) {
+            when (topBarIndexState.intValue) {
+                0 -> showLauncherSettingsDialogState.value = true
+                1 -> showAddGameOptionsDialogState.value = true
+            }
+            triggerHaptic()
+            return
+        }
+        val folders = CategoryManager.groupIntoFolders(appsListState.value)
+        val filtered = getFilteredApps()
+        if (selectedTabState.intValue == 2) {
+            // Aba Apps
+            if (activeFolderState.value == null) {
+                val folder = folders.getOrNull(selectedIndexState.intValue)
+                if (folder != null) {
+                    activeFolderState.value = folder
+                    selectedIndexState.intValue = 0
+                }
+            } else {
+                val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
+                if (app != null) requestLaunchItem(app)
+            }
+        } else {
+            // Abas Jogos e Emuladores
+            val current = filtered.getOrNull(selectedIndexState.intValue)
+            if (current != null) {
+                if (current.category == AppCategory.EMULADORES && current.itemType == ItemType.APP) {
+                    activeEmulatorAppState.value = current
+                    showEmulatorGamesDialogState.value = true
+                } else {
+                    requestLaunchItem(current)
+                }
+            }
+        }
+        triggerHaptic()
     }
 }

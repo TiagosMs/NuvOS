@@ -68,6 +68,7 @@ fun DeckHomeScreen(
     isLoading: Boolean,
     showOptionsDialog: Boolean,
     showGameMetadataDialog: Boolean = false,
+    showSelectMusicDialog: Boolean = false,
     showEditCoverDialog: Boolean,
     showEditHeroDialog: Boolean = false,
     showEditLogoDialog: Boolean = false,
@@ -111,6 +112,7 @@ fun DeckHomeScreen(
     onUninstallApp: (AppItem) -> Unit,
     onDismissOptions: () -> Unit,
     onDismissGameMetadata: () -> Unit = {},
+    onDismissSelectMusic: () -> Unit = {},
     onDismissEditCover: () -> Unit,
     onDismissEditHero: () -> Unit = {},
     onDismissEditLogo: () -> Unit = {},
@@ -131,6 +133,7 @@ fun DeckHomeScreen(
     onTogglePinGame: (AppItem) -> Unit = {},
     onLaunchRom: (AppItem) -> Unit = {},
     onRequestManageMetadata: (AppItem) -> Unit = {},
+    onRequestEditMusic: (AppItem) -> Unit = {},
     onDeleteAllGameMetadata: (AppItem) -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
     onRequestEditHero: (AppItem) -> Unit = {},
@@ -156,6 +159,9 @@ fun DeckHomeScreen(
     onApplyHeroUrl: (AppItem, String) -> Unit = { _, _ -> },
     onApplyLogoUrl: (AppItem, String) -> Unit = { _, _ -> },
     onIntroSelected: (AppItem, String?) -> Unit = { _, _ -> },
+    onApplySoundbiteUrl: (AppItem, String) -> Unit = { _, _ -> },
+    onRemoveSoundbite: (AppItem) -> Unit = {},
+    metadataUpdateCounter: Int = 0,
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
@@ -211,22 +217,28 @@ fun DeckHomeScreen(
 
     // Dynamic 16:9 hero background & 3DS Logo com produceState anti-race e debounce (Fase 2.7)
     val currentHeroBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab) {
+        value = null
         val app = currentFocusedApp
         if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            val targetId = app.id
             delay(120) // Debounce de navegação rápida
-            value = HeroManager.getOrFetchHero(context, app.id, app.label)
-        } else {
-            value = null
+            val bmp = HeroManager.getOrFetchHero(context, targetId, app.label)
+            if (currentFocusedApp?.id == targetId) {
+                value = bmp
+            }
         }
     }
 
     val currentLogoBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab) {
+        value = null
         val app = currentFocusedApp
         if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            val targetId = app.id
             delay(120)
-            value = LogoManager.getOrFetchLogo(context, app.id, app.label)
-        } else {
-            value = null
+            val bmp = LogoManager.getOrFetchLogo(context, targetId, app.label)
+            if (currentFocusedApp?.id == targetId) {
+                value = bmp
+            }
         }
     }
 
@@ -569,6 +581,7 @@ fun DeckHomeScreen(
                                             isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                             onSelect = { onSelectedIndexChange(index) },
                                             onLaunch = { onLaunchApp(app) },
+                                            onLongClick = { onRequestManageMetadata(app) },
                                             isReorderMode = isReorderMode,
                                             accentColor = accentColor
                                         )
@@ -822,7 +835,19 @@ fun DeckHomeScreen(
                 onRequestEditCover = { onRequestEditCover(targetApp) },
                 onRequestEditHero = { onRequestEditHero(targetApp) },
                 onRequestEditLogo = { onRequestEditLogo(targetApp) },
-                onDeleteAll = { onDeleteAllGameMetadata(targetApp) }
+                onRequestEditMusic = { onRequestEditMusic(targetApp) },
+                onRequestReorder = onRequestReorderMode,
+                onDeleteAll = { onDeleteAllGameMetadata(targetApp) },
+                metadataUpdateCounter = metadataUpdateCounter
+            )
+        }
+
+        if (showSelectMusicDialog && targetApp != null) {
+            SelectMusicDialog(
+                app = targetApp,
+                onDismiss = onDismissSelectMusic,
+                onApplySoundbiteUrl = { url -> onApplySoundbiteUrl(targetApp, url) },
+                onRemoveSoundbite = { onRemoveSoundbite(targetApp) }
             )
         }
 

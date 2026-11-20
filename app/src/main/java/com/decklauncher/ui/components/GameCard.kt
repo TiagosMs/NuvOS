@@ -1,9 +1,11 @@
 package com.decklauncher.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -52,12 +54,14 @@ import java.io.File
  * - Carregamento otimizado de capa via Coil AsyncImage decodificado no tamanho exato.
  * - Ícone em cache LRU sob demanda (Fase 2.1).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GameCard(
     app: AppItem,
     isSelected: Boolean,
     onSelect: () -> Unit,
     onLaunch: () -> Unit,
+    onLongClick: () -> Unit = {},
     isReorderMode: Boolean = false,
     accentColor: Color = Color.White,
     modifier: Modifier = Modifier
@@ -130,12 +134,14 @@ fun GameCard(
                         )
                     }
                 }
-                .clickable(
+                .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (isSelected) onLaunch() else onSelect()
-                }
+                    indication = null,
+                    onClick = {
+                        if (isSelected) onLaunch() else onSelect()
+                    },
+                    onLongClick = onLongClick
+                )
         ) {
             Box(
                 modifier = Modifier
@@ -143,12 +149,17 @@ fun GameCard(
                     .background(Color(0xFF1E1E1E))
             ) {
                 if (app.coverPath != null) {
+                    val coverFile = remember(app.coverPath) { File(app.coverPath) }
+                    val coverKey = remember(app.coverPath, coverFile.lastModified()) {
+                        "${app.id}_${coverFile.lastModified()}"
+                    }
                     // Capa decodificada no tamanho exato do card pelo Coil (Fase 2.6)
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(File(app.coverPath))
+                            .data(coverFile)
                             .size(350, 500)
-                            .memoryCacheKey(app.id)
+                            .memoryCacheKey(coverKey)
+                            .diskCacheKey(coverKey)
                             .crossfade(false)
                             .build(),
                         contentDescription = app.label,

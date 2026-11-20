@@ -486,12 +486,19 @@ fun EditCoverSteamGridDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
+                            var isCandidateFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .width(90.dp)
                                     .height(135.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                                    .border(
+                                        width = if (isCandidateFocused) 3.dp else 1.dp,
+                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .onFocusChanged { isCandidateFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         onApplyCoverUrl(artwork.url)
                                         onDismiss()
@@ -2437,12 +2444,19 @@ fun SteamGridHeroSelectDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
+                            var isCandidateFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .width(200.dp)
                                     .height(112.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                                    .border(
+                                        width = if (isCandidateFocused) 3.dp else 1.dp,
+                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .onFocusChanged { isCandidateFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         onApplyHeroUrl(artwork.url)
                                         onDismiss()
@@ -2702,13 +2716,20 @@ fun SteamGridLogoSelectDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(results) { artwork ->
+                            var isCandidateFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .width(180.dp)
                                     .height(95.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .background(Color(0xFF161A20))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+                                    .border(
+                                        width = if (isCandidateFocused) 3.dp else 1.dp,
+                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .onFocusChanged { isCandidateFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         onApplyLogoUrl(artwork.url)
                                         onDismiss()
@@ -3053,7 +3074,10 @@ fun GameMetadataDialog(
     onRequestEditCover: () -> Unit,
     onRequestEditHero: () -> Unit,
     onRequestEditLogo: () -> Unit,
-    onDeleteAll: () -> Unit
+    onRequestEditMusic: () -> Unit,
+    onRequestReorder: () -> Unit = {},
+    onDeleteAll: () -> Unit,
+    metadataUpdateCounter: Int = 0
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -3064,18 +3088,17 @@ fun GameMetadataDialog(
     var isPlayingMusic by remember {
         mutableStateOf(ThemeMusicManager.isPlayingForApp(app.id))
     }
-    var isDownloadingMusic by remember { mutableStateOf(false) }
 
-    val coverBmp = remember(app.id, refreshKey) {
+    val coverBmp = remember(app.id, metadataUpdateCounter, refreshKey) {
         CoverManager.loadLocalCover(context, app.id)
     }
-    val heroBmp = remember(app.id, refreshKey) {
+    val heroBmp = remember(app.id, metadataUpdateCounter, refreshKey) {
         HeroManager.loadLocalHero(context, app.id)
     }
-    val logoBmp = remember(app.id, refreshKey) {
+    val logoBmp = remember(app.id, metadataUpdateCounter, refreshKey) {
         LogoManager.loadLocalLogo(context, app.id)
     }
-    val soundbiteFile = remember(app.id, refreshKey) {
+    val soundbiteFile = remember(app.id, metadataUpdateCounter, refreshKey) {
         IidbManager.getSoundbiteFile(context, app.id)
     }
 
@@ -3122,12 +3145,20 @@ fun GameMetadataDialog(
                         Row(modifier = Modifier.fillMaxSize()) {
                             // IIDB Tab
                             val isIidb = activeProvider == ArtworkProvider.IIDB
+                            var isIidbFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(18.dp))
                                     .background(if (isIidb) Color(0xFFE2E2E6) else Color.Transparent)
+                                    .border(
+                                        width = if (isIidbFocused) 2.dp else 0.dp,
+                                        color = if (isIidbFocused) Color.White else Color.Transparent,
+                                        shape = RoundedCornerShape(18.dp)
+                                    )
+                                    .onFocusChanged { isIidbFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         activeProvider = ArtworkProvider.IIDB
                                         ArtworkProviderManager.setPreferredProvider(context, ArtworkProvider.IIDB)
@@ -3144,12 +3175,20 @@ fun GameMetadataDialog(
 
                             // SteamgridDB Tab
                             val isSgdb = activeProvider == ArtworkProvider.STEAMGRID_DB
+                            var isSgdbFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(18.dp))
                                     .background(if (isSgdb) Color(0xFFE2E2E6) else Color.Transparent)
+                                    .border(
+                                        width = if (isSgdbFocused) 2.dp else 0.dp,
+                                        color = if (isSgdbFocused) Color.White else Color.Transparent,
+                                        shape = RoundedCornerShape(18.dp)
+                                    )
+                                    .onFocusChanged { isSgdbFocused = it.isFocused }
+                                    .focusable()
                                     .clickable {
                                         activeProvider = ArtworkProvider.STEAMGRID_DB
                                         ArtworkProviderManager.setPreferredProvider(context, ArtworkProvider.STEAMGRID_DB)
@@ -3184,7 +3223,7 @@ fun GameMetadataDialog(
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(Color(0xFF222226))
                                 .border(
-                                    width = if (isIconFocused) 2.dp else 0.dp,
+                                    width = if (isIconFocused) 2.5.dp else 0.dp,
                                     color = if (isIconFocused) Color.White else Color.Transparent,
                                     shape = RoundedCornerShape(16.dp)
                                 )
@@ -3257,7 +3296,7 @@ fun GameMetadataDialog(
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(Color(0xFF222226))
                                     .border(
-                                        width = if (isBannerFocused) 2.dp else 0.dp,
+                                        width = if (isBannerFocused) 2.5.dp else 0.dp,
                                         color = if (isBannerFocused) Color.White else Color.Transparent,
                                         shape = RoundedCornerShape(16.dp)
                                     )
@@ -3328,41 +3367,14 @@ fun GameMetadataDialog(
                                         .clip(RoundedCornerShape(16.dp))
                                         .background(Color(0xFF222226))
                                         .border(
-                                            width = if (isMusicFocused) 2.dp else 0.dp,
+                                            width = if (isMusicFocused) 2.5.dp else 0.dp,
                                             color = if (isMusicFocused) Color.White else Color.Transparent,
                                             shape = RoundedCornerShape(16.dp)
                                         )
                                         .onFocusChanged { isMusicFocused = it.isFocused }
                                         .focusable()
                                         .clickable {
-                                            if (soundbiteFile.exists() && soundbiteFile.length() > 0) {
-                                                if (isPlayingMusic) {
-                                                    ThemeMusicManager.stopTheme()
-                                                    isPlayingMusic = false
-                                                } else {
-                                                    ThemeMusicManager.playTheme(context, app.id, app.label)
-                                                    isPlayingMusic = true
-                                                }
-                                            } else {
-                                                if (!IidbManager.hasApiKey(context)) {
-                                                    Toast.makeText(context, "Configure a chave iiDB para baixar temas!", Toast.LENGTH_SHORT).show()
-                                                } else if (!isDownloadingMusic) {
-                                                    isDownloadingMusic = true
-                                                    Toast.makeText(context, "Buscando áudio tema no iiDB...", Toast.LENGTH_SHORT).show()
-                                                    coroutineScope.launch {
-                                                        val ok = IidbManager.fetchSoundbiteOnly(context, app.id, app.label)
-                                                        isDownloadingMusic = false
-                                                        refreshKey++
-                                                        if (ok) {
-                                                            Toast.makeText(context, "Música baixada do iiDB!", Toast.LENGTH_SHORT).show()
-                                                            ThemeMusicManager.playTheme(context, app.id, app.label)
-                                                            isPlayingMusic = true
-                                                        } else {
-                                                            Toast.makeText(context, "Nenhuma música encontrada no iiDB.", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            onRequestEditMusic()
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -3370,15 +3382,7 @@ fun GameMetadataDialog(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
-                                        if (isDownloadingMusic) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(28.dp),
-                                                color = Color.White,
-                                                strokeWidth = 2.5.dp
-                                            )
-                                        } else {
-                                            MetadataDiscIcon(isPlaying = isPlayingMusic)
-                                        }
+                                        MetadataDiscIcon(isPlaying = isPlayingMusic)
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
                                             text = "Musica",
@@ -3398,7 +3402,7 @@ fun GameMetadataDialog(
                                         .clip(RoundedCornerShape(16.dp))
                                         .background(Color(0xFF222226))
                                         .border(
-                                            width = if (isLogoFocused) 2.dp else 0.dp,
+                                            width = if (isLogoFocused) 2.5.dp else 0.dp,
                                             color = if (isLogoFocused) Color.White else Color.Transparent,
                                             shape = RoundedCornerShape(16.dp)
                                         )
@@ -3450,34 +3454,363 @@ fun GameMetadataDialog(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // 3. Bottom Button: "Deletar tudo" (Red Capsule)
-                    var isDeleteFocused by remember { mutableStateOf(false) }
-                    Box(
-                        modifier = Modifier
-                            .width(190.dp)
-                            .height(36.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFFDC2626))
-                            .border(
-                                width = if (isDeleteFocused) 2.dp else 0.dp,
-                                color = if (isDeleteFocused) Color.White else Color.Transparent,
-                                shape = RoundedCornerShape(18.dp)
-                            )
-                            .onFocusChanged { isDeleteFocused = it.isFocused }
-                            .focusable()
-                            .clickable {
-                                onDeleteAll()
-                                refreshKey++
-                                isPlayingMusic = false
-                            },
-                        contentAlignment = Alignment.Center
+                    // 3. Bottom Buttons: "Mover Posição" e "Deletar tudo"
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Deletar tudo",
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
+                        var isMoveFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color(0xFF2563EB))
+                                .border(
+                                    width = if (isMoveFocused) 2.5.dp else 0.dp,
+                                    color = if (isMoveFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .onFocusChanged { isMoveFocused = it.isFocused }
+                                .focusable()
+                                .clickable {
+                                    onDismiss()
+                                    onRequestReorder()
+                                }
+                                .padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Mover Posição",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        var isDeleteFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color(0xFFDC2626))
+                                .border(
+                                    width = if (isDeleteFocused) 2.5.dp else 0.dp,
+                                    color = if (isDeleteFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .onFocusChanged { isDeleteFocused = it.isFocused }
+                                .focusable()
+                                .clickable {
+                                    onDeleteAll()
+                                    refreshKey++
+                                    isPlayingMusic = false
+                                }
+                                .padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Deletar tudo",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SelectMusicDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onApplySoundbiteUrl: (String) -> Unit,
+    onRemoveSoundbite: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var results by remember { mutableStateOf<List<IidbArtwork>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+    var previewPlayingUrl by remember { mutableStateOf<String?>(null) }
+    val previewPlayer = remember { android.media.MediaPlayer() }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                if (previewPlayer.isPlaying) previewPlayer.stop()
+                previewPlayer.release()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun doSearch(term: String) {
+        coroutineScope.launch {
+            isLoading = true
+            results = emptyList()
+            try {
+                results = IidbManager.searchSoundbites(context, term)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(app.id) {
+        doSearch(searchTitle)
+    }
+
+    val currentSoundbiteFile = remember(app.id) { IidbManager.getSoundbiteFile(context, app.id) }
+    val hasLocalSoundbite = currentSoundbiteFile.exists() && currentSoundbiteFile.length() > 0
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(520.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(SteamDeckBg)
+                    .border(1.2.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
+                    .padding(22.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Música Tema - ${app.label}",
+                                color = TextWhite,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "iiDB (iiSU Network)",
+                                color = SteamDeckTextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF60A5FA),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Search row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = searchTitle,
+                            onValueChange = { searchTitle = it },
+                            label = { Text("Nome do Jogo") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                focusedBorderColor = Color.White,
+                                unfocusedBorderColor = Color(0x44FFFFFF)
+                            ),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
+
+                        Button(
+                            onClick = { doSearch(searchTitle) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
+                            shape = RoundedCornerShape(20.dp),
+                            enabled = !isLoading
+                        ) {
+                            Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Results
+                    if (results.isNotEmpty()) {
+                        Text(
+                            text = "Selecione uma faixa para ouvir ou aplicar:",
+                            color = SteamDeckTextMuted,
+                            fontSize = 12.sp
+                        )
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 240.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(results) { track ->
+                                val isPreviewing = previewPlayingUrl == track.url
+                                var isTrackFocused by remember { mutableStateOf(false) }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isPreviewing) Color(0xFF1E3A8A) else SteamDeckCardBg)
+                                        .border(
+                                            width = if (isTrackFocused) 2.5.dp else 1.dp,
+                                            color = if (isTrackFocused) Color.White else Color(0x22FFFFFF),
+                                            shape = RoundedCornerShape(14.dp)
+                                        )
+                                        .onFocusChanged { isTrackFocused = it.isFocused }
+                                        .focusable()
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        MetadataDiscIcon(isPlaying = isPreviewing, modifier = Modifier.size(32.dp))
+                                        Column {
+                                            Text(
+                                                text = track.displayName ?: "Tema de Áudio",
+                                                color = TextWhite,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (track.durationMs != null && track.durationMs > 0) {
+                                                val secs = (track.durationMs / 1000) % 60
+                                                val mins = (track.durationMs / 1000) / 60
+                                                Text(
+                                                    text = String.format("%d:%02d", mins, secs),
+                                                    color = SteamDeckTextMuted,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        // Preview button
+                                        Button(
+                                            onClick = {
+                                                if (isPreviewing) {
+                                                    try {
+                                                        if (previewPlayer.isPlaying) previewPlayer.stop()
+                                                        previewPlayer.reset()
+                                                    } catch (_: Exception) {}
+                                                    previewPlayingUrl = null
+                                                } else {
+                                                    try {
+                                                        if (previewPlayer.isPlaying) previewPlayer.stop()
+                                                        previewPlayer.reset()
+                                                        previewPlayer.setDataSource(track.url)
+                                                        previewPlayer.isLooping = true
+                                                        previewPlayer.setOnPreparedListener { it.start() }
+                                                        previewPlayer.prepareAsync()
+                                                        previewPlayingUrl = track.url
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Erro ao reproduzir prévia", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isPreviewing) Color(0xFFEF4444) else Color(0xFF3B82F6)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isPreviewing) "Parar" else "Ouvir",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        // Apply button
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    if (previewPlayer.isPlaying) previewPlayer.stop()
+                                                } catch (_: Exception) {}
+                                                onApplySoundbiteUrl(track.url)
+                                                onDismiss()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(
+                                                text = "Aplicar",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (!isLoading) {
+                        Text(
+                            text = "Nenhuma música encontrada no iiDB para \"$searchTitle\".",
+                            color = SteamDeckTextMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+
+                    // Bottom actions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (hasLocalSoundbite) {
+                            TextButton(
+                                onClick = {
+                                    onRemoveSoundbite()
+                                    onDismiss()
+                                }
+                            ) {
+                                Text("Remover Música Atual", color = Color(0xFFEF4444), fontSize = 12.sp)
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
+
+                        TextButton(onClick = onDismiss) {
+                            Text("Fechar", color = SteamDeckTextMuted, fontSize = 13.sp)
+                        }
                     }
                 }
             }

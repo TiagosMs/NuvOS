@@ -121,6 +121,7 @@ object LogoManager {
                 bitmap.compress(fmt, 100, out)
             }
             memoryCache.put(id, bitmap)
+            extrudedCache.remove(id)
             true
         } catch (e: Exception) {
             false
@@ -129,8 +130,13 @@ object LogoManager {
 
     fun deleteLogo(context: Context, id: String): Boolean {
         memoryCache.remove(id)
+        extrudedCache.remove(id)
         val f = getLogoFile(context, id)
         return if (f.exists()) f.delete() else false
+    }
+
+    fun clearExtruded(id: String) {
+        extrudedCache.remove(id)
     }
 
     suspend fun getOrFetchLogo(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {

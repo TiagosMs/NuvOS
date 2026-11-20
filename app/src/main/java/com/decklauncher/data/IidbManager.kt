@@ -336,10 +336,10 @@ object IidbManager {
         }
     }
 
-    suspend fun downloadSoundbite(context: Context, appId: String, url: String): File? = withContext(Dispatchers.IO) {
+    suspend fun downloadSoundbite(context: Context, appId: String, url: String, force: Boolean = false): File? = withContext(Dispatchers.IO) {
         if (url.isBlank()) return@withContext null
         val target = getSoundbiteFile(context, appId)
-        if (target.exists() && target.length() > 0) return@withContext target
+        if (!force && target.exists() && target.length() > 0) return@withContext target
 
         netGate.withPermit {
             try {
@@ -351,6 +351,7 @@ object IidbManager {
                 client.newCall(req).execute().use { res ->
                     if (res.isSuccessful) {
                         val bytes = res.body?.bytes() ?: return@withContext null
+                        if (target.exists()) target.delete()
                         FileOutputStream(target).use { it.write(bytes) }
                         return@withContext target
                     }
@@ -360,6 +361,42 @@ object IidbManager {
             }
             null
         }
+    }
+
+    suspend fun searchSoundbites(context: Context, query: String): List<IidbArtwork> = withContext(Dispatchers.IO) {
+        val key = getApiKey(context)
+        if (key.isBlank() || query.isBlank()) return@withContext emptyList()
+        val clean = query.trim()
+
+        val list = mutableListOf<IidbArtwork>()
+        // 1. Tenta resolver recomendado
+        val resolved = resolveGame(context, clean)
+        if (resolved?.soundbiteUrl != null) {
+            list.add(
+                IidbArtwork(
+                    id = 1L,
+                    type = "soundbite",
+                    url = resolved.soundbiteUrl,
+                    displayName = "Tema Principal Recomendado (${resolved.title})"
+                )
+            )
+        }
+
+        // 2. Busca soundbites dos parents
+        val games = searchGames(context, clean)
+        for (game in games.take(3)) {
+            val gallery = getGalleryForParent(context, game.id, "soundbite")
+            for (item in gallery) {
+                if (list.none { it.url == item.url }) {
+                    list.add(
+                        item.copy(
+                            displayName = item.displayName ?: "${game.name} - Tema"
+                        )
+                    )
+                }
+            }
+        }
+        list
     }
 
     suspend fun fetchAndApplyAllAssets(context: Context, appId: String, title: String): Boolean = withContext(Dispatchers.IO) {
