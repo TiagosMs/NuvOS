@@ -22,7 +22,9 @@ data class IidbParentCandidate(
     val name: String,
     val year: Int? = null,
     val developer: String? = null,
-    val publisher: String? = null
+    val publisher: String? = null,
+    val boxartUrl: String? = null,
+    val platform: String? = null
 )
 
 data class IidbArtwork(
@@ -54,7 +56,7 @@ object IidbManager {
 
     private val netGate = Semaphore(2)
     private val negativeCache = LruCache<String, Long>(256)
-    private val NEGATIVE_CACHE_TTL_MS = 3L * 24 * 60 * 60 * 1000
+    private const val NEGATIVE_CACHE_TTL_MS = 60 * 1000L
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -128,22 +130,33 @@ object IidbManager {
                     if (response.isSuccessful) {
                         val body = response.body?.string() ?: return@withContext emptyList()
                         val root = JSONObject(body)
-                        val candidates = root.optJSONArray("candidates") ?: return@withContext emptyList()
-                        val result = mutableListOf<IidbParentCandidate>()
-                        for (i in 0 until candidates.length()) {
-                            val obj = candidates.getJSONObject(i)
-                            result.add(
+                        // A API do iiDB oficial retorna os jogos no campo "results" (DeveloperParentSearchResponse)
+                        val results = root.optJSONArray("results") ?: root.optJSONArray("candidates") ?: return@withContext emptyList()
+                        val list = mutableListOf<IidbParentCandidate>()
+                        for (i in 0 until results.length()) {
+                            val obj = results.getJSONObject(i)
+                            val parentId = if (obj.has("parent_id")) obj.getLong("parent_id") else obj.optLong("id")
+                            val name = obj.getString("name")
+                            val year = if (obj.has("initial_release_year") && !obj.isNull("initial_release_year")) {
+                                obj.getInt("initial_release_year")
+                            } else if (obj.has("year") && !obj.isNull("year")) {
+                                obj.getInt("year")
+                            } else null
+                            val boxartUrl = obj.optString("boxart_url").takeIf { it.isNotBlank() }
+                            val platform = obj.optString("primary_platform").takeIf { it.isNotBlank() }
+
+                            list.add(
                                 IidbParentCandidate(
-                                    id = obj.getLong("id"),
-                                    name = obj.getString("name"),
-                                    year = if (obj.has("year") && !obj.isNull("year")) obj.getInt("year") else null,
-                                    developer = obj.optString("developer").takeIf { it.isNotBlank() },
-                                    publisher = obj.optString("publisher").takeIf { it.isNotBlank() }
+                                    id = parentId,
+                                    name = name,
+                                    year = year,
+                                    boxartUrl = boxartUrl,
+                                    platform = platform
                                 )
                             )
                         }
-                        if (result.isEmpty()) negativeCache.put(cacheKey, System.currentTimeMillis())
-                        return@withContext result
+                        if (list.isEmpty()) negativeCache.put(cacheKey, System.currentTimeMillis())
+                        return@withContext list
                     } else if (response.code == 404) {
                         negativeCache.put(cacheKey, System.currentTimeMillis())
                     }
@@ -155,9 +168,64 @@ object IidbManager {
         }
     }
 
+    suspend fun resolveGame(context: Context, title: String): IidbGameAssets? = withContext(Dispatchers.IO) {
+        val key = getApiKey(context)
+        val cleanTitle = title.trim()
+        if (cleanTitle.isBlank() || key.isBlank()) return@withContext null
+
+        netGate.withPermit {
+            try {
+                val enc = URLEncoder.encode(cleanTitle, "UTF-8").replace("+", "%20")
+                val url = "$BASE_URL/resolve?title=$enc&artwork=recommended&slots=boxart,background,logo,icon,soundbite&candidates_per_slot=2"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("X-API-Key", key)
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "NuvOS-Launcher/1.0 (Android)")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: return@withContext null
+                        val root = JSONObject(body)
+                        val matchObj = root.optJSONObject("match")
+                        val status = matchObj?.optString("status")
+                        if (status == "matched") {
+                            val parentObj = matchObj.optJSONObject("parent")
+                            val parentId = parentObj?.optLong("id") ?: parentObj?.optLong("parent_id") ?: 0L
+                            val name = parentObj?.optString("name") ?: cleanTitle
+
+                            val artwork = root.optJSONObject("artwork") ?: JSONObject()
+                            val boxartUrl = artwork.optJSONArray("boxart")?.optJSONObject(0)?.optString("url")
+                            val bannerUrl = artwork.optJSONArray("background")?.optJSONObject(0)?.optString("url")
+                                ?: artwork.optJSONArray("banner")?.optJSONObject(0)?.optString("url")
+                                ?: artwork.optJSONArray("hero")?.optJSONObject(0)?.optString("url")
+                            val logoUrl = artwork.optJSONArray("logo")?.optJSONObject(0)?.optString("url")
+                            val iconUrl = artwork.optJSONArray("icon")?.optJSONObject(0)?.optString("url")
+                            val soundbiteUrl = artwork.optJSONArray("soundbite")?.optJSONObject(0)?.optString("url")
+
+                            return@withContext IidbGameAssets(
+                                parentId = parentId,
+                                title = name,
+                                boxartUrl = boxartUrl,
+                                bannerUrl = bannerUrl,
+                                logoUrl = logoUrl,
+                                iconUrl = iconUrl,
+                                soundbiteUrl = soundbiteUrl
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            null
+        }
+    }
+
     suspend fun getArtworkForParent(context: Context, parentId: Long): IidbGameAssets? = withContext(Dispatchers.IO) {
         val key = getApiKey(context)
-        if (key.isBlank()) return@withContext null
+        if (key.isBlank() || parentId <= 0) return@withContext null
 
         val cacheKey = "parent_$parentId"
         val lastFailed = negativeCache.get(cacheKey)
@@ -167,7 +235,7 @@ object IidbManager {
 
         netGate.withPermit {
             try {
-                val slots = "boxart,background,banner,hero,logo,icon,soundbite"
+                val slots = "boxart,background,logo,icon,soundbite"
                 val url = "$BASE_URL/assets/parents/$parentId?slots=$slots&candidates_per_slot=2&preferred_region=USA"
                 val request = Request.Builder()
                     .url(url)
@@ -187,14 +255,13 @@ object IidbManager {
                         val artwork = root.optJSONObject("artwork") ?: JSONObject()
 
                         val boxartArr = artwork.optJSONArray("boxart")
-                        val bannerArr = artwork.optJSONArray("banner") ?: artwork.optJSONArray("background")
-                        val heroArr = artwork.optJSONArray("hero")
+                        val bannerArr = artwork.optJSONArray("background") ?: artwork.optJSONArray("banner") ?: artwork.optJSONArray("hero")
                         val logoArr = artwork.optJSONArray("logo")
                         val iconArr = artwork.optJSONArray("icon")
                         val soundbiteArr = artwork.optJSONArray("soundbite")
 
                         val boxartUrl = boxartArr?.optJSONObject(0)?.optString("url")
-                        val bannerUrl = bannerArr?.optJSONObject(0)?.optString("url") ?: heroArr?.optJSONObject(0)?.optString("url")
+                        val bannerUrl = bannerArr?.optJSONObject(0)?.optString("url")
                         val logoUrl = logoArr?.optJSONObject(0)?.optString("url")
                         val iconUrl = iconArr?.optJSONObject(0)?.optString("url")
                         val soundbiteUrl = soundbiteArr?.optJSONObject(0)?.optString("url")
@@ -219,13 +286,14 @@ object IidbManager {
         }
     }
 
-    suspend fun getGalleryForParent(context: Context, parentId: Long, slot: String): List<IidbArtwork> = withContext(Dispatchers.IO) {
+    suspend fun getGalleryForParent(context: Context, parentId: Long, assetType: String): List<IidbArtwork> = withContext(Dispatchers.IO) {
         val key = getApiKey(context)
-        if (key.isBlank()) return@withContext emptyList()
+        if (key.isBlank() || parentId <= 0) return@withContext emptyList()
 
         netGate.withPermit {
             try {
-                val url = "$BASE_URL/assets/parents/$parentId/gallery?slot=$slot"
+                // No iiDB oficial o parâmetro é "asset_type", não "slot"
+                val url = "$BASE_URL/assets/parents/$parentId/gallery?asset_type=$assetType&limit=30"
                 val request = Request.Builder()
                     .url(url)
                     .header("X-API-Key", key)
@@ -244,7 +312,7 @@ object IidbManager {
                             list.add(
                                 IidbArtwork(
                                     id = obj.getLong("id"),
-                                    type = obj.getString("type"),
+                                    type = obj.optString("type", assetType),
                                     url = obj.getString("url"),
                                     thumbnailUrl = obj.optString("thumbnail_url").takeIf { it.isNotBlank() },
                                     mimeType = obj.optString("mime_type").takeIf { it.isNotBlank() },
@@ -292,9 +360,24 @@ object IidbManager {
     suspend fun fetchAndApplyAllAssets(context: Context, appId: String, title: String): Boolean = withContext(Dispatchers.IO) {
         if (!hasApiKey(context) || title.isBlank()) return@withContext false
 
-        val games = searchGames(context, title)
-        val game = games.firstOrNull() ?: return@withContext false
-        val assets = getArtworkForParent(context, game.id) ?: return@withContext false
+        // 1. Tenta resolver direto com /resolve
+        var assets = resolveGame(context, title)
+
+        // 2. Se não resolver direto, busca candidatos e pega artes
+        if (assets == null) {
+            val games = searchGames(context, title)
+            val game = games.firstOrNull() ?: return@withContext false
+            assets = getArtworkForParent(context, game.id)
+            if (assets == null && !game.boxartUrl.isNullOrBlank()) {
+                assets = IidbGameAssets(
+                    parentId = game.id,
+                    title = game.name,
+                    boxartUrl = game.boxartUrl
+                )
+            }
+        }
+
+        if (assets == null) return@withContext false
 
         // 1. Box Art para Capa
         if (!assets.boxartUrl.isNullOrBlank()) {

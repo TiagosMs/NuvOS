@@ -2270,13 +2270,15 @@ fun SteamGridHeroSelectDialog(
                 val games = IidbManager.searchGames(context, term)
                 if (games.isNotEmpty()) {
                     val game = games.first()
-                    val gallery = IidbManager.getGalleryForParent(context, game.id, "banner")
+                    val banners = IidbManager.getGalleryForParent(context, game.id, "banner")
+                    val heroes = IidbManager.getGalleryForParent(context, game.id, "hero")
+                    val gallery = (banners + heroes).distinctBy { it.id }
                     val list = gallery.map {
                         ArtworkCandidate(
                             id = it.id,
                             url = it.url,
                             thumbUrl = it.thumbnailUrl ?: it.url,
-                            label = it.displayName ?: "Banner Oficial"
+                            label = it.displayName ?: "Fundo 16:9 Oficial"
                         )
                     }.toMutableList()
                     if (list.isEmpty()) {
@@ -2533,7 +2535,9 @@ fun SteamGridLogoSelectDialog(
                 val games = IidbManager.searchGames(context, term)
                 if (games.isNotEmpty()) {
                     val game = games.first()
-                    val gallery = IidbManager.getGalleryForParent(context, game.id, "logo")
+                    val logos = IidbManager.getGalleryForParent(context, game.id, "logo")
+                    val icons = IidbManager.getGalleryForParent(context, game.id, "icon")
+                    val gallery = (logos + icons).distinctBy { it.id }
                     val list = gallery.map {
                         ArtworkCandidate(
                             id = it.id,
