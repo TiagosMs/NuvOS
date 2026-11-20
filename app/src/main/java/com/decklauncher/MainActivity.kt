@@ -431,6 +431,10 @@ class MainActivity : ComponentActivity() {
                         profileNameState.value = name
                         ProfileManager.setProfileName(this@MainActivity, name)
                     },
+                    onArtworkProviderSelected = { provider ->
+                        ArtworkProviderManager.setPreferredProvider(this@MainActivity, provider)
+                        Toast.makeText(this@MainActivity, "Provedor padrão: ${provider.title}", Toast.LENGTH_SHORT).show()
+                    },
                     onSaveSteamGridKey = { key ->
                         SteamGridDbManager.setApiKey(this, key)
                         Toast.makeText(this, "Chave SteamGridDB salva!", Toast.LENGTH_SHORT).show()
@@ -475,14 +479,20 @@ class MainActivity : ComponentActivity() {
                         val item = CloudGameManager.addCloudGame(this, title, url)
                         showAddCloudDialogState.value = false
                         loadInstalledApps()
-                        // Busca e aplica capa do SteamGridDB automaticamente em background
+                        // Busca e aplica capa e artes conforme provedor selecionado
                         lifecycleScope.launch(Dispatchers.IO) {
-                            val games = SteamGridDbManager.searchGames(this@MainActivity, title)
-                            if (games.isNotEmpty()) {
-                                val grids = SteamGridDbManager.getGridsForGame(this@MainActivity, games.first().id)
-                                if (grids.isNotEmpty()) {
-                                    CoverManager.downloadCover(this@MainActivity, item.id, grids.first().url)
-                                    loadInstalledApps()
+                            val provider = ArtworkProviderManager.getPreferredProvider(this@MainActivity)
+                            if (provider == ArtworkProvider.IIDB && IidbManager.hasApiKey(this@MainActivity)) {
+                                IidbManager.fetchAndApplyAllAssets(this@MainActivity, item.id, title)
+                                loadInstalledApps()
+                            } else {
+                                val games = SteamGridDbManager.searchGames(this@MainActivity, title)
+                                if (games.isNotEmpty()) {
+                                    val grids = SteamGridDbManager.getGridsForGame(this@MainActivity, games.first().id)
+                                    if (grids.isNotEmpty()) {
+                                        CoverManager.downloadCover(this@MainActivity, item.id, grids.first().url)
+                                        loadInstalledApps()
+                                    }
                                 }
                             }
                         }

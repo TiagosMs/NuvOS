@@ -133,35 +133,78 @@ object LogoManager {
 
         if (negativeCache.contains(id)) return@withContext null
 
-        val apiKey = SteamGridDbManager.getApiKey(context)
-        if (apiKey.isBlank()) return@withContext null
-
         val cleanTitle = HeroManager.cleanTitleForSearch(title)
         if (cleanTitle.isBlank()) return@withContext null
 
-        netGate.withPermit {
-            try {
-                val games = SteamGridDbManager.searchGames(context, cleanTitle)
-                if (games.isNotEmpty()) {
-                    val bestMatch = games.firstOrNull { it.name.equals(cleanTitle, ignoreCase = true) }
-                        ?: games.firstOrNull { it.name.contains(cleanTitle, ignoreCase = true) }
-                        ?: games.first()
+        val preferredProvider = ArtworkProviderManager.getPreferredProvider(context)
+        val sgdbKey = SteamGridDbManager.getApiKey(context)
+        val iidbKey = IidbManager.getApiKey(context)
 
-                    val logos = SteamGridDbManager.getLogosForGame(context, bestMatch.id)
-                    if (logos.isNotEmpty()) {
-                        val logoUrl = logos.first().url
-                        val downloaded = downloadLogoBitmap(logoUrl)
-                        if (downloaded != null) {
-                            saveLogo(context, id, downloaded)
-                            return@withContext downloaded
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
+        if (sgdbKey.isBlank() && iidbKey.isBlank()) return@withContext null
+
+        netGate.withPermit {
+            // Se o preferido for iiDB, tenta iiDB primeiro
+            if (preferredProvider == ArtworkProvider.IIDB && iidbKey.isNotBlank()) {
+                val downloaded = fetchLogoFromIidb(context, id, cleanTitle)
+                if (downloaded != null) return@withContext downloaded
+            }
+
+            // Tenta SteamGridDB
+            if (sgdbKey.isNotBlank()) {
+                val downloaded = fetchLogoFromSgdb(context, id, cleanTitle)
+                if (downloaded != null) return@withContext downloaded
+            }
+
+            // Fallback para iiDB
+            if (preferredProvider == ArtworkProvider.STEAMGRID_DB && iidbKey.isNotBlank()) {
+                val downloaded = fetchLogoFromIidb(context, id, cleanTitle)
+                if (downloaded != null) return@withContext downloaded
+            }
 
             negativeCache.add(id)
             null
         }
+    }
+
+    private suspend fun fetchLogoFromIidb(context: Context, id: String, cleanTitle: String): Bitmap? {
+        try {
+            val games = IidbManager.searchGames(context, cleanTitle)
+            if (games.isNotEmpty()) {
+                val game = games.first()
+                val assets = IidbManager.getArtworkForParent(context, game.id)
+                val logoUrl = assets?.logoUrl ?: assets?.iconUrl
+                if (!logoUrl.isNullOrBlank()) {
+                    val downloaded = downloadLogoBitmap(logoUrl)
+                    if (downloaded != null) {
+                        saveLogo(context, id, downloaded)
+                        return downloaded
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private suspend fun fetchLogoFromSgdb(context: Context, id: String, cleanTitle: String): Bitmap? {
+        try {
+            val games = SteamGridDbManager.searchGames(context, cleanTitle)
+            if (games.isNotEmpty()) {
+                val bestMatch = games.firstOrNull { it.name.equals(cleanTitle, ignoreCase = true) }
+                    ?: games.firstOrNull { it.name.contains(cleanTitle, ignoreCase = true) }
+                    ?: games.first()
+
+                val logos = SteamGridDbManager.getLogosForGame(context, bestMatch.id)
+                if (logos.isNotEmpty()) {
+                    val logoUrl = logos.first().url
+                    val downloaded = downloadLogoBitmap(logoUrl)
+                    if (downloaded != null) {
+                        saveLogo(context, id, downloaded)
+                        return downloaded
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
     }
 
     private suspend fun downloadLogoBitmap(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {

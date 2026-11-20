@@ -87,6 +87,15 @@ fun EnableWindowBlur(blurRadius: Int = 100) {
     }
 }
 
+data class ArtworkCandidate(
+    val id: Long,
+    val url: String,
+    val thumbUrl: String,
+    val width: Int = 0,
+    val height: Int = 0,
+    val label: String? = null
+)
+
 private data class DialogActionItem(
     val label: String,
     val color: Color = TextWhite,
@@ -112,14 +121,16 @@ fun OptionsDialog(
     onRemoveItem: () -> Unit,
     onRequestReorder: () -> Unit = {}
 ) {
-    val actions = remember(app) {
+    val context = LocalContext.current
+    val preferredProvider = remember { ArtworkProviderManager.getPreferredProvider(context) }
+    val actions = remember(app, preferredProvider) {
         val list = mutableListOf<DialogActionItem>()
         list.add(DialogActionItem("Iniciar") { onLaunch(); onDismiss() })
         list.add(DialogActionItem("Mover Posição / Trocar de Lugar") { onRequestReorder(); onDismiss() })
-        list.add(DialogActionItem("Baixar Artes e Tema do iiDB") { onRequestFetchIidb(); onDismiss() })
-        list.add(DialogActionItem("Editar Capa (SteamGridDB)") { onRequestEditCover(); onDismiss() })
-        list.add(DialogActionItem("Editar Fundo / Hero (SteamGridDB)") { onRequestEditHero(); onDismiss() })
-        list.add(DialogActionItem("Editar Logo 3D (SteamGridDB)") { onRequestEditLogo(); onDismiss() })
+        list.add(DialogActionItem("Baixar Tudo do iiDB (Capa, Hero, Logo, Áudio)", Color(0xFF60A5FA)) { onRequestFetchIidb(); onDismiss() })
+        list.add(DialogActionItem("Editar Capa (${preferredProvider.shortName})") { onRequestEditCover(); onDismiss() })
+        list.add(DialogActionItem("Editar Fundo / Hero (${preferredProvider.shortName})") { onRequestEditHero(); onDismiss() })
+        list.add(DialogActionItem("Editar Logo 3D (${preferredProvider.shortName})") { onRequestEditLogo(); onDismiss() })
         list.add(DialogActionItem("Trocar Intro do Console") { onRequestSelectIntro(); onDismiss() })
         list.add(DialogActionItem("Adicionar Jogos em Nuvem (Better xCloud)") { onRequestAddGame(); onDismiss() })
         if (app.itemType == ItemType.APP) {
@@ -271,30 +282,80 @@ fun EditCoverSteamGridDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var searchTitle by remember { mutableStateOf(app.label) }
+    var activeProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
     var isLoading by remember { mutableStateOf(false) }
-    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
+    var results by remember { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
-    fun doSearch(term: String) {
+    fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
             isLoading = true
-            statusMessage = "Buscando capas verticais no SteamGridDB..."
-            val games = SteamGridDbManager.searchGames(context, term)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val grids = SteamGridDbManager.getGridsForGame(context, game.id)
-                results = grids
-                statusMessage = if (grids.isNotEmpty()) "${grids.size} capas encontradas para '${game.name}'" else "Nenhuma capa 600x900 para '${game.name}'"
+            results = emptyList()
+            if (provider == ArtworkProvider.STEAMGRID_DB) {
+                statusMessage = "Buscando capas verticais no SteamGridDB..."
+                val games = SteamGridDbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val grids = SteamGridDbManager.getGridsForGame(context, game.id)
+                    results = grids.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbUrl,
+                            width = it.width,
+                            height = it.height,
+                            label = it.style
+                        )
+                    }
+                    statusMessage = if (grids.isNotEmpty()) "${grids.size} capas encontradas no SteamGridDB para '${game.name}'" else "Nenhuma capa no SteamGridDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no SteamGridDB."
+                }
             } else {
-                results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse termo."
+                statusMessage = "Buscando capas oficiais no iiDB..."
+                if (!IidbManager.hasApiKey(context)) {
+                    statusMessage = "Configure sua Chave iiDB nas Configurações primeiro."
+                    isLoading = false
+                    return@launch
+                }
+                val games = IidbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val gallery = IidbManager.getGalleryForParent(context, game.id, "boxart")
+                    val list = gallery.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbnailUrl ?: it.url,
+                            label = it.displayName ?: "Box Art"
+                        )
+                    }.toMutableList()
+                    if (list.isEmpty()) {
+                        val assets = IidbManager.getArtworkForParent(context, game.id)
+                        val boxartUrl = assets?.boxartUrl
+                        if (!boxartUrl.isNullOrBlank()) {
+                            list.add(
+                                ArtworkCandidate(
+                                    id = game.id,
+                                    url = boxartUrl,
+                                    thumbUrl = boxartUrl,
+                                    label = "Box Art Oficial"
+                                )
+                            )
+                        }
+                    }
+                    results = list
+                    statusMessage = if (list.isNotEmpty()) "${list.size} capas encontradas no iiDB para '${game.name}'" else "Nenhuma capa no iiDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no iiDB."
+                }
             }
             isLoading = false
         }
     }
 
     LaunchedEffect(Unit) {
-        doSearch(searchTitle)
+        doSearch(searchTitle, activeProvider)
     }
 
     Dialog(
@@ -331,6 +392,40 @@ fun EditCoverSteamGridDialog(
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+                }
+
+                // Seletor de Database / Provedor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArtworkProvider.values().forEach { prov ->
+                        val isSel = activeProvider == prov
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    activeProvider = prov
+                                    doSearch(searchTitle, prov)
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = prov.title,
+                                color = if (isSel) TextWhite else SteamDeckTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
@@ -1469,6 +1564,7 @@ fun LauncherSettingsDialog(
     onRequestChangeAvatar: () -> Unit,
     onRequestSteamGridKey: () -> Unit,
     onRequestIidbKey: () -> Unit = {},
+    onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
     onRequestIconPack: () -> Unit,
     onRequestAddCloudGame: () -> Unit,
     onRescanRoms: () -> Unit,
@@ -1872,11 +1968,61 @@ fun LauncherSettingsDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "INTEGRAÇÕES & SISTEMA",
+                    text = "DATABASE DE ARTES & SISTEMA",
                     color = Color(0xFF6B7D8E),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
+
+                // Provedor Padrão de Artes
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Provedor Padrão de Artes", color = SteamDeckTextMuted, fontSize = 11.sp)
+                    var preferredProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ArtworkProvider.values().forEach { provider ->
+                            val isSelected = preferredProvider == provider
+                            val accentCol = Color(currentAccentColor)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(if (isSelected) accentCol.copy(alpha = 0.25f) else SteamDeckCardBg)
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) accentCol else Color(0x22FFFFFF),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .clickable {
+                                        preferredProvider = provider
+                                        ArtworkProviderManager.setPreferredProvider(context, provider)
+                                        onArtworkProviderSelected(provider)
+                                    }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = provider.title,
+                                    color = if (isSelected) TextWhite else SteamDeckTextMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = when (preferredProvider) {
+                            ArtworkProvider.STEAMGRID_DB -> "SteamGridDB ativo: foco em capas verticais 600x900 da comunidade."
+                            ArtworkProvider.IIDB -> "iiDB ativo: banco oficial com capas, banners 16:9, logos 3D e áudios tema."
+                        },
+                        color = Color(0xFF93C5FD),
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
 
                 SteamDeckOptionRow(
                     label = "Configurar Chave de API SteamGridDB",
@@ -2085,30 +2231,80 @@ fun SteamGridHeroSelectDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
+    var activeProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var results by remember { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
-    fun doSearch(term: String) {
+    fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
             isLoading = true
-            statusMessage = "Buscando fundos 16:9 no SteamGridDB..."
-            val games = SteamGridDbManager.searchGames(context, term)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val heroes = SteamGridDbManager.getHeroesForGame(context, game.id)
-                results = heroes
-                statusMessage = if (heroes.isNotEmpty()) "${heroes.size} fundos 16:9 encontrados para '${game.name}'" else "Nenhum fundo 16:9 para '${game.name}'"
+            results = emptyList()
+            if (provider == ArtworkProvider.STEAMGRID_DB) {
+                statusMessage = "Buscando fundos 16:9 no SteamGridDB..."
+                val games = SteamGridDbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val heroes = SteamGridDbManager.getHeroesForGame(context, game.id)
+                    results = heroes.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbUrl,
+                            width = it.width,
+                            height = it.height,
+                            label = it.style
+                        )
+                    }
+                    statusMessage = if (heroes.isNotEmpty()) "${heroes.size} fundos 16:9 encontrados no SteamGridDB para '${game.name}'" else "Nenhum fundo 16:9 no SteamGridDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no SteamGridDB."
+                }
             } else {
-                results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse termo."
+                statusMessage = "Buscando fundos 16:9 no iiDB..."
+                if (!IidbManager.hasApiKey(context)) {
+                    statusMessage = "Configure sua Chave iiDB nas Configurações primeiro."
+                    isLoading = false
+                    return@launch
+                }
+                val games = IidbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val gallery = IidbManager.getGalleryForParent(context, game.id, "banner")
+                    val list = gallery.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbnailUrl ?: it.url,
+                            label = it.displayName ?: "Banner Oficial"
+                        )
+                    }.toMutableList()
+                    if (list.isEmpty()) {
+                        val assets = IidbManager.getArtworkForParent(context, game.id)
+                        val bannerUrl = assets?.bannerUrl
+                        if (!bannerUrl.isNullOrBlank()) {
+                            list.add(
+                                ArtworkCandidate(
+                                    id = game.id,
+                                    url = bannerUrl,
+                                    thumbUrl = bannerUrl,
+                                    label = "Banner Oficial"
+                                )
+                            )
+                        }
+                    }
+                    results = list
+                    statusMessage = if (list.isNotEmpty()) "${list.size} fundos encontrados no iiDB para '${game.name}'" else "Nenhum fundo no iiDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no iiDB."
+                }
             }
             isLoading = false
         }
     }
 
     LaunchedEffect(Unit) {
-        doSearch(searchTitle)
+        doSearch(searchTitle, activeProvider)
     }
 
     Dialog(
@@ -2145,6 +2341,40 @@ fun SteamGridHeroSelectDialog(
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+                }
+
+                // Seletor de Database / Provedor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArtworkProvider.values().forEach { prov ->
+                        val isSel = activeProvider == prov
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    activeProvider = prov
+                                    doSearch(searchTitle, prov)
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = prov.title,
+                                color = if (isSel) TextWhite else SteamDeckTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
@@ -2264,30 +2494,80 @@ fun SteamGridLogoSelectDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var results by remember { mutableStateOf<List<SteamGridArtwork>>(emptyList()) }
+    var activeProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var results by remember { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
-    fun doSearch(term: String) {
+    fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
             isLoading = true
-            statusMessage = "Buscando logos transparentes no SteamGridDB..."
-            val games = SteamGridDbManager.searchGames(context, term)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val logos = SteamGridDbManager.getLogosForGame(context, game.id)
-                results = logos
-                statusMessage = if (logos.isNotEmpty()) "${logos.size} logos encontradas para '${game.name}'" else "Nenhuma logo para '${game.name}'"
+            results = emptyList()
+            if (provider == ArtworkProvider.STEAMGRID_DB) {
+                statusMessage = "Buscando logos transparentes no SteamGridDB..."
+                val games = SteamGridDbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val logos = SteamGridDbManager.getLogosForGame(context, game.id)
+                    results = logos.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbUrl,
+                            width = it.width,
+                            height = it.height,
+                            label = it.style
+                        )
+                    }
+                    statusMessage = if (logos.isNotEmpty()) "${logos.size} logos encontradas no SteamGridDB para '${game.name}'" else "Nenhuma logo no SteamGridDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no SteamGridDB."
+                }
             } else {
-                results = emptyList()
-                statusMessage = "Nenhum jogo encontrado com esse termo."
+                statusMessage = "Buscando logos oficiais no iiDB..."
+                if (!IidbManager.hasApiKey(context)) {
+                    statusMessage = "Configure sua Chave iiDB nas Configurações primeiro."
+                    isLoading = false
+                    return@launch
+                }
+                val games = IidbManager.searchGames(context, term)
+                if (games.isNotEmpty()) {
+                    val game = games.first()
+                    val gallery = IidbManager.getGalleryForParent(context, game.id, "logo")
+                    val list = gallery.map {
+                        ArtworkCandidate(
+                            id = it.id,
+                            url = it.url,
+                            thumbUrl = it.thumbnailUrl ?: it.url,
+                            label = it.displayName ?: "Logo Oficial"
+                        )
+                    }.toMutableList()
+                    if (list.isEmpty()) {
+                        val assets = IidbManager.getArtworkForParent(context, game.id)
+                        val logoUrl = assets?.logoUrl ?: assets?.iconUrl
+                        if (!logoUrl.isNullOrBlank()) {
+                            list.add(
+                                ArtworkCandidate(
+                                    id = game.id,
+                                    url = logoUrl,
+                                    thumbUrl = logoUrl,
+                                    label = "Logo Oficial"
+                                )
+                            )
+                        }
+                    }
+                    results = list
+                    statusMessage = if (list.isNotEmpty()) "${list.size} logos encontradas no iiDB para '${game.name}'" else "Nenhuma logo no iiDB para '${game.name}'"
+                } else {
+                    statusMessage = "Nenhum jogo encontrado no iiDB."
+                }
             }
             isLoading = false
         }
     }
 
     LaunchedEffect(Unit) {
-        doSearch(searchTitle)
+        doSearch(searchTitle, activeProvider)
     }
 
     Dialog(
@@ -2324,6 +2604,40 @@ fun SteamGridLogoSelectDialog(
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+                }
+
+                // Seletor de Database / Provedor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArtworkProvider.values().forEach { prov ->
+                        val isSel = activeProvider == prov
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
+                                .border(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    activeProvider = prov
+                                    doSearch(searchTitle, prov)
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = prov.title,
+                                color = if (isSel) TextWhite else SteamDeckTextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
 

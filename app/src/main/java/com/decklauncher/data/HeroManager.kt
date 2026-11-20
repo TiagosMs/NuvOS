@@ -130,30 +130,33 @@ object HeroManager {
 
         if (negativeCache.contains(id)) return@withContext null
 
-        val apiKey = SteamGridDbManager.getApiKey(context)
-        if (apiKey.isBlank()) return@withContext null
-
         val cleanTitle = cleanTitleForSearch(title)
         if (cleanTitle.isBlank()) return@withContext null
 
-        netGate.withPermit {
-            try {
-                val games = SteamGridDbManager.searchGames(context, cleanTitle)
-                if (games.isNotEmpty()) {
-                    val bestMatch = games.firstOrNull { it.name.equals(cleanTitle, ignoreCase = true) }
-                        ?: games.firstOrNull { it.name.contains(cleanTitle, ignoreCase = true) }
-                        ?: games.first()
+        val preferredProvider = ArtworkProviderManager.getPreferredProvider(context)
+        val sgdbKey = SteamGridDbManager.getApiKey(context)
+        val iidbKey = IidbManager.getApiKey(context)
 
-                    val heroUrl = fetchHeroArtworkUrl(apiKey, bestMatch.id)
-                    if (!heroUrl.isNullOrBlank()) {
-                        val downloaded = downloadHeroBitmap(heroUrl)
-                        if (downloaded != null) {
-                            saveHero(context, id, downloaded)
-                            return@withContext downloaded
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
+        if (sgdbKey.isBlank() && iidbKey.isBlank()) return@withContext null
+
+        netGate.withPermit {
+            // Se o preferido for iiDB, tenta iiDB primeiro
+            if (preferredProvider == ArtworkProvider.IIDB && iidbKey.isNotBlank()) {
+                val downloaded = fetchHeroFromIidb(context, id, cleanTitle)
+                if (downloaded != null) return@withContext downloaded
+            }
+
+            // Tenta SteamGridDB
+            if (sgdbKey.isNotBlank()) {
+                val downloaded = fetchHeroFromSgdb(context, id, cleanTitle, sgdbKey)
+                if (downloaded != null) return@withContext downloaded
+            }
+
+            // Fallback para iiDB
+            if (preferredProvider == ArtworkProvider.STEAMGRID_DB && iidbKey.isNotBlank()) {
+                val downloaded = fetchHeroFromIidb(context, id, cleanTitle)
+                if (downloaded != null) return@withContext downloaded
+            }
 
             val cover = CoverManager.loadLocalCover(context, id)
             if (cover != null) {
@@ -164,6 +167,46 @@ object HeroManager {
             negativeCache.add(id)
             null
         }
+    }
+
+    private suspend fun fetchHeroFromIidb(context: Context, id: String, cleanTitle: String): Bitmap? {
+        try {
+            val games = IidbManager.searchGames(context, cleanTitle)
+            if (games.isNotEmpty()) {
+                val game = games.first()
+                val assets = IidbManager.getArtworkForParent(context, game.id)
+                val heroUrl = assets?.bannerUrl
+                if (!heroUrl.isNullOrBlank()) {
+                    val downloaded = downloadHeroBitmap(heroUrl)
+                    if (downloaded != null) {
+                        saveHero(context, id, downloaded)
+                        return downloaded
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private suspend fun fetchHeroFromSgdb(context: Context, id: String, cleanTitle: String, apiKey: String): Bitmap? {
+        try {
+            val games = SteamGridDbManager.searchGames(context, cleanTitle)
+            if (games.isNotEmpty()) {
+                val bestMatch = games.firstOrNull { it.name.equals(cleanTitle, ignoreCase = true) }
+                    ?: games.firstOrNull { it.name.contains(cleanTitle, ignoreCase = true) }
+                    ?: games.first()
+
+                val heroUrl = fetchHeroArtworkUrl(apiKey, bestMatch.id)
+                if (!heroUrl.isNullOrBlank()) {
+                    val downloaded = downloadHeroBitmap(heroUrl)
+                    if (downloaded != null) {
+                        saveHero(context, id, downloaded)
+                        return downloaded
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
     }
 
     private suspend fun fetchHeroArtworkUrl(apiKey: String, gameId: Long): String? = withContext(Dispatchers.IO) {
