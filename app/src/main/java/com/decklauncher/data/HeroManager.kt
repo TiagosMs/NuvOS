@@ -124,6 +124,16 @@ object HeroManager {
         return t.trim()
     }
 
+    fun deleteHero(context: Context, id: String): Boolean {
+        memoryCache.remove(id)
+        val f1 = getHeroFile(context, id)
+        val f2 = getHeroBlurFile(context, id)
+        var deleted = false
+        if (f1.exists()) deleted = f1.delete() || deleted
+        if (f2.exists()) deleted = f2.delete() || deleted
+        return deleted
+    }
+
     suspend fun getOrFetchHero(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {
         val local = loadLocalHero(context, id)
         if (local != null) return@withContext local

@@ -12,21 +12,31 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
@@ -107,6 +117,7 @@ fun OptionsDialog(
     app: AppItem,
     onDismiss: () -> Unit,
     onLaunch: () -> Unit,
+    onRequestManageMetadata: () -> Unit = {},
     onRequestEditCover: () -> Unit,
     onRequestEditHero: () -> Unit = {},
     onRequestEditLogo: () -> Unit = {},
@@ -126,6 +137,7 @@ fun OptionsDialog(
     val actions = remember(app, preferredProvider) {
         val list = mutableListOf<DialogActionItem>()
         list.add(DialogActionItem("Iniciar") { onLaunch(); onDismiss() })
+        list.add(DialogActionItem("Personalizar Metadados (Capa, Banner, Logo, Som)", Color(0xFF818CF8)) { onRequestManageMetadata(); onDismiss() })
         list.add(DialogActionItem("Mover Posição / Trocar de Lugar") { onRequestReorder(); onDismiss() })
         list.add(DialogActionItem("Baixar Tudo do iiDB (Capa, Hero, Logo, Áudio)", Color(0xFF60A5FA)) { onRequestFetchIidb(); onDismiss() })
         list.add(DialogActionItem("Editar Capa (${preferredProvider.shortName})") { onRequestEditCover(); onDismiss() })
@@ -3031,5 +3043,494 @@ fun SelectConsoleIntroDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun GameMetadataDialog(
+    app: AppItem,
+    onDismiss: () -> Unit,
+    onRequestEditCover: () -> Unit,
+    onRequestEditHero: () -> Unit,
+    onRequestEditLogo: () -> Unit,
+    onDeleteAll: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var activeProvider by remember {
+        mutableStateOf(ArtworkProviderManager.getPreferredProvider(context))
+    }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var isPlayingMusic by remember {
+        mutableStateOf(ThemeMusicManager.isPlayingForApp(app.id))
+    }
+    var isDownloadingMusic by remember { mutableStateOf(false) }
+
+    val coverBmp = remember(app.id, refreshKey) {
+        CoverManager.loadLocalCover(context, app.id)
+    }
+    val heroBmp = remember(app.id, refreshKey) {
+        HeroManager.loadLocalHero(context, app.id)
+    }
+    val logoBmp = remember(app.id, refreshKey) {
+        LogoManager.loadLocalLogo(context, app.id)
+    }
+    val soundbiteFile = remember(app.id, refreshKey) {
+        IidbManager.getSoundbiteFile(context, app.id)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(530.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Color(0xFF323337))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {} // Previne dismiss ao tocar dentro do card
+                    )
+                    .padding(horizontal = 24.dp, vertical = 20.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 1. Top Provider Switcher (Capsule)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(21.dp))
+                            .background(Color(0xFF1E1E22))
+                            .padding(4.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxSize()) {
+                            // IIDB Tab
+                            val isIidb = activeProvider == ArtworkProvider.IIDB
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(if (isIidb) Color(0xFFE2E2E6) else Color.Transparent)
+                                    .clickable {
+                                        activeProvider = ArtworkProvider.IIDB
+                                        ArtworkProviderManager.setPreferredProvider(context, ArtworkProvider.IIDB)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "IIDB",
+                                    color = if (isIidb) Color(0xFF1E1E22) else Color(0xFF9E9EA4),
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isIidb) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+
+                            // SteamgridDB Tab
+                            val isSgdb = activeProvider == ArtworkProvider.STEAMGRID_DB
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(if (isSgdb) Color(0xFFE2E2E6) else Color.Transparent)
+                                    .clickable {
+                                        activeProvider = ArtworkProvider.STEAMGRID_DB
+                                        ArtworkProviderManager.setPreferredProvider(context, ArtworkProvider.STEAMGRID_DB)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "SteamgridDB",
+                                    color = if (isSgdb) Color(0xFF1E1E22) else Color(0xFF9E9EA4),
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSgdb) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // 2. Main Content Grid (Two Columns)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(210.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Left Column: Icone (Cover)
+                        var isIconFocused by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF222226))
+                                .border(
+                                    width = if (isIconFocused) 2.dp else 0.dp,
+                                    color = if (isIconFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .onFocusChanged { isIconFocused = it.isFocused }
+                                .focusable()
+                                .clickable {
+                                    onRequestEditCover()
+                                }
+                        ) {
+                            if (coverBmp != null) {
+                                Image(
+                                    bitmap = coverBmp.asImageBitmap(),
+                                    contentDescription = "Icone",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = app.label.take(2).uppercase(),
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            // Bottom Scrim & Label
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color.Transparent,
+                                                Color(0x99000000),
+                                                Color(0xEE000000)
+                                            )
+                                        )
+                                    )
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Icone",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        // Right Column: Banner on top, Musica + Logo 3D below
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Top: Banner (Hero)
+                            var isBannerFocused by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color(0xFF222226))
+                                    .border(
+                                        width = if (isBannerFocused) 2.dp else 0.dp,
+                                        color = if (isBannerFocused) Color.White else Color.Transparent,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .onFocusChanged { isBannerFocused = it.isFocused }
+                                    .focusable()
+                                    .clickable {
+                                        onRequestEditHero()
+                                    }
+                            ) {
+                                if (heroBmp != null) {
+                                    Image(
+                                        bitmap = heroBmp.asImageBitmap(),
+                                        contentDescription = "Banner",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Sem banner",
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+
+                                // Bottom Scrim & Label
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.BottomCenter)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    Color.Transparent,
+                                                    Color(0x99000000),
+                                                    Color(0xEE000000)
+                                                )
+                                            )
+                                        )
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Banner",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            // Bottom Row: Musica + Logo 3D
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(100.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Musica Card (Square)
+                                var isMusicFocused by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color(0xFF222226))
+                                        .border(
+                                            width = if (isMusicFocused) 2.dp else 0.dp,
+                                            color = if (isMusicFocused) Color.White else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .onFocusChanged { isMusicFocused = it.isFocused }
+                                        .focusable()
+                                        .clickable {
+                                            if (soundbiteFile.exists() && soundbiteFile.length() > 0) {
+                                                if (isPlayingMusic) {
+                                                    ThemeMusicManager.stopTheme()
+                                                    isPlayingMusic = false
+                                                } else {
+                                                    ThemeMusicManager.playTheme(context, app.id, app.label)
+                                                    isPlayingMusic = true
+                                                }
+                                            } else {
+                                                if (!IidbManager.hasApiKey(context)) {
+                                                    Toast.makeText(context, "Configure a chave iiDB para baixar temas!", Toast.LENGTH_SHORT).show()
+                                                } else if (!isDownloadingMusic) {
+                                                    isDownloadingMusic = true
+                                                    Toast.makeText(context, "Buscando áudio tema no iiDB...", Toast.LENGTH_SHORT).show()
+                                                    coroutineScope.launch {
+                                                        val ok = IidbManager.fetchSoundbiteOnly(context, app.id, app.label)
+                                                        isDownloadingMusic = false
+                                                        refreshKey++
+                                                        if (ok) {
+                                                            Toast.makeText(context, "Música baixada do iiDB!", Toast.LENGTH_SHORT).show()
+                                                            ThemeMusicManager.playTheme(context, app.id, app.label)
+                                                            isPlayingMusic = true
+                                                        } else {
+                                                            Toast.makeText(context, "Nenhuma música encontrada no iiDB.", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        if (isDownloadingMusic) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(28.dp),
+                                                color = Color.White,
+                                                strokeWidth = 2.5.dp
+                                            )
+                                        } else {
+                                            MetadataDiscIcon(isPlaying = isPlayingMusic)
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Musica",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                // Logo 3D Card
+                                var isLogoFocused by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color(0xFF222226))
+                                        .border(
+                                            width = if (isLogoFocused) 2.dp else 0.dp,
+                                            color = if (isLogoFocused) Color.White else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .onFocusChanged { isLogoFocused = it.isFocused }
+                                        .focusable()
+                                        .clickable {
+                                            onRequestEditLogo()
+                                        }
+                                ) {
+                                    if (logoBmp != null) {
+                                        Image(
+                                            bitmap = logoBmp.asImageBitmap(),
+                                            contentDescription = "Logo 3D",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 50.dp)
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                                .align(Alignment.Center)
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .align(Alignment.Center),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Sem logo 3D",
+                                                color = Color.White.copy(alpha = 0.35f),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "Logo 3D",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 3. Bottom Button: "Deletar tudo" (Red Capsule)
+                    var isDeleteFocused by remember { mutableStateOf(false) }
+                    Box(
+                        modifier = Modifier
+                            .width(190.dp)
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFFDC2626))
+                            .border(
+                                width = if (isDeleteFocused) 2.dp else 0.dp,
+                                color = if (isDeleteFocused) Color.White else Color.Transparent,
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .onFocusChanged { isDeleteFocused = it.isFocused }
+                            .focusable()
+                            .clickable {
+                                onDeleteAll()
+                                refreshKey++
+                                isPlayingMusic = false
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Deletar tudo",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataDiscIcon(
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val rotation = if (isPlaying) {
+        val infiniteTransition = rememberInfiniteTransition(label = "disc_spin")
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(2800, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "disc_rotation"
+        ).value
+    } else 0f
+
+    Canvas(
+        modifier = modifier
+            .size(38.dp)
+            .graphicsLayer(rotationZ = rotation)
+    ) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val outerRadius = size.minDimension / 2f
+        val innerHoleRadius = outerRadius * 0.28f
+        val grooveRadius = outerRadius * 0.65f
+
+        // Outer white disc
+        drawCircle(
+            color = Color(0xFFE2E2E6),
+            radius = outerRadius,
+            center = center
+        )
+        // Subtle vinyl groove line
+        drawCircle(
+            color = Color(0xFFB0B0B6),
+            radius = grooveRadius,
+            center = center,
+            style = Stroke(width = 1.2f)
+        )
+        // Center hole
+        drawCircle(
+            color = Color(0xFF222226),
+            radius = innerHoleRadius,
+            center = center
+        )
     }
 }

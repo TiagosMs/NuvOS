@@ -104,6 +104,11 @@ object IidbManager {
         return File(getSoundbiteDir(context), "${appId}.ogg")
     }
 
+    fun deleteSoundbite(context: Context, appId: String): Boolean {
+        val f = getSoundbiteFile(context, appId)
+        return if (f.exists()) f.delete() else false
+    }
+
     suspend fun searchGames(context: Context, query: String): List<IidbParentCandidate> = withContext(Dispatchers.IO) {
         val key = getApiKey(context)
         val cleanQuery = query.trim()
@@ -401,6 +406,20 @@ object IidbManager {
         }
 
         true
+    }
+
+    suspend fun fetchSoundbiteOnly(context: Context, appId: String, label: String): Boolean = withContext(Dispatchers.IO) {
+        val key = getApiKey(context)
+        if (key.isBlank()) return@withContext false
+        val cleanLabel = HeroManager.cleanTitleForSearch(label)
+        val games = searchGames(context, cleanLabel)
+        val game = games.firstOrNull() ?: return@withContext false
+        val assets = getArtworkForParent(context, game.id) ?: return@withContext false
+        if (!assets.soundbiteUrl.isNullOrBlank()) {
+            val file = downloadSoundbite(context, appId, assets.soundbiteUrl)
+            return@withContext file != null && file.exists()
+        }
+        false
     }
 
     private fun downloadHeroInternal(context: Context, appId: String, url: String) {

@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
 
     // Dialog & Interaction states
     private var showOptionsDialogState = mutableStateOf(false)
+    private var showGameMetadataDialogState = mutableStateOf(false)
     private var showEditCoverDialogState = mutableStateOf(false)
     private var showAddCloudDialogState = mutableStateOf(false)
     private var showAddGameOptionsDialogState = mutableStateOf(false)
@@ -73,16 +74,18 @@ class MainActivity : ComponentActivity() {
     private var backgroundModeState = mutableStateOf(BackgroundMode.IMMERSIVE)
 
     private val isAnyDialogOpen: Boolean
-        get() = showOptionsDialogState.value || showEditCoverDialogState.value ||
-            showEditHeroDialogState.value || showEditLogoDialogState.value ||
-            showSelectIntroDialogState.value || showInitialSetupDialogState.value ||
-            showAddCloudDialogState.value || showAddGameOptionsDialogState.value ||
-            showSteamGridDialogState.value || showIconPackDialogState.value ||
-            showLauncherSettingsDialogState.value || showChangeAvatarDialogState.value ||
-            showEmulatorGamesDialogState.value || showIidbKeyDialogState.value
+        get() = showOptionsDialogState.value || showGameMetadataDialogState.value ||
+            showEditCoverDialogState.value || showEditHeroDialogState.value ||
+            showEditLogoDialogState.value || showSelectIntroDialogState.value ||
+            showInitialSetupDialogState.value || showAddCloudDialogState.value ||
+            showAddGameOptionsDialogState.value || showSteamGridDialogState.value ||
+            showIconPackDialogState.value || showLauncherSettingsDialogState.value ||
+            showChangeAvatarDialogState.value || showEmulatorGamesDialogState.value ||
+            showIidbKeyDialogState.value
 
     private fun closeAllDialogs() {
         showOptionsDialogState.value = false
+        showGameMetadataDialogState.value = false
         showEditCoverDialogState.value = false
         showEditHeroDialogState.value = false
         showEditLogoDialogState.value = false
@@ -243,6 +246,7 @@ class MainActivity : ComponentActivity() {
                     activeDialogApp = activeDialogAppState.value,
                     isLoading = isLoadingState.value,
                     showOptionsDialog = showOptionsDialogState.value,
+                    showGameMetadataDialog = showGameMetadataDialogState.value,
                     showEditCoverDialog = showEditCoverDialogState.value,
                     showEditHeroDialog = showEditHeroDialogState.value,
                     showEditLogoDialog = showEditLogoDialogState.value,
@@ -336,6 +340,7 @@ class MainActivity : ComponentActivity() {
                     onOpenSettings = { openAppOptions(it) },
                     onUninstallApp = { uninstallApp(it) },
                     onDismissOptions = { showOptionsDialogState.value = false },
+                    onDismissGameMetadata = { showGameMetadataDialogState.value = false },
                     onDismissEditCover = { showEditCoverDialogState.value = false },
                     onDismissEditHero = { showEditHeroDialogState.value = false },
                     onDismissEditLogo = { showEditLogoDialogState.value = false },
@@ -362,6 +367,13 @@ class MainActivity : ComponentActivity() {
                         ).show()
                     },
                     onLaunchRom = { requestLaunchItem(it) },
+                    onRequestManageMetadata = { item ->
+                        activeDialogAppState.value = item
+                        showGameMetadataDialogState.value = true
+                    },
+                    onDeleteAllGameMetadata = { item ->
+                        deleteAllGameMetadata(item)
+                    },
                     onRequestEditCover = { item ->
                         activeDialogAppState.value = item
                         showEditCoverDialogState.value = true
@@ -902,6 +914,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun deleteAllGameMetadata(item: AppItem) {
+        CoverManager.deleteCover(this, item.id)
+        HeroManager.deleteHero(this, item.id)
+        LogoManager.deleteLogo(this, item.id)
+        IidbManager.deleteSoundbite(this, item.id)
+        ThemeMusicManager.stopTheme()
+        Toast.makeText(this, "Metadados de \"${item.label}\" restaurados!", Toast.LENGTH_SHORT).show()
+        loadInstalledApps()
     }
 
     private fun uninstallApp(app: AppItem?) {

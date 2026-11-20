@@ -42,6 +42,16 @@ object CoverManager {
         return if (file.exists()) file.absolutePath else null
     }
 
+    fun deleteCover(context: Context, id: String): Boolean {
+        val safeName = id.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val webpFile = File(getCoversDir(context), "$safeName.webp")
+        val pngFile = File(getCoversDir(context), "$safeName.png")
+        var deleted = false
+        if (webpFile.exists()) deleted = webpFile.delete() || deleted
+        if (pngFile.exists()) deleted = pngFile.delete() || deleted
+        return deleted
+    }
+
     fun loadLocalCover(context: Context, id: String): Bitmap? {
         val path = getCoverPath(context, id) ?: return null
         return try {

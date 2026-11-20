@@ -127,6 +127,12 @@ object LogoManager {
         }
     }
 
+    fun deleteLogo(context: Context, id: String): Boolean {
+        memoryCache.remove(id)
+        val f = getLogoFile(context, id)
+        return if (f.exists()) f.delete() else false
+    }
+
     suspend fun getOrFetchLogo(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {
         val local = loadLocalLogo(context, id)
         if (local != null) return@withContext local

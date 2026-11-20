@@ -67,6 +67,7 @@ fun DeckHomeScreen(
     activeDialogApp: AppItem?,
     isLoading: Boolean,
     showOptionsDialog: Boolean,
+    showGameMetadataDialog: Boolean = false,
     showEditCoverDialog: Boolean,
     showEditHeroDialog: Boolean = false,
     showEditLogoDialog: Boolean = false,
@@ -109,6 +110,7 @@ fun DeckHomeScreen(
     onOpenSettings: (AppItem?) -> Unit,
     onUninstallApp: (AppItem) -> Unit,
     onDismissOptions: () -> Unit,
+    onDismissGameMetadata: () -> Unit = {},
     onDismissEditCover: () -> Unit,
     onDismissEditHero: () -> Unit = {},
     onDismissEditLogo: () -> Unit = {},
@@ -128,6 +130,8 @@ fun DeckHomeScreen(
     onSaveIidbKey: (String) -> Unit = {},
     onTogglePinGame: (AppItem) -> Unit = {},
     onLaunchRom: (AppItem) -> Unit = {},
+    onRequestManageMetadata: (AppItem) -> Unit = {},
+    onDeleteAllGameMetadata: (AppItem) -> Unit = {},
     onRequestEditCover: (AppItem) -> Unit,
     onRequestEditHero: (AppItem) -> Unit = {},
     onRequestEditLogo: (AppItem) -> Unit = {},
@@ -794,6 +798,7 @@ fun DeckHomeScreen(
                 app = targetApp,
                 onDismiss = onDismissOptions,
                 onLaunch = { onLaunchApp(targetApp) },
+                onRequestManageMetadata = { onRequestManageMetadata(targetApp) },
                 onRequestEditCover = { onRequestEditCover(targetApp) },
                 onRequestEditHero = { onRequestEditHero(targetApp) },
                 onRequestEditLogo = { onRequestEditLogo(targetApp) },
@@ -807,6 +812,17 @@ fun DeckHomeScreen(
                 onUninstallApp = { onUninstallApp(targetApp) },
                 onRemoveItem = { onRemoveItem(targetApp) },
                 onRequestReorder = onRequestReorderMode
+            )
+        }
+
+        if (showGameMetadataDialog && targetApp != null) {
+            GameMetadataDialog(
+                app = targetApp,
+                onDismiss = onDismissGameMetadata,
+                onRequestEditCover = { onRequestEditCover(targetApp) },
+                onRequestEditHero = { onRequestEditHero(targetApp) },
+                onRequestEditLogo = { onRequestEditLogo(targetApp) },
+                onDeleteAll = { onDeleteAllGameMetadata(targetApp) }
             )
         }
 

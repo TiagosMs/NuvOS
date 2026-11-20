@@ -21,6 +21,14 @@ object ThemeMusicManager {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var fetchJob: Job? = null
 
+    fun isPlayingForApp(appId: String): Boolean {
+        return currentPlayingAppId == appId && mediaPlayer?.isPlaying == true
+    }
+
+    fun isPlaying(): Boolean {
+        return mediaPlayer?.isPlaying == true
+    }
+
     fun playTheme(context: Context, appId: String, label: String = "") {
         latestRequestedAppId = appId
         if (!IidbManager.isThemeMusicEnabled(context)) {
