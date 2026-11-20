@@ -486,8 +486,8 @@ fun FolderDetailPreview(
         // Palco da Pasta 3D + Sombra (amplo para impedir qualquer corte nas rotações)
         Box(
             modifier = Modifier
-                .width(folderWidth * 1.35f)
-                .height(folderHeight * 1.45f),
+                .width(folderWidth * 1.45f)
+                .height(folderHeight * 1.55f),
             contentAlignment = Alignment.Center
         ) {
             // 1. Sombra e Glow no Piso do Console (Fase 4.3: drawBehind com phase)
@@ -496,7 +496,7 @@ fun FolderDetailPreview(
                     .align(Alignment.BottomCenter)
                     .width(folderWidth * 0.95f)
                     .height(folderHeight * 0.24f)
-                    .offset(y = (-6).dp)
+                    .offset(y = 2.dp)
                     .drawBehind {
                         val p = phase.value
                         val norm = sin(p) * 0.5f + 0.5f
@@ -547,27 +547,28 @@ fun FolderDetailPreview(
                             fadeOut(animationSpec = tween(Motion.Fast))
                         ) using SizeTransform(clip = false)
                 },
+                modifier = Modifier.wrapContentSize(unbounded = false),
                 label = "folder_3d_switch"
             ) { activeFolder ->
                 Box(
                     modifier = Modifier
-                        .width(folderWidth * 1.15f)
-                        .height(folderHeight * 1.25f)
-                        .padding(top = 16.dp)
+                        .width(folderWidth * 1.30f)
+                        .height(folderHeight * 1.40f)
+                        .padding(horizontal = 14.dp, vertical = 20.dp)
                         .graphicsLayer {
                             val p = phase.value
-                            translationY = sin(p) * (if (isCompactHeight) 5.dp.toPx() else 8.dp.toPx())
+                            translationY = sin(p) * (if (isCompactHeight) 4.dp.toPx() else 6.dp.toPx())
                             rotationX = 13.5f + sin(p) * 2.5f
                             rotationY = -10.5f + sin(p + 1f) * 3.5f
                             cameraDistance = 16f * density
                         },
-                    contentAlignment = Alignment.BottomCenter
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
                             .width(folderWidth)
                             .height(folderHeight),
-                        contentAlignment = Alignment.BottomCenter
+                        contentAlignment = Alignment.Center
                     ) {
                         // Camada Traseira: Chapa posterior da pasta com a aba (tab)
                         Canvas(modifier = Modifier.fillMaxSize()) {

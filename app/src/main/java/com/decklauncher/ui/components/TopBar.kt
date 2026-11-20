@@ -84,9 +84,10 @@ fun TopBar(
 
     // Animações de cursor e foco para TopBar
     val isProfileFocused = isTopBarFocused && topBarIndex == 0
-    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.08f else 1.0f, label = "profile_scale")
-    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 2.5.dp else 0.dp, label = "profile_border")
-    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x40FFFFFF) else Color.Transparent, label = "profile_bg")
+    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.06f else 1.0f, label = "profile_scale")
+    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 2.dp else 1.dp, label = "profile_border")
+    val profileBorderColor by animateColorAsState(targetValue = if (isProfileFocused) Color.White else Color(0x35FFFFFF), label = "profile_border_color")
+    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x40FFFFFF) else Color(0x1AFFFFFF), label = "profile_bg")
 
     val isAddFocused = isTopBarFocused && topBarIndex == 1
     val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.15f else 1.0f, label = "add_scale")
@@ -102,33 +103,25 @@ fun TopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Canto superior esquerdo: Ícone de Perfil / Menu de Configurações do Launcher
+        // Canto superior esquerdo: Pílula de Perfil com moldura (sem tracinhos do select e sem aro sobre o avatar)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 9.dp),
             modifier = Modifier
                 .scale(profileScale)
                 .clip(RoundedCornerShape(20.dp))
                 .background(profileBg)
-                .border(profileBorderWidth, Color.White, RoundedCornerShape(20.dp))
+                .border(profileBorderWidth, profileBorderColor, RoundedCornerShape(20.dp))
                 .clickable { onOpenProfileSettings() }
-                .padding(vertical = if (isCompactHeight) 2.dp else 4.dp, horizontal = if (isCompactHeight) 8.dp else 12.dp)
+                .padding(
+                    vertical = if (isCompactHeight) 3.dp else 5.dp,
+                    horizontal = if (isCompactHeight) 8.dp else 12.dp
+                )
         ) {
-            // Ícone Hamburger (≡)
-            Column(
-                verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 2.5.dp else 3.5.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(end = if (isCompactHeight) 2.dp else 4.dp)
-            ) {
-                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
-                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
-                Box(modifier = Modifier.size(width = if (isCompactHeight) 13.dp else 16.dp, height = 2.dp).background(Color.White, RoundedCornerShape(1.dp)))
-            }
-
-            // Avatar Circular sem moldura
+            // Avatar Circular sem aro sobreposto
             Box(
                 modifier = Modifier
-                    .size(if (isCompactHeight) 26.dp else 34.dp)
+                    .size(if (isCompactHeight) 24.dp else 30.dp)
                     .clip(CircleShape)
                     .then(
                         if (customAvatar == null) {
