@@ -495,6 +495,7 @@ object IidbManager {
                     blurBmp.recycle()
                     if (scaled != raw) scaled.recycle()
                     raw.recycle()
+                    HeroManager.clearAllCaches()
                 }
             }
         } catch (_: Exception) {}
@@ -523,6 +524,7 @@ object IidbManager {
                     FileOutputStream(file).use { scaled.compress(fmt, 100, it) }
                     if (scaled != raw) scaled.recycle()
                     raw.recycle()
+                    LogoManager.clearAllCaches()
                 }
             }
         } catch (_: Exception) {}

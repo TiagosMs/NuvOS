@@ -53,7 +53,8 @@ fun GameLogo3D(
     currentApp: AppItem?,
     logoBitmap: Bitmap?,
     accentColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    metadataUpdateCounter: Int = 0
 ) {
     if (currentApp == null) return
 
@@ -87,8 +88,8 @@ fun GameLogo3D(
         }
     }
 
-    val hasLocalLogo = remember(currentApp.id, logoBitmap) {
-        logoBitmap != null || LogoManager.getLogoFile(context, currentApp.id).exists()
+    val hasLocalLogo = remember(currentApp.id, metadataUpdateCounter) {
+        LogoManager.getLogoFile(context, currentApp.id).exists()
     }
 
     Column(

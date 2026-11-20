@@ -89,7 +89,8 @@ object LogoManager {
     }
 
     fun getExtrudedLogo(context: Context, id: String, rawLogo: Bitmap): Bitmap {
-        val cached = extrudedCache.get(id)
+        val cacheKey = "${id}_${rawLogo.generationId}"
+        val cached = extrudedCache.get(cacheKey)
         if (cached != null && !cached.isRecycled) return cached
 
         // Redimensiona para o tamanho de exibição ideal da UI antes de extrusar
@@ -103,7 +104,7 @@ object LogoManager {
         }
 
         val extruded = buildExtrudedLogo(scaled)
-        extrudedCache.put(id, extruded)
+        extrudedCache.put(cacheKey, extruded)
         return extruded
     }
 
@@ -121,7 +122,7 @@ object LogoManager {
                 bitmap.compress(fmt, 100, out)
             }
             memoryCache.put(id, bitmap)
-            extrudedCache.remove(id)
+            extrudedCache.evictAll()
             true
         } catch (e: Exception) {
             false
@@ -130,115 +131,18 @@ object LogoManager {
 
     fun deleteLogo(context: Context, id: String): Boolean {
         memoryCache.remove(id)
-        extrudedCache.remove(id)
+        extrudedCache.evictAll()
         val f = getLogoFile(context, id)
         return if (f.exists()) f.delete() else false
     }
 
     fun clearExtruded(id: String) {
-        extrudedCache.remove(id)
+        extrudedCache.evictAll()
     }
 
     fun clearAllCaches() {
         memoryCache.evictAll()
         extrudedCache.evictAll()
         negativeCache.clear()
-    }
-
-    suspend fun getOrFetchLogo(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {
-        val local = loadLocalLogo(context, id)
-        if (local != null) return@withContext local
-
-        if (negativeCache.contains(id)) return@withContext null
-
-        val cleanTitle = HeroManager.cleanTitleForSearch(title)
-        if (cleanTitle.isBlank()) return@withContext null
-
-        val preferredProvider = ArtworkProviderManager.getPreferredProvider(context)
-        val sgdbKey = SteamGridDbManager.getApiKey(context)
-        val iidbKey = IidbManager.getApiKey(context)
-
-        if (sgdbKey.isBlank() && iidbKey.isBlank()) return@withContext null
-
-        netGate.withPermit {
-            // Se o preferido for iiDB, tenta iiDB primeiro
-            if (preferredProvider == ArtworkProvider.IIDB && iidbKey.isNotBlank()) {
-                val downloaded = fetchLogoFromIidb(context, id, cleanTitle)
-                if (downloaded != null) return@withContext downloaded
-            }
-
-            // Tenta SteamGridDB
-            if (sgdbKey.isNotBlank()) {
-                val downloaded = fetchLogoFromSgdb(context, id, cleanTitle)
-                if (downloaded != null) return@withContext downloaded
-            }
-
-            // Fallback para iiDB
-            if (preferredProvider == ArtworkProvider.STEAMGRID_DB && iidbKey.isNotBlank()) {
-                val downloaded = fetchLogoFromIidb(context, id, cleanTitle)
-                if (downloaded != null) return@withContext downloaded
-            }
-
-            negativeCache.add(id)
-            null
-        }
-    }
-
-    private suspend fun fetchLogoFromIidb(context: Context, id: String, cleanTitle: String): Bitmap? {
-        try {
-            val games = IidbManager.searchGames(context, cleanTitle)
-            if (games.isNotEmpty()) {
-                val game = games.first()
-                val assets = IidbManager.getArtworkForParent(context, game.id)
-                val logoUrl = assets?.logoUrl ?: assets?.iconUrl
-                if (!logoUrl.isNullOrBlank()) {
-                    val downloaded = downloadLogoBitmap(logoUrl)
-                    if (downloaded != null) {
-                        saveLogo(context, id, downloaded)
-                        return downloaded
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-        return null
-    }
-
-    private suspend fun fetchLogoFromSgdb(context: Context, id: String, cleanTitle: String): Bitmap? {
-        try {
-            val games = SteamGridDbManager.searchGames(context, cleanTitle)
-            if (games.isNotEmpty()) {
-                val bestMatch = games.firstOrNull { it.name.equals(cleanTitle, ignoreCase = true) }
-                    ?: games.firstOrNull { it.name.contains(cleanTitle, ignoreCase = true) }
-                    ?: games.first()
-
-                val logos = SteamGridDbManager.getLogosForGame(context, bestMatch.id)
-                if (logos.isNotEmpty()) {
-                    val logoUrl = logos.first().url
-                    val downloaded = downloadLogoBitmap(logoUrl)
-                    if (downloaded != null) {
-                        saveLogo(context, id, downloaded)
-                        return downloaded
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-        return null
-    }
-
-    private suspend fun downloadLogoBitmap(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
-        try {
-            val request = Request.Builder()
-                .url(imageUrl)
-                .header("User-Agent", "DeckLauncher/1.0 (Android)")
-                .build()
-
-            CoverManager.httpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful && response.body != null) {
-                    val bytes = response.body!!.bytes()
-                    return@withContext BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                }
-            }
-        } catch (_: Exception) {}
-        null
     }
 }

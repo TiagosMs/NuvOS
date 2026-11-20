@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.decklauncher.data.*
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
@@ -216,46 +218,26 @@ fun DeckHomeScreen(
         }
     }
 
-    // Dynamic 16:9 hero background & 3DS Logo com produceState anti-race e debounce (Fase 2.7)
-    val currentHeroBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab, key3 = metadataUpdateCounter) {
+    // Dynamic 3DS Logo com produceState anti-race e debounce estrito por appId (Fase 2.7)
+    val currentLogoState by produceState<Pair<String, Bitmap?>?>(
+        initialValue = null,
+        key1 = currentFocusedApp?.id,
+        key2 = selectedTab,
+        key3 = metadataUpdateCounter
+    ) {
         val app = currentFocusedApp
         if ((selectedTab == 0 || selectedTab == 1) && app != null) {
             val targetId = app.id
-            val local = HeroManager.loadLocalHero(context, targetId)
-            if (local != null) {
-                value = local
-                return@produceState
+            val local = withContext(Dispatchers.IO) {
+                LogoManager.loadLocalLogo(context, targetId)
             }
-            value = null
-            delay(120) // Debounce de navegação rápida antes de buscar online
-            val bmp = HeroManager.getOrFetchHero(context, targetId, app.label)
-            if (currentFocusedApp?.id == targetId) {
-                value = bmp
-            }
+            value = Pair(targetId, local)
         } else {
             value = null
         }
     }
 
-    val currentLogoBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab, key3 = metadataUpdateCounter) {
-        val app = currentFocusedApp
-        if ((selectedTab == 0 || selectedTab == 1) && app != null) {
-            val targetId = app.id
-            val local = LogoManager.loadLocalLogo(context, targetId)
-            if (local != null) {
-                value = local
-                return@produceState
-            }
-            value = null
-            delay(120)
-            val bmp = LogoManager.getOrFetchLogo(context, targetId, app.label)
-            if (currentFocusedApp?.id == targetId) {
-                value = bmp
-            }
-        } else {
-            value = null
-        }
-    }
+    val currentLogoBitmap = if (currentLogoState?.first == currentFocusedApp?.id) currentLogoState?.second else null
 
     // Theme Music playback com debounce de 350ms (iiDB soundbite loop)
     LaunchedEffect(currentFocusedApp?.id, selectedTab) {
@@ -274,10 +256,10 @@ fun DeckHomeScreen(
         }
     }
 
-    val heroFile = remember(currentFocusedApp?.id) {
+    val heroFile = remember(currentFocusedApp?.id, metadataUpdateCounter) {
         currentFocusedApp?.let { HeroManager.getHeroFile(context, it.id).takeIf { f -> f.exists() } }
     }
-    val blurFile = remember(currentFocusedApp?.id) {
+    val blurFile = remember(currentFocusedApp?.id, metadataUpdateCounter) {
         currentFocusedApp?.let { HeroManager.getHeroBlurFile(context, it.id).takeIf { f -> f.exists() } }
     }
 
@@ -427,34 +409,6 @@ fun DeckHomeScreen(
                                     }
                             )
                         }
-                    } else if (currentHeroBitmap != null) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Image(
-                                bitmap = currentHeroBitmap!!.asImageBitmap(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                alignment = Alignment.TopCenter,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(0.72f)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .drawWithCache {
-                                        val brush = Brush.verticalGradient(
-                                            colorStops = arrayOf(
-                                                0.00f to Color(0xCC111418),
-                                                0.15f to Color(0x66111418),
-                                                0.45f to Color(0x33111418),
-                                                0.70f to Color(0xEE111418),
-                                                1.00f to Color(0xFF111418)
-                                            )
-                                        )
-                                        onDrawBehind { drawRect(brush) }
-                                    }
-                            )
-                        }
                     } else {
                         Box(
                             modifier = Modifier
@@ -573,7 +527,8 @@ fun DeckHomeScreen(
                                     GameLogo3D(
                                         currentApp = currentFocusedApp,
                                         logoBitmap = currentLogoBitmap,
-                                        accentColor = accentColor
+                                        accentColor = accentColor,
+                                        metadataUpdateCounter = metadataUpdateCounter
                                     )
                                 }
 
