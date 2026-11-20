@@ -217,29 +217,43 @@ fun DeckHomeScreen(
     }
 
     // Dynamic 16:9 hero background & 3DS Logo com produceState anti-race e debounce (Fase 2.7)
-    val currentHeroBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab) {
-        value = null
+    val currentHeroBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab, key3 = metadataUpdateCounter) {
         val app = currentFocusedApp
         if ((selectedTab == 0 || selectedTab == 1) && app != null) {
             val targetId = app.id
-            delay(120) // Debounce de navegação rápida
+            val local = HeroManager.loadLocalHero(context, targetId)
+            if (local != null) {
+                value = local
+                return@produceState
+            }
+            value = null
+            delay(120) // Debounce de navegação rápida antes de buscar online
             val bmp = HeroManager.getOrFetchHero(context, targetId, app.label)
             if (currentFocusedApp?.id == targetId) {
                 value = bmp
             }
+        } else {
+            value = null
         }
     }
 
-    val currentLogoBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab) {
-        value = null
+    val currentLogoBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab, key3 = metadataUpdateCounter) {
         val app = currentFocusedApp
         if ((selectedTab == 0 || selectedTab == 1) && app != null) {
             val targetId = app.id
+            val local = LogoManager.loadLocalLogo(context, targetId)
+            if (local != null) {
+                value = local
+                return@produceState
+            }
+            value = null
             delay(120)
             val bmp = LogoManager.getOrFetchLogo(context, targetId, app.label)
             if (currentFocusedApp?.id == targetId) {
                 value = bmp
             }
+        } else {
+            value = null
         }
     }
 
@@ -582,7 +596,10 @@ fun DeckHomeScreen(
                                             isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                             onSelect = { onSelectedIndexChange(index) },
                                             onLaunch = { onLaunchApp(app) },
-                                            onLongClick = { onRequestManageMetadata(app) },
+                                            onLongClick = {
+                                                onSelectedIndexChange(index)
+                                                onRequestManageMetadata(app)
+                                            },
                                             isReorderMode = isReorderMode,
                                             accentColor = accentColor
                                         )
@@ -756,6 +773,10 @@ fun DeckHomeScreen(
                                                     isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
                                                     onSelect = { onSelectedIndexChange(index) },
                                                     onLaunch = { onLaunchApp(app) },
+                                                    onLongClick = {
+                                                        onSelectedIndexChange(index)
+                                                        onRequestManageMetadata(app)
+                                                    },
                                                     showLabel = true
                                                 )
                                             }
@@ -805,74 +826,80 @@ fun DeckHomeScreen(
         }
 
         // Dialogs
-        val targetApp = activeDialogApp ?: currentFocusedApp ?: apps.firstOrNull()
+        val targetApp = activeDialogApp ?: currentFocusedApp
 
         if (showOptionsDialog && targetApp != null) {
+            val appItem = targetApp
             OptionsDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissOptions,
-                onLaunch = { onLaunchApp(targetApp) },
-                onRequestManageMetadata = { onRequestManageMetadata(targetApp) },
-                onRequestEditCover = { onRequestEditCover(targetApp) },
-                onRequestEditHero = { onRequestEditHero(targetApp) },
-                onRequestEditLogo = { onRequestEditLogo(targetApp) },
-                onRequestSelectIntro = { onRequestSelectIntro(targetApp) },
-                onRequestFetchIidb = { onRequestFetchIidb(targetApp) },
+                onLaunch = { onLaunchApp(appItem) },
+                onRequestManageMetadata = { onRequestManageMetadata(appItem) },
+                onRequestEditCover = { onRequestEditCover(appItem) },
+                onRequestEditHero = { onRequestEditHero(appItem) },
+                onRequestEditLogo = { onRequestEditLogo(appItem) },
+                onRequestSelectIntro = { onRequestSelectIntro(appItem) },
+                onRequestFetchIidb = { onRequestFetchIidb(appItem) },
                 onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
                 onRequestIconPackSettings = onRequestIconPackSettings,
                 onRescanRoms = onRescanRoms,
-                onOpenAppSettings = { onOpenSettings(targetApp) },
-                onUninstallApp = { onUninstallApp(targetApp) },
-                onRemoveItem = { onRemoveItem(targetApp) },
+                onOpenAppSettings = { onOpenSettings(appItem) },
+                onUninstallApp = { onUninstallApp(appItem) },
+                onRemoveItem = { onRemoveItem(appItem) },
                 onRequestReorder = onRequestReorderMode
             )
         }
 
         if (showGameMetadataDialog && targetApp != null) {
+            val appItem = targetApp
             GameMetadataDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissGameMetadata,
-                onRequestEditCover = { onRequestEditCover(targetApp) },
-                onRequestEditHero = { onRequestEditHero(targetApp) },
-                onRequestEditLogo = { onRequestEditLogo(targetApp) },
-                onRequestEditMusic = { onRequestEditMusic(targetApp) },
+                onRequestEditCover = { onRequestEditCover(appItem) },
+                onRequestEditHero = { onRequestEditHero(appItem) },
+                onRequestEditLogo = { onRequestEditLogo(appItem) },
+                onRequestEditMusic = { onRequestEditMusic(appItem) },
                 onRequestReorder = onRequestReorderMode,
-                onDeleteAll = { onDeleteAllGameMetadata(targetApp) },
+                onDeleteAll = { onDeleteAllGameMetadata(appItem) },
                 metadataUpdateCounter = metadataUpdateCounter
             )
         }
 
         if (showSelectMusicDialog && targetApp != null) {
+            val appItem = targetApp
             SelectMusicDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissSelectMusic,
-                onApplySoundbiteUrl = { url -> onApplySoundbiteUrl(targetApp, url) },
-                onRemoveSoundbite = { onRemoveSoundbite(targetApp) }
+                onApplySoundbiteUrl = { url -> onApplySoundbiteUrl(appItem, url) },
+                onRemoveSoundbite = { onRemoveSoundbite(appItem) }
             )
         }
 
         if (showEditCoverDialog && targetApp != null) {
+            val appItem = targetApp
             EditCoverSteamGridDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissEditCover,
-                onApplyCoverUrl = { url -> onApplyCoverUrl(targetApp, url) }
+                onApplyCoverUrl = { url -> onApplyCoverUrl(appItem, url) }
             )
         }
 
         if (showEditHeroDialog && targetApp != null) {
+            val appItem = targetApp
             SteamGridHeroSelectDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissEditHero,
-                onApplyHeroUrl = { url -> onApplyHeroUrl(targetApp, url) }
+                onApplyHeroUrl = { url -> onApplyHeroUrl(appItem, url) }
             )
         }
 
         if (showEditLogoDialog && targetApp != null) {
+            val appItem = targetApp
             SteamGridLogoSelectDialog(
-                app = targetApp,
+                app = appItem,
                 onDismiss = onDismissEditLogo,
-                onApplyLogoUrl = { url -> onApplyLogoUrl(targetApp, url) }
+                onApplyLogoUrl = { url -> onApplyLogoUrl(appItem, url) }
             )
         }
 

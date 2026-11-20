@@ -140,7 +140,10 @@ fun GameCard(
                     onClick = {
                         if (isSelected) onLaunch() else onSelect()
                     },
-                    onLongClick = onLongClick
+                    onLongClick = {
+                        onSelect()
+                        onLongClick?.invoke()
+                    }
                 )
         ) {
             Box(

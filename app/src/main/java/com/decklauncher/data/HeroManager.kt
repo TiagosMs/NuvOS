@@ -112,15 +112,6 @@ object HeroManager {
         val lower = t.trim().lowercase()
         if (lower.contains("better xcloud") || lower.contains("betterxc")) return "Xbox Cloud Gaming"
         if (lower.contains("hakux")) return "Xbox"
-        if (lower.contains("cooking mama")) return "Cooking Mama"
-        if (lower.contains("forza horizon 5")) return "Forza Horizon 5"
-        if (lower.contains("forza motorsport")) return "Forza Motorsport"
-        if (lower.contains("halo infinite")) return "Halo Infinite"
-        if (lower.contains("persona 5")) return "Persona 5"
-        if (lower.contains("minecraft")) return "Minecraft"
-        if (lower.contains("korg ds-10")) return "KORG DS-10"
-        if (lower.contains("moonlight")) return "Moonlight"
-        if (lower.contains("rhythm heaven")) return "Rhythm Heaven"
         return t.trim()
     }
 

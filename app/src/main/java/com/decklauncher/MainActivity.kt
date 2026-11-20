@@ -107,6 +107,7 @@ class MainActivity : ComponentActivity() {
         showChangeAvatarDialogState.value = false
         showEmulatorGamesDialogState.value = false
         activeEmulatorAppState.value = null
+        activeDialogAppState.value = null
     }
     private var showIidbKeyDialogState = mutableStateOf(false)
     private var showEmulatorGamesDialogState = mutableStateOf(false)
@@ -351,8 +352,14 @@ class MainActivity : ComponentActivity() {
                     },
                     onOpenSettings = { openAppOptions(it) },
                     onUninstallApp = { uninstallApp(it) },
-                    onDismissOptions = { showOptionsDialogState.value = false },
-                    onDismissGameMetadata = { showGameMetadataDialogState.value = false },
+                    onDismissOptions = {
+                        showOptionsDialogState.value = false
+                        activeDialogAppState.value = null
+                    },
+                    onDismissGameMetadata = {
+                        showGameMetadataDialogState.value = false
+                        activeDialogAppState.value = null
+                    },
                     onDismissSelectMusic = { showSelectMusicDialogState.value = false },
                     onDismissEditCover = { showEditCoverDialogState.value = false },
                     onDismissEditHero = { showEditHeroDialogState.value = false },
@@ -1115,7 +1122,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Detecção de clique longo (segurar botão de abrir por 450ms abre metadados/opções)
-        if (focusAreaState.value == FocusArea.CAROUSEL && selectedTabState.intValue != 2) {
+        if (focusAreaState.value == FocusArea.CAROUSEL) {
             if (event.keyCode in listOf(KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER)) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
                     if (event.repeatCount == 0) {
@@ -1125,8 +1132,11 @@ class MainActivity : ComponentActivity() {
                             delay(450)
                             isButtonALongPressed = true
                             triggerHaptic()
-                            val filtered = getFilteredApps()
-                            val current = filtered.getOrNull(selectedIndexState.intValue)
+                            val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
+                                activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
+                            } else {
+                                getFilteredApps().getOrNull(selectedIndexState.intValue)
+                            }
                             if (current != null) {
                                 activeDialogAppState.value = current
                                 showGameMetadataDialogState.value = true

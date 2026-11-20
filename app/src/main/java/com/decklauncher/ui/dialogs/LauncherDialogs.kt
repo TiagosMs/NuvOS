@@ -293,11 +293,11 @@ fun EditCoverSteamGridDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(app.label) }
-    var activeProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
-    var isLoading by remember { mutableStateOf(false) }
-    var results by remember { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(app.label) }
+    var activeProvider by remember(app.id) { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var results by remember(app.id) { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
+    var statusMessage by remember(app.id) { mutableStateOf<String?>(null) }
 
     fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
@@ -366,7 +366,7 @@ fun EditCoverSteamGridDialog(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(app.id) {
         doSearch(searchTitle, activeProvider)
     }
 
@@ -2280,11 +2280,11 @@ fun SteamGridHeroSelectDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var activeProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
-    var results by remember { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var activeProvider by remember(app.id) { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var results by remember(app.id) { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var statusMessage by remember(app.id) { mutableStateOf<String?>(null) }
 
     fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
@@ -2355,7 +2355,7 @@ fun SteamGridHeroSelectDialog(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(app.id) {
         doSearch(searchTitle, activeProvider)
     }
 
@@ -2552,11 +2552,11 @@ fun SteamGridLogoSelectDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var activeProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
-    var results by remember { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var activeProvider by remember(app.id) { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
+    var results by remember(app.id) { mutableStateOf<List<ArtworkCandidate>>(emptyList()) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var statusMessage by remember(app.id) { mutableStateOf<String?>(null) }
 
     fun doSearch(term: String, provider: ArtworkProvider = activeProvider) {
         coroutineScope.launch {
@@ -2627,7 +2627,7 @@ fun SteamGridLogoSelectDialog(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(app.id) {
         doSearch(searchTitle, activeProvider)
     }
 
@@ -3562,10 +3562,10 @@ fun SelectMusicDialog(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var searchTitle by remember { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
-    var results by remember { mutableStateOf<List<IidbArtwork>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var previewPlayingUrl by remember { mutableStateOf<String?>(null) }
+    var searchTitle by remember(app.id) { mutableStateOf(HeroManager.cleanTitleForSearch(app.label)) }
+    var results by remember(app.id) { mutableStateOf<List<IidbArtwork>>(emptyList()) }
+    var isLoading by remember(app.id) { mutableStateOf(false) }
+    var previewPlayingUrl by remember(app.id) { mutableStateOf<String?>(null) }
     val previewPlayer = remember { android.media.MediaPlayer() }
 
     DisposableEffect(Unit) {

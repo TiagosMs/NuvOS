@@ -87,6 +87,10 @@ fun GameLogo3D(
         }
     }
 
+    val hasLocalLogo = remember(currentApp.id, logoBitmap) {
+        logoBitmap != null || LogoManager.getLogoFile(context, currentApp.id).exists()
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -191,8 +195,8 @@ fun GameLogo3D(
                                 .widthIn(max = maxLogoWidth)
                                 .padding(horizontal = 4.dp)
                         )
-                    } else {
-                        // Fallback tipográfico em relevo para títulos sem logo
+                    } else if (!hasLocalLogo) {
+                        // Fallback tipográfico em relevo para títulos que realmente não possuem logo
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
@@ -241,6 +245,9 @@ fun GameLogo3D(
                                     )
                             )
                         }
+                    } else {
+                        // Enquanto o logo local estiver decodificando, preserva o espaço sem piscar texto
+                        Spacer(modifier = Modifier.height(maxLogoHeight).widthIn(max = maxLogoWidth))
                     }
                 }
             }

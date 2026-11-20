@@ -47,23 +47,6 @@ object ThemeMusicManager {
             startPlayerWithFile(file.absolutePath, appId)
         } else {
             stopTheme()
-            // Se tiver iiDB configurado e o arquivo ainda não existir, baixa em background
-            if (IidbManager.hasApiKey(context) && label.isNotBlank()) {
-                fetchJob = scope.launch {
-                    val games = IidbManager.searchGames(context, label)
-                    val game = games.firstOrNull() ?: return@launch
-                    val assets = IidbManager.getArtworkForParent(context, game.id) ?: return@launch
-                    val url = assets.soundbiteUrl ?: return@launch
-                    val downloaded = IidbManager.downloadSoundbite(context, appId, url)
-                    if (downloaded != null && downloaded.exists()) {
-                        withContext(Dispatchers.Main) {
-                            if (latestRequestedAppId == appId) {
-                                startPlayerWithFile(downloaded.absolutePath, appId)
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
