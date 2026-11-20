@@ -139,6 +139,12 @@ object LogoManager {
         extrudedCache.remove(id)
     }
 
+    fun clearAllCaches() {
+        memoryCache.evictAll()
+        extrudedCache.evictAll()
+        negativeCache.clear()
+    }
+
     suspend fun getOrFetchLogo(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {
         val local = loadLocalLogo(context, id)
         if (local != null) return@withContext local

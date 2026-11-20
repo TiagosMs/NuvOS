@@ -1598,7 +1598,8 @@ fun LauncherSettingsDialog(
     currentAccentColor: Long = 0xFF1A73E8,
     onAccentColorSelected: (Long) -> Unit = {},
     currentLaunchTransition: LaunchTransitionType = LaunchTransitionType.FADE,
-    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {}
+    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {},
+    onClearAllMetadata: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activePreset = remember(avatarId) {
@@ -2105,6 +2106,36 @@ fun LauncherSettingsDialog(
                         onDismiss()
                     }
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                var isClearAllFocused by remember { mutableStateOf(false) }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFFDC2626).copy(alpha = 0.2f))
+                        .border(
+                            width = if (isClearAllFocused) 2.dp else 1.dp,
+                            color = if (isClearAllFocused) Color.White else Color(0xFFDC2626),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .onFocusChanged { isClearAllFocused = it.isFocused }
+                        .focusable()
+                        .clickable {
+                            onClearAllMetadata()
+                            onDismiss()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Excluir Todos os Metadados (Resetar Capas/Logos/Sons)",
+                        color = Color(0xFFFCA5A5),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 

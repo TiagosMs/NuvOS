@@ -134,6 +134,11 @@ object HeroManager {
         return deleted
     }
 
+    fun clearAllCaches() {
+        memoryCache.evictAll()
+        negativeCache.clear()
+    }
+
     suspend fun getOrFetchHero(context: Context, id: String, title: String): Bitmap? = withContext(Dispatchers.IO) {
         val local = loadLocalHero(context, id)
         if (local != null) return@withContext local

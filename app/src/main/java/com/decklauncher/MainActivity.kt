@@ -45,6 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -232,6 +233,10 @@ class MainActivity : ComponentActivity() {
         downloadFolderNameState.value = SetupManager.getDownloadFolderName(this)
         apiKeyTextState.value = SteamGridDbManager.getApiKey(this)
         launchTransitionState.value = TransitionManager.getLaunchTransition(this)
+
+        if (intent.getBooleanExtra("CLEAR_ALL_METADATA", false)) {
+            clearAllAppsMetadata()
+        }
 
         if (!SetupManager.isSetupCompleted(this)) {
             showInitialSetupDialogState.value = true
@@ -463,6 +468,9 @@ class MainActivity : ComponentActivity() {
                         SteamGridDbManager.setApiKey(this, key)
                         Toast.makeText(this, "Chave SteamGridDB salva!", Toast.LENGTH_SHORT).show()
                     },
+                    onClearAllMetadata = {
+                        clearAllAppsMetadata()
+                    },
                     onSelectIconPack = { packPkg ->
                         IconPackManager.setSelectedPack(this, packPkg)
                         loadInstalledApps(forceReloadPack = true)
@@ -579,6 +587,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.getBooleanExtra("CLEAR_ALL_METADATA", false)) {
+            clearAllAppsMetadata()
+        }
         selectedTabState.intValue = 0
         selectedIndexState.intValue = 0
         activeFolderState.value = null
@@ -946,6 +957,26 @@ class MainActivity : ComponentActivity() {
         metadataUpdateCounter.intValue++
         Toast.makeText(this, "Metadados de \"${item.label}\" restaurados!", Toast.LENGTH_SHORT).show()
         loadInstalledApps()
+    }
+
+    private fun clearAllAppsMetadata() {
+        try {
+            File(filesDir, "covers").deleteRecursively()
+            File(filesDir, "heroes").deleteRecursively()
+            File(filesDir, "logos").deleteRecursively()
+            File(filesDir, "soundbites").deleteRecursively()
+            File(cacheDir, "image_cache").deleteRecursively()
+            File(filesDir, "covers").mkdirs()
+            File(filesDir, "heroes").mkdirs()
+            File(filesDir, "logos").mkdirs()
+            File(filesDir, "soundbites").mkdirs()
+        } catch (_: Exception) {}
+        HeroManager.clearAllCaches()
+        LogoManager.clearAllCaches()
+        ThemeMusicManager.stopTheme()
+        metadataUpdateCounter.intValue++
+        loadInstalledApps()
+        Toast.makeText(this, "Todos os metadados foram excluídos!", Toast.LENGTH_SHORT).show()
     }
 
     private fun downloadSoundbiteFromUrl(item: AppItem, url: String) {

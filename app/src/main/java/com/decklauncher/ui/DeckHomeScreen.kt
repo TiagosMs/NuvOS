@@ -161,6 +161,7 @@ fun DeckHomeScreen(
     onIntroSelected: (AppItem, String?) -> Unit = { _, _ -> },
     onApplySoundbiteUrl: (AppItem, String) -> Unit = { _, _ -> },
     onRemoveSoundbite: (AppItem) -> Unit = {},
+    onClearAllMetadata: () -> Unit = {},
     metadataUpdateCounter: Int = 0,
     onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
@@ -940,7 +941,8 @@ fun DeckHomeScreen(
                 currentAccentColor = accentColorLong,
                 onAccentColorSelected = onAccentColorSelected,
                 currentLaunchTransition = currentLaunchTransition,
-                onLaunchTransitionSelected = onLaunchTransitionSelected
+                onLaunchTransitionSelected = onLaunchTransitionSelected,
+                onClearAllMetadata = onClearAllMetadata
             )
         }
 
