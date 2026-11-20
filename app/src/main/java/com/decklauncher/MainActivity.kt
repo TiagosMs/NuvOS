@@ -18,12 +18,14 @@ import android.os.StrictMode
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.view.WindowCompat
@@ -40,6 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -201,15 +204,19 @@ class MainActivity : ComponentActivity() {
         val vmPolicy = StrictMode.VmPolicy.Builder().build()
         StrictMode.setVmPolicy(vmPolicy)
 
-        // Configura chave de API padrão fornecida pelo usuário
-        SteamGridDbManager.setApiKey(this, "1b8937c720a13f8746fedc874c88b46e")
-
         profileNameState.value = ProfileManager.getProfileName(this)
         avatarIdState.value = ProfileManager.getAvatarId(this)
         backgroundModeState.value = ThemeManager.getBackgroundMode(this)
         accentColorLongState.longValue = ThemeManager.getAccentColorLong(this)
         hasCustomWallpaperState.value = ThemeManager.hasCustomWallpaper(this)
-        customWallpaperBitmapState.value = ThemeManager.loadCustomWallpaper(this)
+        if (hasCustomWallpaperState.value) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val bmp = ThemeManager.loadCustomWallpaper(this@MainActivity)
+                withContext(Dispatchers.Main) {
+                    customWallpaperBitmapState.value = bmp
+                }
+            }
+        }
         romFolderNameState.value = SetupManager.getRomFolderName(this)
         downloadFolderNameState.value = SetupManager.getDownloadFolderName(this)
         apiKeyTextState.value = SteamGridDbManager.getApiKey(this)
@@ -220,22 +227,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setupImmersiveMode()
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-
-        val pkgFilter = IntentFilter().apply {
-            addAction(Intent.ACTION_PACKAGE_ADDED)
-            addAction(Intent.ACTION_PACKAGE_REMOVED)
-            addAction(Intent.ACTION_PACKAGE_REPLACED)
-            addDataScheme("package")
-        }
-        registerReceiver(packageReceiver, pkgFilter)
-
-        val sgFilter = IntentFilter("com.decklauncher.SET_STEAMGRID_KEY")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(steamGridBroadcastReceiver, sgFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(steamGridBroadcastReceiver, sgFilter)
-        }
+        requestHighestRefreshRate()
 
         setContent {
             DeckLauncherTheme {
@@ -509,11 +501,35 @@ class MainActivity : ComponentActivity() {
         loadInstalledApps()
     }
 
+    override fun onStart() {
+        super.onStart()
+        try {
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            val pkgFilter = IntentFilter().apply {
+                addAction(Intent.ACTION_PACKAGE_ADDED)
+                addAction(Intent.ACTION_PACKAGE_REMOVED)
+                addAction(Intent.ACTION_PACKAGE_REPLACED)
+                addDataScheme("package")
+            }
+            registerReceiver(packageReceiver, pkgFilter)
+        } catch (_: Exception) {}
+    }
+
     override fun onResume() {
         super.onResume()
         activeIntroPlayingState.value = null
         isLaunchingFadeState.value = false
         setupImmersiveMode()
+        requestHighestRefreshRate()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        selectedTabState.intValue = 0
+        selectedIndexState.intValue = 0
+        activeFolderState.value = null
+        focusAreaState.value = FocusArea.CAROUSEL
+        closeAllDialogs()
     }
 
     override fun onPause() {
@@ -525,14 +541,25 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         activeIntroPlayingState.value = null
+        try {
+            unregisterReceiver(batteryReceiver)
+            unregisterReceiver(packageReceiver)
+        } catch (_: Exception) {}
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(batteryReceiver)
-        unregisterReceiver(packageReceiver)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun requestHighestRefreshRate() {
         try {
-            unregisterReceiver(steamGridBroadcastReceiver)
+            val d = windowManager.defaultDisplay ?: return
+            val cur = d.mode ?: return
+            val best = d.supportedModes
+                .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+                .maxByOrNull { it.refreshRate } ?: return
+            window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
         } catch (_: Exception) {}
     }
 
@@ -600,15 +627,7 @@ class MainActivity : ComponentActivity() {
                         else -> AppCategory.APPS
                     }
 
-                    val customIconDrawable = IconPackManager.getIcon(this@MainActivity, pkg, activityName)
-                    val drawable = customIconDrawable ?: try {
-                        info.loadIcon(pm)
-                    } catch (e: Exception) {
-                        null
-                    }
-
-                    val iconBitmap = drawable?.let { drawableToBitmap(it) }
-                    val localCover = CoverManager.loadLocalCover(this@MainActivity, appId)
+                    val coverPath = CoverManager.getCoverPath(this@MainActivity, appId)
 
                     val tempItem = AppItem(
                         id = appId,
@@ -617,8 +636,7 @@ class MainActivity : ComponentActivity() {
                         activityName = activityName,
                         category = category,
                         itemType = ItemType.APP,
-                        iconBitmap = iconBitmap?.asImageBitmap(),
-                        coverBitmap = localCover?.asImageBitmap()
+                        coverPath = coverPath
                     )
 
                     val folderCat = CategoryManager.categorizeApp(tempItem, info.activityInfo.applicationInfo)
@@ -627,17 +645,12 @@ class MainActivity : ComponentActivity() {
 
             // Jogos em Nuvem vão para Tab JOGOS
             val cloudGames = CloudGameManager.getCloudGames(this@MainActivity).map { cg ->
-                val localCover = CoverManager.loadLocalCover(this@MainActivity, cg.id)
-                cg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
+                cg.copy(category = AppCategory.JOGOS, coverPath = CoverManager.getCoverPath(this@MainActivity, cg.id))
             }
 
             // ROMs de Emulador: escaneia todos
             val romGames = RomScanner.scanRoms(this@MainActivity).map { rg ->
-                var localCover = CoverManager.loadLocalCover(this@MainActivity, rg.id)
-                if (localCover == null) {
-                    localCover = CoverManager.searchLibretroCover(this@MainActivity, rg.id, rg.label)
-                }
-                rg.copy(category = AppCategory.JOGOS, coverBitmap = localCover?.asImageBitmap())
+                rg.copy(category = AppCategory.JOGOS, coverPath = CoverManager.getCoverPath(this@MainActivity, rg.id))
             }
 
             // Apenas as ROMs selecionadas/fixadas pelo usuário vão para a Tela Inicial (Tab Jogos)
@@ -1120,33 +1133,15 @@ class MainActivity : ComponentActivity() {
                 }
                 return true
             }
-
-            // Botão X: Abre menu de Opções (Editar Capa, Informações, etc.)
-            KeyEvent.KEYCODE_BUTTON_X -> {
-                val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
-                    activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
-                } else {
-                    filtered.getOrNull(selectedIndexState.intValue)
-                }
-                if (current != null) {
-                    activeDialogAppState.value = current
-                    showOptionsDialogState.value = true
-                } else {
-                    val fallback = appsListState.value.firstOrNull()
-                    if (fallback != null) {
-                        activeDialogAppState.value = fallback
-                        showOptionsDialogState.value = true
-                    }
-                }
-                triggerHaptic()
-                return true
-            }
         }
 
         return super.dispatchKeyEvent(event)
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.source and InputDevice.SOURCE_JOYSTICK != InputDevice.SOURCE_JOYSTICK ||
+            event.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(event)
+
         val axisX = event.getAxisValue(MotionEvent.AXIS_X).takeIf { it != 0f }
             ?: event.getAxisValue(MotionEvent.AXIS_HAT_X)
         val axisY = event.getAxisValue(MotionEvent.AXIS_Y).takeIf { it != 0f }
@@ -1195,12 +1190,14 @@ class MainActivity : ComponentActivity() {
             // 1. Executa 1 passo único com debounce anti-rebote
             executeNavigation(newDir, isAutoRepeat = false)
 
-            // 2. Só avança continuamente se mantido segurado por mais de 1 segundo
+            // 2. Repetição acelerada (Fase 3.3): delay 350ms, intervalo 120ms acelerando até 45ms
             joyRepeatJob = CoroutineScope(Dispatchers.Main).launch {
-                delay(HOLD_THRESHOLD_MS)
-                while (currentJoyDir == newDir) {
+                delay(350)
+                var interval = 120L
+                while (currentJoyDir == newDir && isActive) {
                     executeNavigation(newDir, isAutoRepeat = true)
-                    delay(REPEAT_INTERVAL_MS)
+                    delay(interval)
+                    interval = (interval - 10).coerceAtLeast(45)
                 }
             }
             return true

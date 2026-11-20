@@ -5,7 +5,9 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import com.decklauncher.ui.theme.Motion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -25,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -408,6 +411,7 @@ private fun PeekAppCard(
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(10.dp)
+    val appIcon = com.decklauncher.data.rememberAppIcon(app)
     Box(
         modifier = modifier
             .clip(shape)
@@ -420,9 +424,9 @@ private fun PeekAppCard(
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (app?.iconBitmap != null) {
+        if (appIcon != null) {
             Image(
-                bitmap = app.iconBitmap,
+                bitmap = appIcon,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
@@ -461,60 +465,14 @@ fun FolderDetailPreview(
     val configuration = LocalConfiguration.current
     val isCompactHeight = configuration.screenHeightDp < 520
 
-    val infiniteTransition = rememberInfiniteTransition(label = "folder_3d_idle")
-
-    // Flutuação vertical suave contínua
-    val floatAnim by infiniteTransition.animateFloat(
-        initialValue = -7f,
-        targetValue = 7f,
+    val phase = rememberInfiniteTransition(label = "folder_3d_idle").animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(durationMillis = 7500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "folder_float_y"
-    )
-
-    // Balanço sutil em 3D (Yaw / Eixo Y)
-    val tiltYAnim by infiniteTransition.animateFloat(
-        initialValue = -14f,
-        targetValue = -7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "folder_tilt_y"
-    )
-
-    // Inclinação para frente estilo Console (Pitch / Eixo X)
-    val tiltXAnim by infiniteTransition.animateFloat(
-        initialValue = 11f,
-        targetValue = 16f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "folder_tilt_x"
-    )
-
-    // Escala e intensidade da sombra sincronizada com a altura da flutuação
-    val shadowScaleX by infiniteTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shadow_scale"
-    )
-
-    val shadowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.55f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shadow_alpha"
+        label = "folder_phase"
     )
 
     val folderWidth = if (isCompactHeight) 175.dp else 235.dp
@@ -532,50 +490,61 @@ fun FolderDetailPreview(
                 .height(folderHeight * 1.45f),
             contentAlignment = Alignment.Center
         ) {
-            // 1. Sombra e Glow no Piso do Console
-            Canvas(
+            // 1. Sombra e Glow no Piso do Console (Fase 4.3: drawBehind com phase)
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .width(folderWidth * 0.95f)
                     .height(folderHeight * 0.24f)
                     .offset(y = (-6).dp)
-                    .scale(scaleX = shadowScaleX, scaleY = 1f)
-            ) {
-                // Brilho ambiente suave na cor de destaque
-                drawOval(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = 0.28f * shadowAlpha),
-                            Color.Transparent
-                        ),
-                        center = center,
-                        radius = size.width * 0.55f
-                    )
-                )
+                    .drawBehind {
+                        val p = phase.value
+                        val norm = sin(p) * 0.5f + 0.5f
+                        val sAlpha = 0.35f + 0.15f * norm
+                        val scaleW = 0.94f + 0.12f * norm
 
-                // Sombra de contato escura
-                drawOval(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = shadowAlpha),
-                            Color.Black.copy(alpha = shadowAlpha * 0.4f),
-                            Color.Transparent
-                        ),
-                        center = center,
-                        radius = size.width * 0.48f
-                    ),
-                    size = Size(size.width, size.height * 0.85f),
-                    topLeft = Offset(0f, size.height * 0.15f)
-                )
-            }
+                        val sw = size.width * scaleW
+                        val sh = size.height
+                        val left = (size.width - sw) * 0.5f
+
+                        // Brilho ambiente suave na cor de destaque
+                        drawOval(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    accentColor.copy(alpha = 0.30f * sAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.5f, size.height * 0.5f),
+                                radius = sw * 0.55f
+                            ),
+                            topLeft = Offset(left, 0f),
+                            size = Size(sw, sh)
+                        )
+
+                        // Sombra de contato escura
+                        drawOval(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = sAlpha),
+                                    Color.Black.copy(alpha = sAlpha * 0.4f),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.5f, size.height * 0.5f),
+                                radius = sw * 0.48f
+                            ),
+                            topLeft = Offset(left, size.height * 0.15f),
+                            size = Size(sw, size.height * 0.85f)
+                        )
+                    }
+            )
 
             // 2. Pasta 3D Flutuante com troca animada de categoria sem corte de bordas
             AnimatedContent(
                 targetState = folder,
                 transitionSpec = {
-                    (fadeIn(animationSpec = tween(380, easing = FastOutSlowInEasing)))
+                    (fadeIn(animationSpec = tween(Motion.Base)) + scaleIn(initialScale = 0.94f, animationSpec = tween(Motion.Base)))
                         .togetherWith(
-                            fadeOut(animationSpec = tween(240, easing = FastOutSlowInEasing))
+                            fadeOut(animationSpec = tween(Motion.Fast))
                         ) using SizeTransform(clip = false)
                 },
                 label = "folder_3d_switch"
@@ -586,10 +555,11 @@ fun FolderDetailPreview(
                         .height(folderHeight * 1.25f)
                         .padding(top = 16.dp)
                         .graphicsLayer {
-                            rotationX = tiltXAnim
-                            rotationY = tiltYAnim
+                            val p = phase.value
+                            translationY = sin(p) * (if (isCompactHeight) 5.dp.toPx() else 8.dp.toPx())
+                            rotationX = 13.5f + sin(p) * 2.5f
+                            rotationY = -10.5f + sin(p + 1f) * 3.5f
                             cameraDistance = 16f * density
-                            translationY = floatAnim.dp.toPx()
                         },
                     contentAlignment = Alignment.BottomCenter
                 ) {

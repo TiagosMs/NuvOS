@@ -3,6 +3,7 @@ package com.decklauncher.ui
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -30,10 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -41,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.decklauncher.data.*
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
@@ -196,38 +199,41 @@ fun DeckHomeScreen(
         }
     }
 
-    // Dynamic 16:9 hero background & 3DS Logo adaptativo com SteamGridDB
-    var currentHeroBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var currentLogoBitmap by remember { mutableStateOf<Bitmap?>(null) }
-
-    LaunchedEffect(currentFocusedApp?.id, selectedTab) {
-        if ((selectedTab == 0 || selectedTab == 1) && currentFocusedApp != null) {
-            delay(120) // Debounce para navegação rápida
-            val target = currentFocusedApp
-            coroutineScope.launch {
-                val hero = HeroManager.getOrFetchHero(context, target.id, target.label)
-                if (currentFocusedApp?.id == target.id) {
-                    currentHeroBitmap = hero
-                }
-            }
-            coroutineScope.launch {
-                val logo = LogoManager.getOrFetchLogo(context, target.id, target.label)
-                if (currentFocusedApp?.id == target.id) {
-                    currentLogoBitmap = logo
-                }
-            }
+    // Dynamic 16:9 hero background & 3DS Logo com produceState anti-race e debounce (Fase 2.7)
+    val currentHeroBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab) {
+        val app = currentFocusedApp
+        if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            delay(120) // Debounce de navegação rápida
+            value = HeroManager.getOrFetchHero(context, app.id, app.label)
         } else {
-            currentHeroBitmap = null
-            currentLogoBitmap = null
+            value = null
         }
     }
 
-    // Auto-scroll Carousel (Jogos / Emuladores)
+    val currentLogoBitmap by produceState<Bitmap?>(initialValue = null, key1 = currentFocusedApp?.id, key2 = selectedTab) {
+        val app = currentFocusedApp
+        if ((selectedTab == 0 || selectedTab == 1) && app != null) {
+            delay(120)
+            value = LogoManager.getOrFetchLogo(context, app.id, app.label)
+        } else {
+            value = null
+        }
+    }
+
+    val heroFile = remember(currentFocusedApp?.id) {
+        currentFocusedApp?.let { HeroManager.getHeroFile(context, it.id).takeIf { f -> f.exists() } }
+    }
+    val blurFile = remember(currentFocusedApp?.id) {
+        currentFocusedApp?.let { HeroManager.getHeroBlurFile(context, it.id).takeIf { f -> f.exists() } }
+    }
+
+    // Auto-scroll Carousel (Jogos / Emuladores) com centralização (Fase 4.6)
     LaunchedEffect(safeIndex, selectedTab) {
         if (selectedTab != 2 && filteredApps.isNotEmpty()) {
-            coroutineScope.launch {
-                carouselState.animateScrollToItem(safeIndex)
-            }
+            val info = carouselState.layoutInfo
+            val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+            val offset = if (itemW > 0) -(info.viewportSize.width - itemW) / 2 else 0
+            carouselState.animateScrollToItem(safeIndex, offset)
         }
     }
 
@@ -323,53 +329,38 @@ fun DeckHomeScreen(
                 )
             }
             BackgroundMode.IMMERSIVE -> {
-                // Solução Madura de Console (PlayStation 5 / Steam Deck Cinema Stage):
-                // A arte 16:9 fica posicionada no topo/centro com nitidez suave (blur sutil 6dp),
-                // com um degradê cinematográfico que desce até o grafite escuro onde fica o carrossel,
-                // eliminando corte feio e visual borrado/lavado.
-                AnimatedContent(
-                    targetState = currentHeroBitmap,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(600, easing = FastOutSlowInEasing)) togetherWith
-                        fadeOut(animationSpec = tween(450, easing = FastOutSlowInEasing))
-                    },
+                // Fundo Imersivo otimizado (Fase 4.4):
+                // Crossfade leve com hero pré-renderizado e blurFile reduzido (sem blurs ao vivo em tela cheia)
+                Crossfade(
+                    targetState = heroFile,
+                    animationSpec = tween(Motion.Slow),
                     label = "hero_bg_fade"
-                ) { heroBmp ->
-                    if (heroBmp != null) {
+                ) { file ->
+                    if (file != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            // 1. Camada de fundo ambiente suave (Bloom)
-                            Image(
-                                bitmap = heroBmp.asImageBitmap(),
+                            if (blurFile != null) {
+                                AsyncImage(
+                                    model = blurFile,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    filterQuality = FilterQuality.Low,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            AsyncImage(
+                                model = file,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .blur(radius = 32.dp)
-                            )
-
-                            // 2. Arte 16:9 Cinema Stage no topo da tela com softening sutil (preserva arte e personagens)
-                            Box(
+                                alignment = Alignment.TopCenter,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight(0.72f)
-                            ) {
-                                Image(
-                                    bitmap = heroBmp.asImageBitmap(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    alignment = Alignment.TopCenter,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .blur(radius = 6.dp)
-                                )
-                            }
-
-                            // 3. Multi-stop Cinema Scrim
+                            )
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
+                                    .drawWithCache {
+                                        val brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
                                                 0.00f to Color(0xCC111418),
                                                 0.15f to Color(0x66111418),
@@ -378,7 +369,36 @@ fun DeckHomeScreen(
                                                 1.00f to Color(0xFF111418)
                                             )
                                         )
-                                    )
+                                        onDrawBehind { drawRect(brush) }
+                                    }
+                            )
+                        }
+                    } else if (currentHeroBitmap != null) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Image(
+                                bitmap = currentHeroBitmap!!.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                alignment = Alignment.TopCenter,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(0.72f)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .drawWithCache {
+                                        val brush = Brush.verticalGradient(
+                                            colorStops = arrayOf(
+                                                0.00f to Color(0xCC111418),
+                                                0.15f to Color(0x66111418),
+                                                0.45f to Color(0x33111418),
+                                                0.70f to Color(0xEE111418),
+                                                1.00f to Color(0xFF111418)
+                                            )
+                                        )
+                                        onDrawBehind { drawRect(brush) }
+                                    }
                             )
                         }
                     } else {

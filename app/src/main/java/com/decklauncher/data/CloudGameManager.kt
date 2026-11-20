@@ -30,7 +30,7 @@ object CloudGameManager {
         CloudCatalogItem("Minecraft Dungeons", "https://www.xbox.com/play/games/minecraft-dungeons/9N8NJ74FZ689"),
         CloudCatalogItem("Sea of Thieves", "https://www.xbox.com/play/games/sea-of-thieves-2024-edition/9P2N57MC619K"),
         CloudCatalogItem("Hi-Fi RUSH", "https://www.xbox.com/play/games/hi-fi-rush/9P5081ZCVF3Z"),
-        CloudCatalogItem("Gears 5", "https://www.xbox.com/play/games/gears-5/9P2N57MC619K"),
+        CloudCatalogItem("Gears 5", "https://www.xbox.com/play/games/gears-5/9ND15N819T13"),
         CloudCatalogItem("Gears of War 4", "https://www.xbox.com/play/games/gears-of-war-4/9NBLGGH4PBRB"),
         CloudCatalogItem("Persona 3 Reload", "https://www.xbox.com/play/games/persona-3-reload/9PFD9S5QFSJ2"),
         CloudCatalogItem("Persona 5 Tactica", "https://www.xbox.com/play/games/persona-5-tactica/9PF2P3L68007"),

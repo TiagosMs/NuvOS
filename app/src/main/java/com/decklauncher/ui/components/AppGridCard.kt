@@ -89,9 +89,10 @@ fun AppGridCard(
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
-                if (app.iconBitmap != null) {
+                val icon = com.decklauncher.data.rememberAppIcon(app)
+                if (icon != null) {
                     Image(
-                        bitmap = app.iconBitmap,
+                        bitmap = icon,
                         contentDescription = app.label,
                         modifier = Modifier
                             .fillMaxSize()

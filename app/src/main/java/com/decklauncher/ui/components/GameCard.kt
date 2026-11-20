@@ -1,22 +1,13 @@
 package com.decklauncher.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,11 +15,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,10 +35,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.decklauncher.data.rememberAppIcon
 import com.decklauncher.model.AppItem
-import com.decklauncher.model.ItemType
-import com.decklauncher.ui.theme.*
+import com.decklauncher.ui.theme.Motion
+import com.decklauncher.ui.theme.StatusPlaying
+import com.decklauncher.ui.theme.TextPrimary
+import com.decklauncher.ui.theme.TextWhite
+import java.io.File
 
+/**
+ * Card vertical de Jogo no carrossel horizontal estilo Console (Fase 4.5):
+ * - Progresso único de seleção (0->1) lido estritamente em drawBehind e graphicsLayer.
+ * - Halo iluminado via drawBehind (zero recriação de sombra por frame).
+ * - Carregamento otimizado de capa via Coil AsyncImage decodificado no tamanho exato.
+ * - Ícone em cache LRU sob demanda (Fase 2.1).
+ */
 @Composable
 fun GameCard(
     app: AppItem,
@@ -50,38 +62,24 @@ fun GameCard(
     accentColor: Color = Color.White,
     modifier: Modifier = Modifier
 ) {
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val configuration = LocalConfiguration.current
     val isCompactHeight = configuration.screenHeightDp < 520
 
     val cardWidth = if (isCompactHeight) 118.dp else 175.dp
     val cardHeight = if (isCompactHeight) 168.dp else 250.dp
-    val shapeRadius = if (isCompactHeight) 16.dp else 22.dp
-    val shape = RoundedCornerShape(shapeRadius)
-    val labelFontSize = if (isCompactHeight) 11.sp else 13.sp
-    val pillWidth = if (isCompactHeight) 26.dp else 38.dp
-    val pillHeight = if (isCompactHeight) 3.dp else 3.5.dp
-    val fallbackIconSize = if (isCompactHeight) 70.dp else 110.dp
+    val cornerRadiusDp = if (isCompactHeight) 16.dp else 22.dp
+    val fallbackIconSize = if (isCompactHeight) 48.dp else 72.dp
+    val labelFontSize = if (isCompactHeight) 10.sp else 13.sp
 
-    // Ultra-smooth slower spring physics for fluid console feel
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) (if (isReorderMode) 1.09f else 1.07f) else 0.94f,
-        animationSpec = spring(dampingRatio = 0.88f, stiffness = 160f),
-        label = "game_card_scale"
+    // Progresso único 0->1 de foco com Spring Console (Fase 4.5)
+    val sel = animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = Motion.SelectSpring,
+        label = "game_card_sel"
     )
 
-    val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) (if (isCompactHeight) 3.dp else 4.dp) else 1.dp,
-        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
-        label = "game_card_border"
-    )
-
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isSelected) (if (isCompactHeight) 14.dp else 28.dp) else 2.dp,
-        animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
-        label = "game_card_shadow"
-    )
-
-    val activeBorderColor = if (isReorderMode) Color(0xFFF59E0B) else (if (isSelected) Color.White else accentColor)
+    val shape = RoundedCornerShape(cornerRadiusDp)
+    val appIcon = rememberAppIcon(app)
 
     Column(
         modifier = modifier
@@ -89,46 +87,76 @@ fun GameCard(
             .semantics { contentDescription = app.label },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Card(
+        Box(
             modifier = Modifier
                 .width(cardWidth)
                 .height(cardHeight)
-                .scale(scale)
-                .shadow(
-                    elevation = shadowElevation,
-                    shape = shape,
-                    spotColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor,
-                    ambientColor = Color.White
-                )
+                .graphicsLayer {
+                    val s = if (isReorderMode) {
+                        0.94f + 0.15f * sel.value
+                    } else {
+                        0.94f + 0.14f * sel.value
+                    }
+                    scaleX = s
+                    scaleY = s
+                }
+                .drawBehind {
+                    val a = sel.value
+                    if (a > 0.01f) {
+                        val glowColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor
+                        val baseRadius = cornerRadiusDp.toPx()
+                        repeat(3) { i ->
+                            val grow = (4 + i * 5).dp.toPx()
+                            drawRoundRect(
+                                color = glowColor.copy(alpha = 0.22f * a / (i + 1)),
+                                topLeft = Offset(-grow, -grow),
+                                size = Size(size.width + grow * 2, size.height + grow * 2),
+                                cornerRadius = CornerRadius(baseRadius + grow)
+                            )
+                        }
+                    }
+                }
                 .clip(shape)
-                .border(
-                    BorderStroke(borderWidth, if (isSelected) Color.White else Color(0x22FFFFFF)),
-                    shape = shape
-                )
+                .drawWithContent {
+                    drawContent()
+                    val a = sel.value
+                    if (a > 0.01f) {
+                        val strokeColor = if (isReorderMode) Color(0xFFF59E0B) else Color.White
+                        val strokeWidth = if (isCompactHeight) 2.8.dp.toPx() else 3.5.dp.toPx()
+                        drawRoundRect(
+                            color = strokeColor.copy(alpha = a),
+                            cornerRadius = CornerRadius(cornerRadiusDp.toPx()),
+                            style = Stroke(strokeWidth)
+                        )
+                    }
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
                     if (isSelected) onLaunch() else onSelect()
-                },
-            colors = CardDefaults.cardColors(containerColor = CardBgDark),
-            shape = shape
+                }
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF1C1C1C))
+                    .background(Color(0xFF1E1E1E))
             ) {
-                // Full-bleed edge-to-edge artwork (Preenche todo o retângulo)
-                if (app.coverBitmap != null) {
-                    Image(
-                        bitmap = app.coverBitmap,
+                if (app.coverPath != null) {
+                    // Capa decodificada no tamanho exato do card pelo Coil (Fase 2.6)
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(File(app.coverPath))
+                            .size(350, 500)
+                            .memoryCacheKey(app.id)
+                            .crossfade(false)
+                            .build(),
                         contentDescription = app.label,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
-                } else if (app.iconBitmap != null) {
-                    // Stylized full-card backdrop with prominent icon
+                } else if (appIcon != null) {
+                    // Fundo gradiente estilizado com o ícone do app em cache LRU
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -143,12 +171,12 @@ fun GameCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            bitmap = app.iconBitmap,
+                            bitmap = appIcon,
                             contentDescription = app.label,
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
                                 .size(fallbackIconSize)
-                                .clip(RoundedCornerShape(if (isCompactHeight) 16.dp else 24.dp))
+                                .clip(RoundedCornerShape(if (isCompactHeight) 14.dp else 20.dp))
                         )
                     }
                 } else {
@@ -171,11 +199,14 @@ fun GameCard(
 
         Spacer(modifier = Modifier.height(if (isCompactHeight) 6.dp else 10.dp))
 
-        // Indicator below selected card: Nome do jogo no cursor com barra nítida de foco ou [◀ MOVER ▶]
-        AnimatedVisibility(
-            visible = isSelected,
-            enter = fadeIn(),
-            exit = fadeOut()
+        // Indicador de reprodução sob o card selecionado (Fase 4.5: animação via alpha/translation no graphicsLayer)
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    alpha = sel.value
+                    translationY = (1f - sel.value) * 6.dp.toPx()
+                },
+            contentAlignment = Alignment.Center
         ) {
             if (isReorderMode) {
                 Row(
@@ -199,7 +230,6 @@ fun GameCard(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
-                    // Badge circular verde com triângulo Play preto (conforme GUIA_DE_DESIGN_LAUNCHER.md)
                     val badgeSize = if (isCompactHeight) 10.dp else 14.dp
                     Box(
                         modifier = Modifier
@@ -211,7 +241,7 @@ fun GameCard(
                         androidx.compose.foundation.Canvas(
                             modifier = Modifier.size(if (isCompactHeight) 4.5.dp else 6.5.dp)
                         ) {
-                            val path = androidx.compose.ui.graphics.Path().apply {
+                            val path = Path().apply {
                                 moveTo(0f, 0f)
                                 lineTo(size.width, size.height * 0.5f)
                                 lineTo(0f, size.height)

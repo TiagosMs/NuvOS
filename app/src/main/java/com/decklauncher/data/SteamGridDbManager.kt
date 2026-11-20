@@ -28,13 +28,13 @@ object SteamGridDbManager {
 
     private const val PREFS_NAME = "steamgriddb_prefs"
     private const val KEY_API = "api_key"
-    private const val DEFAULT_API_KEY = "1b8937c720a13f8746fedc874c88b46e"
     private const val BASE_URL = "https://www.steamgriddb.com/api/v2"
 
     fun getApiKey(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val saved = prefs.getString(KEY_API, null)?.trim()
-        return if (!saved.isNullOrBlank()) saved else DEFAULT_API_KEY
+        if (!saved.isNullOrBlank()) return saved
+        return com.decklauncher.BuildConfig.SGDB_API_KEY.trim()
     }
 
     fun setApiKey(context: Context, apiKey: String?) {

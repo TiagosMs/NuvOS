@@ -81,7 +81,16 @@ object ThemeManager {
         val file = getWallpaperFile(context)
         if (!file.exists()) return null
         return try {
-            val bmp = BitmapFactory.decodeFile(file.absolutePath)
+            val boundsOnly = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, boundsOnly)
+            val dm = context.resources.displayMetrics
+            val maxDim = maxOf(dm.widthPixels, dm.heightPixels).coerceAtLeast(1080)
+            var sample = 1
+            while (boundsOnly.outWidth / (sample * 2) >= maxDim && boundsOnly.outHeight / (sample * 2) >= maxDim) {
+                sample *= 2
+            }
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val bmp = BitmapFactory.decodeFile(file.absolutePath, opts)
             cachedWallpaper = bmp
             bmp
         } catch (_: Exception) {

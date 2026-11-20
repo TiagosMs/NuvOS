@@ -81,11 +81,11 @@ fun EnableWindowBlur(blurRadius: Int = 100) {
     val view = LocalView.current
     SideEffect {
         val window = (view.parent as? DialogWindowProvider)?.window
-        if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            window.attributes = window.attributes.apply {
-                blurBehindRadius = blurRadius
+        if (window != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
             }
+            window.setDimAmount(0.70f)
         }
     }
 }
@@ -698,9 +698,10 @@ fun EmulatorGamesDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            if (emulatorApp.iconBitmap != null) {
+                            val emuIcon = com.decklauncher.data.rememberAppIcon(emulatorApp)
+                            if (emuIcon != null) {
                                 Image(
-                                    bitmap = emulatorApp.iconBitmap,
+                                    bitmap = emuIcon,
                                     contentDescription = emulatorApp.label,
                                     modifier = Modifier
                                         .size(46.dp)
@@ -874,9 +875,13 @@ fun EmulatorRomItemRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (rom.coverBitmap != null) {
-                Image(
-                    bitmap = rom.coverBitmap,
+            if (rom.coverPath != null) {
+                coil.compose.AsyncImage(
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(java.io.File(rom.coverPath))
+                        .size(100, 150)
+                        .crossfade(false)
+                        .build(),
                     contentDescription = rom.label,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

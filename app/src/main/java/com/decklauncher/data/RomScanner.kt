@@ -1,5 +1,6 @@
 package com.decklauncher.data
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,17 +13,7 @@ import java.io.File
 
 object RomScanner {
 
-    private val ROM_EXTENSIONS = setOf("nds", "iso", "cso", "xbe", "gba", "gb", "gbc", "sfc", "smc", "n64", "z64", "chd")
-
-    fun cleanRomTitle(fileName: String): String {
-        var name = fileName.substringBeforeLast(".")
-        // Remove release numbers like "3588 - "
-        name = name.replace(Regex("^[0-9]+\\s*-\\s*"), "")
-        // Remove region / dump tags like (USA), (US), [!], (XenoPhobia)
-        name = name.replace(Regex("\\([^)]*\\)"), "")
-        name = name.replace(Regex("\\[[^]]*\\]"), "")
-        return name.trim()
-    }
+    fun cleanRomTitle(fileName: String): String = RomSystemDetector.cleanRomTitle(fileName)
 
     fun scanRoms(context: Context): List<AppItem> {
         val results = mutableListOf<AppItem>()
@@ -56,7 +47,7 @@ object RomScanner {
             if (dir.exists() && dir.isDirectory) {
                 try {
                     dir.walkTopDown().maxDepth(3).forEach { file ->
-                        if (file.isFile && ROM_EXTENSIONS.contains(file.extension.lowercase())) {
+                        if (file.isFile && RomSystemDetector.ALL_SUPPORTED_EXTENSIONS.contains(file.extension.lowercase())) {
                             foundFiles.add(file)
                         }
                     }
@@ -64,12 +55,15 @@ object RomScanner {
             }
         }
 
+        val emuConfigs = RomSystemDetector.loadEmulatorConfigs(context)
+
         for (file in foundFiles.distinctBy { it.absolutePath }) {
             val title = cleanRomTitle(file.name)
             val ext = file.extension.lowercase()
+            val system = RomSystemDetector.detectSystem(file)
             val id = "rom_" + file.name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
 
-            val targetPkg = detectEmulatorForExtension(context.packageManager, ext)
+            val targetPkg = detectEmulatorForRom(context.packageManager, system, ext, emuConfigs)
 
             results.add(
                 AppItem(
@@ -86,21 +80,30 @@ object RomScanner {
         return results
     }
 
-    private fun detectEmulatorForExtension(pm: PackageManager, ext: String): String? {
-        val candidates = when (ext) {
-            "nds" -> listOf("me.magnum.melonds", "com.dsemu.drastic", "com.retroarch", "com.retroarch.aarch64")
-            "xbe" -> listOf("com.rfandango.haku_x")
-            "iso", "cso" -> listOf("org.ppsspp.ppsspp", "xyz.aethersx2.android", "com.rfandango.haku_x", "org.dolphinemu.dolphinemu")
-            "gba", "gb", "gbc" -> listOf("com.fastemulator.gba", "com.retroarch", "com.retroarch.aarch64")
-            "sfc", "smc" -> listOf("com.explusalpha.Snes9xPlus", "com.retroarch")
-            else -> listOf("com.retroarch", "com.retroarch.aarch64")
+    private fun detectEmulatorForRom(
+        pm: PackageManager,
+        system: String,
+        ext: String,
+        configs: List<EmulatorConfig>
+    ): String? {
+        // 1. Prioriza por sistema detectado
+        for (cfg in configs) {
+            if (cfg.systems.contains(system)) {
+                try {
+                    pm.getPackageInfo(cfg.packageName, 0)
+                    return cfg.packageName
+                } catch (_: Exception) {}
+            }
         }
 
-        for (pkg in candidates) {
-            try {
-                pm.getPackageInfo(pkg, 0)
-                return pkg
-            } catch (_: Exception) {}
+        // 2. Fallback por extensão
+        for (cfg in configs) {
+            if (cfg.extensions.contains(ext)) {
+                try {
+                    pm.getPackageInfo(cfg.packageName, 0)
+                    return cfg.packageName
+                } catch (_: Exception) {}
+            }
         }
         return null
     }
@@ -134,6 +137,8 @@ object RomScanner {
 
         val uri = Uri.fromFile(file)
         val ext = file.extension.lowercase()
+        val configs = RomSystemDetector.loadEmulatorConfigs(context)
+        val config = configs.firstOrNull { it.packageName == item.packageName }
 
         try {
             // Specialized intents for known emulators
@@ -167,6 +172,25 @@ object RomScanner {
                 return true
             }
 
+            // Usando configuração declarativa se disponível
+            if (config != null) {
+                val act = config.action ?: Intent.ACTION_VIEW
+                val intent = Intent(act).apply {
+                    setPackage(config.packageName)
+                    if (config.component != null) {
+                        val parts = config.component.split('/')
+                        if (parts.size == 2) {
+                            component = ComponentName(parts[0], parts[1])
+                        }
+                    }
+                    val mime = config.mimeType ?: "*/*"
+                    setDataAndType(uri, mime)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                }
+                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
+                return true
+            }
+
             // General ACTION_VIEW with fallback
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 if (item.packageName.startsWith("com.") || item.packageName.startsWith("org.") || item.packageName.startsWith("info.") || item.packageName.startsWith("io.") || item.packageName.startsWith("net.")) {
@@ -183,3 +207,4 @@ object RomScanner {
         }
     }
 }
+
