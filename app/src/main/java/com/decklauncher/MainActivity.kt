@@ -33,6 +33,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.decklauncher.data.*
+import com.decklauncher.shortcut.ShortcutManager
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.FocusArea
@@ -524,6 +525,10 @@ class MainActivity : ComponentActivity() {
                             CloudGameManager.removeCloudGame(this, item.id)
                             loadInstalledApps()
                             Toast.makeText(this, "Jogo em nuvem removido", Toast.LENGTH_SHORT).show()
+                        } else if (item.itemType == ItemType.SHORTCUT) {
+                            ShortcutManager.removePinnedShortcut(this, item.id)
+                            loadInstalledApps()
+                            Toast.makeText(this, "Atalho removido da Tela Inicial", Toast.LENGTH_SHORT).show()
                         } else if (item.itemType == ItemType.ROM) {
                             PinnedGamesManager.unpinGame(this, item.id)
                             pinnedGameIdsState.value = PinnedGamesManager.getPinnedGameIds(this)
@@ -694,6 +699,19 @@ class MainActivity : ComponentActivity() {
                 cg.copy(category = AppCategory.JOGOS, coverPath = CoverManager.getCoverPath(this@MainActivity, cg.id))
             }
 
+            // Atalhos Fixados de Nuvem (PinItemRequest / Better xCloud / GeForce Now / etc.)
+            val pinnedShortcuts = ShortcutManager.getPinnedShortcuts(this@MainActivity).map { sc ->
+                AppItem(
+                    id = sc.id,
+                    label = sc.label,
+                    packageName = sc.packageName,
+                    activityName = "",
+                    category = AppCategory.JOGOS,
+                    itemType = ItemType.SHORTCUT,
+                    coverPath = CoverManager.getCoverPath(this@MainActivity, sc.id)
+                )
+            }
+
             // ROMs de Emulador: escaneia todos
             val romGames = RomScanner.scanRoms(this@MainActivity).map { rg ->
                 rg.copy(category = AppCategory.JOGOS, coverPath = CoverManager.getCoverPath(this@MainActivity, rg.id))
@@ -703,7 +721,7 @@ class MainActivity : ComponentActivity() {
             val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
             val pinnedRomGames = romGames.filter { pinnedIds.contains(it.id) }
 
-            val allJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedRomGames).sortedBy { it.label.lowercase() }
+            val allJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedShortcuts + pinnedRomGames).sortedBy { it.label.lowercase() }
             val allEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.sortedBy { it.label.lowercase() }
             val allApps = appItems.filter { it.category == AppCategory.APPS }.sortedBy { it.label.lowercase() }
 
@@ -853,6 +871,17 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     Toast.makeText(this, "URL de streaming inválida", Toast.LENGTH_SHORT).show()
+                }
+            }
+            ItemType.SHORTCUT -> {
+                val record = ShortcutManager.getPinnedShortcuts(this).firstOrNull { it.id == item.id }
+                val ok = if (record != null) {
+                    ShortcutManager.launchShortcut(this, record)
+                } else false
+                if (ok) {
+                    applyPostLaunchTransition()
+                } else {
+                    Toast.makeText(this, "Não foi possível abrir o atalho de ${item.label}", Toast.LENGTH_SHORT).show()
                 }
             }
             ItemType.ROM -> {

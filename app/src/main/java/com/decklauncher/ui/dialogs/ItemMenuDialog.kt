@@ -204,6 +204,7 @@ fun ItemMenuDialog(
                             text = when (app.itemType) {
                                 ItemType.ROM -> "Jogo Emulado (ROM)"
                                 ItemType.CLOUD -> "Jogo em Nuvem"
+                                ItemType.SHORTCUT -> "Atalho de Jogo em Nuvem"
                                 ItemType.APP -> "Aplicativo Android"
                             },
                             style = androidx.compose.material3.MaterialTheme.typography.bodySmall,

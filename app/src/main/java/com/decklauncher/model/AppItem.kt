@@ -11,7 +11,8 @@ enum class AppCategory {
 enum class ItemType {
     APP,
     ROM,
-    CLOUD
+    CLOUD,
+    SHORTCUT
 }
 
 data class AppItem(

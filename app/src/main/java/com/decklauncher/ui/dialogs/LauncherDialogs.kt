@@ -258,6 +258,7 @@ fun OptionsDialog(
                         Text(
                             text = when (app.itemType) {
                                 ItemType.CLOUD -> "Jogo em Nuvem"
+                                ItemType.SHORTCUT -> "Atalho de Jogo em Nuvem"
                                 ItemType.ROM -> "Jogo de Emulador (${app.romPath ?: ""})"
                                 ItemType.APP -> "Aplicativo Android"
                             },
