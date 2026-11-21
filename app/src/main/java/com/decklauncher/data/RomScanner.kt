@@ -29,44 +29,64 @@ object RomScanner {
             }
         }
 
-        // 2. Diretórios padrão de busca
-        searchDirs.addAll(
-            listOf(
-                File(Environment.getExternalStorageDirectory(), "Rom"),
-                File(Environment.getExternalStorageDirectory(), "ROM"),
-                File(Environment.getExternalStorageDirectory(), "ROMs"),
-                File(Environment.getExternalStorageDirectory(), "Roms"),
-                File(Environment.getExternalStorageDirectory(), "roms"),
-                File(Environment.getExternalStorageDirectory(), "Games"),
-                File(Environment.getExternalStorageDirectory(), "games"),
-                File(Environment.getExternalStorageDirectory(), "ISOs"),
-                File(Environment.getExternalStorageDirectory(), "isos"),
-                File(Environment.getExternalStorageDirectory(), "Download"),
-                File(Environment.getExternalStorageDirectory(), "Download/MDS"),
-                File(Environment.getExternalStorageDirectory(), "RetroArch/downloads")
-            )
+        // 2. Diretórios padrão de busca (normalizados por caminho canônico para evitar duplicações em sistemas case-insensitive)
+        val defaultDirs = listOf(
+            File(Environment.getExternalStorageDirectory(), "Rom"),
+            File(Environment.getExternalStorageDirectory(), "ROM"),
+            File(Environment.getExternalStorageDirectory(), "ROMs"),
+            File(Environment.getExternalStorageDirectory(), "Roms"),
+            File(Environment.getExternalStorageDirectory(), "roms"),
+            File(Environment.getExternalStorageDirectory(), "Games"),
+            File(Environment.getExternalStorageDirectory(), "games"),
+            File(Environment.getExternalStorageDirectory(), "ISOs"),
+            File(Environment.getExternalStorageDirectory(), "isos"),
+            File(Environment.getExternalStorageDirectory(), "Download"),
+            File(Environment.getExternalStorageDirectory(), "Download/MDS"),
+            File(Environment.getExternalStorageDirectory(), "RetroArch/downloads")
         )
+        searchDirs.addAll(defaultDirs)
+
+        val uniqueSearchDirs = searchDirs.mapNotNull { dir ->
+            try {
+                if (dir.exists() && dir.isDirectory) dir.canonicalFile else null
+            } catch (_: Exception) {
+                if (dir.exists() && dir.isDirectory) dir else null
+            }
+        }.distinctBy { it.path }
 
         val foundFiles = mutableListOf<File>()
-        for (dir in searchDirs.distinctBy { it.absolutePath }) {
-            if (dir.exists() && dir.isDirectory) {
-                try {
-                    dir.walkTopDown().maxDepth(10).forEach { file ->
-                        if (file.isFile && RomSystemDetector.ALL_SUPPORTED_EXTENSIONS.contains(file.extension.lowercase())) {
-                            foundFiles.add(file)
-                        }
+        for (dir in uniqueSearchDirs) {
+            try {
+                dir.walkTopDown().maxDepth(10).forEach { file ->
+                    if (file.isFile && RomSystemDetector.ALL_SUPPORTED_EXTENSIONS.contains(file.extension.lowercase())) {
+                        foundFiles.add(file)
                     }
-                } catch (_: Exception) {}
-            }
+                }
+            } catch (_: Exception) {}
         }
 
         val emuConfigs = RomSystemDetector.loadEmulatorConfigs(context)
 
-        for (file in foundFiles.distinctBy { it.absolutePath }) {
+        // Deduplica arquivos pelo caminho canônico (ou path absoluto se canonical falhar)
+        val uniqueFiles = foundFiles.mapNotNull { file ->
+            try {
+                file.canonicalFile
+            } catch (_: Exception) {
+                file
+            }
+        }.distinctBy { it.path }
+
+        val processedIds = mutableSetOf<String>()
+
+        for (file in uniqueFiles) {
             val title = cleanRomTitle(file.name)
             val ext = file.extension.lowercase()
             val system = RomSystemDetector.detectSystem(file)
-            val id = "rom_" + file.name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            var id = "rom_" + file.name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            if (processedIds.contains(id)) {
+                id = "${id}_${file.absolutePath.hashCode().toString(16)}"
+            }
+            processedIds.add(id)
 
             val targetPkg = detectEmulatorForRom(context.packageManager, system, ext, emuConfigs)
 

@@ -748,15 +748,15 @@ class MainActivity : ComponentActivity() {
             val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
             val pinnedRomGames = romGames.filter { pinnedIds.contains(it.id) }
 
-            val allJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedShortcuts + pinnedRomGames).sortedBy { it.label.lowercase() }
-            val allEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.sortedBy { it.label.lowercase() }
-            val allApps = appItems.filter { it.category == AppCategory.APPS }.sortedBy { it.label.lowercase() }
+            val rawJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedShortcuts + pinnedRomGames).distinctBy { it.id }.sortedBy { it.label.lowercase() }
+            val rawEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.distinctBy { it.id }.sortedBy { it.label.lowercase() }
+            val rawApps = appItems.filter { it.category == AppCategory.APPS }.distinctBy { it.id }.sortedBy { it.label.lowercase() }
 
-            val orderedJogos = OrderManager.applyOrder(this@MainActivity, "jogos", allJogos)
-            val orderedEmuladores = OrderManager.applyOrder(this@MainActivity, "emuladores", allEmuladores)
-            val orderedApps = OrderManager.applyOrder(this@MainActivity, "apps", allApps)
+            val orderedJogos = OrderManager.applyOrder(this@MainActivity, "jogos", rawJogos)
+            val orderedEmuladores = OrderManager.applyOrder(this@MainActivity, "emuladores", rawEmuladores)
+            val orderedApps = OrderManager.applyOrder(this@MainActivity, "apps", rawApps)
 
-            val combined = orderedJogos + orderedEmuladores + orderedApps
+            val combined = (orderedJogos + orderedEmuladores + orderedApps).distinctBy { it.id }
 
             withContext(Dispatchers.Main) {
                 appsListState.value = combined
