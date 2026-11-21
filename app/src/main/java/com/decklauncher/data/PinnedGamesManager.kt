@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 object PinnedGamesManager {
     private const val PREFS_NAME = "deck_launcher_pinned_games"
     private const val KEY_PINNED_IDS = "pinned_rom_ids"
+    private const val KEY_HIDDEN_IDS = "hidden_from_home_ids"
     private const val KEY_INITIALIZED = "pinned_initialized_v2"
 
     private fun getPrefs(context: Context): SharedPreferences {
@@ -31,6 +32,7 @@ object PinnedGamesManager {
 
     fun pinGame(context: Context, gameId: String) {
         val prefs = getPrefs(context)
+        unhideFromHome(context, gameId)
         val current = prefs.getStringSet(KEY_PINNED_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
         current.add(gameId)
         prefs.edit().putStringSet(KEY_PINNED_IDS, current).apply()
@@ -41,6 +43,30 @@ object PinnedGamesManager {
         val current = prefs.getStringSet(KEY_PINNED_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
         current.remove(gameId)
         prefs.edit().putStringSet(KEY_PINNED_IDS, current).apply()
+        hideFromHome(context, gameId)
+    }
+
+    fun getHiddenFromHomeIds(context: Context): Set<String> {
+        val prefs = getPrefs(context)
+        return prefs.getStringSet(KEY_HIDDEN_IDS, emptySet()) ?: emptySet()
+    }
+
+    fun isHiddenFromHome(context: Context, gameId: String): Boolean {
+        return getHiddenFromHomeIds(context).contains(gameId)
+    }
+
+    fun hideFromHome(context: Context, gameId: String) {
+        val prefs = getPrefs(context)
+        val current = prefs.getStringSet(KEY_HIDDEN_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.add(gameId)
+        prefs.edit().putStringSet(KEY_HIDDEN_IDS, current).apply()
+    }
+
+    fun unhideFromHome(context: Context, gameId: String) {
+        val prefs = getPrefs(context)
+        val current = prefs.getStringSet(KEY_HIDDEN_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.remove(gameId)
+        prefs.edit().putStringSet(KEY_HIDDEN_IDS, current).apply()
     }
 
     fun togglePin(context: Context, gameId: String): Boolean {

@@ -732,6 +732,7 @@ class MainActivity : ComponentActivity() {
         isLoadingState.value = true
         lifecycleScope.launch(Dispatchers.IO) {
             val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
+            val hiddenIds = PinnedGamesManager.getHiddenFromHomeIds(this@MainActivity)
 
             val pm = packageManager
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -752,15 +753,15 @@ class MainActivity : ComponentActivity() {
                     // Identifica apps emuladores de forma abrangente e unificada
                     val isEmulator = IntroManager.isEmulator(pkg, label)
 
-                    // Identifica se foi fixado na tela inicial ou se é jogo Android nativo
+                    // Identifica se foi explicitamente fixado ou se é jogo Android nativo (respeitando se foi ocultado)
                     val isPinned = pinnedIds.contains(appId)
-                    val isGame = !isEmulator && (
-                        isPinned
-                        || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.activityInfo.applicationInfo.category == ApplicationInfo.CATEGORY_GAME)
+                    val isHidden = hiddenIds.contains(appId)
+                    val isNativeGame = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.activityInfo.applicationInfo.category == ApplicationInfo.CATEGORY_GAME)
                         || pkgLower.contains("minecraft") || pkgLower.contains("game") || pkgLower.contains("roblox")
                         || pkgLower.contains("xbox") || labelLower.contains("minecraft") || labelLower.contains("game")
                         || labelLower.contains("xcloud") || labelLower.contains("moonlight")
-                    )
+
+                    val isGame = !isEmulator && (isPinned || (isNativeGame && !isHidden))
 
                     // Emuladores vão para Tab 1; Jogos (e apps fixados) para Tab 0; demais para Tab 2 (Apps)
                     val category = when {

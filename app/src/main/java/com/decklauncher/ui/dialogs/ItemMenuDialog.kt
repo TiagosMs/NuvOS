@@ -29,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.ArtworkProviderManager
 import com.decklauncher.model.AppItem
+import com.decklauncher.model.AppCategory
 import com.decklauncher.model.ItemType
 import com.decklauncher.ui.theme.*
 
@@ -92,6 +93,14 @@ fun ItemMenuDialog(
         list.add(ItemMenuAction("Editar Logo 3D (${preferredProvider.shortName})") { onRequestEditLogo(); onDismiss() })
         list.add(ItemMenuAction("Trocar Intro do Console") { onRequestSelectIntro(); onDismiss() })
 
+        if (app.category == AppCategory.JOGOS) {
+            list.add(ItemMenuAction("Remover da Tela Inicial", isDestructive = true) {
+                confirmTitle = "Remover da Tela Inicial"
+                confirmMsg = "Remover ${app.label} da Tela Inicial de jogos?"
+                confirmAction = onRemoveItem
+            })
+        }
+
         if (app.itemType == ItemType.APP) {
             list.add(ItemMenuAction("Informações do Aplicativo") { onOpenAppSettings(); onDismiss() })
             list.add(ItemMenuAction("Desinstalar Aplicativo", isDestructive = true) {
@@ -99,7 +108,7 @@ fun ItemMenuDialog(
                 confirmMsg = "Deseja realmente desinstalar ${app.label} do sistema?"
                 confirmAction = onUninstallApp
             })
-        } else {
+        } else if (app.category != AppCategory.JOGOS) {
             list.add(ItemMenuAction("Remover da Tela Inicial", isDestructive = true) {
                 confirmTitle = "Remover da Tela Inicial"
                 confirmMsg = "Remover o atalho de ${app.label} da tela principal?"
