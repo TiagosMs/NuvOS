@@ -385,14 +385,31 @@ fun EditCoverSteamGridDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
+            focusRequester.requestFocus()
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor)
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -2497,14 +2514,31 @@ fun SteamGridHeroSelectDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
+            focusRequester.requestFocus()
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -2805,14 +2839,31 @@ fun SteamGridLogoSelectDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
+            focusRequester.requestFocus()
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -3199,14 +3250,31 @@ fun SelectConsoleIntroDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
+            focusRequester.requestFocus()
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -3379,14 +3447,31 @@ fun GameMetadataDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
+            focusRequester.requestFocus()
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -3864,14 +3949,31 @@ fun SelectMusicDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
+            focusRequester.requestFocus()
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

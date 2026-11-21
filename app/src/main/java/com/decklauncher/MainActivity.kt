@@ -1176,27 +1176,11 @@ class MainActivity : ComponentActivity() {
                 if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B || event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
                     closeAllDialogs()
                     triggerHaptic()
+                    SoundEffectManager.playMenuClose()
                     return true
                 }
             }
-            if (event.keyCode == KeyEvent.KEYCODE_BUTTON_A) {
-                val centerEvent = KeyEvent(
-                    event.downTime, event.eventTime, event.action,
-                    KeyEvent.KEYCODE_DPAD_CENTER, event.repeatCount,
-                    event.metaState, event.deviceId, event.scanCode,
-                    event.flags, event.source
-                )
-                return super.dispatchKeyEvent(centerEvent)
-            }
-            if (event.keyCode in listOf(
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
-                KeyEvent.KEYCODE_TAB
-            )) {
-                return super.dispatchKeyEvent(event)
-            }
-            return true
+            return super.dispatchKeyEvent(event)
         }
 
         // Se estiver no Modo Reordenar Itens

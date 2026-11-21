@@ -883,46 +883,13 @@ fun FolderAppShowcase(
 
     if (app == null) return
 
-    val iconSize = if (isCompactHeight) 76.dp else 105.dp
-    val iconShape = RoundedCornerShape(if (isCompactHeight) 18.dp else 24.dp)
-    val appIcon = com.decklauncher.data.rememberAppIcon(app)
-
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = if (isCompactHeight) 28.dp else 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 20.dp else 28.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Grande Ícone do App em destaque (100% preenchido)
-        Box(
-            modifier = Modifier
-                .size(iconSize)
-                .clip(iconShape)
-                .background(Color(0xFF252830))
-                .border(2.5.dp, Color.White, iconShape),
-            contentAlignment = Alignment.Center
-        ) {
-            if (appIcon != null) {
-                Image(
-                    bitmap = appIcon,
-                    contentDescription = app.label,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(iconShape)
-                )
-            } else {
-                Text(
-                    text = app.label.take(1).uppercase(),
-                    color = Color.White,
-                    fontSize = if (isCompactHeight) 28.sp else 38.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
-
-        // Coluna de Informações e Botões Console
+        // Coluna de Informações e Botões Console (Apenas texto conforme solicitado)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center

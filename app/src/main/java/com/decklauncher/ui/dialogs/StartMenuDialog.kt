@@ -76,9 +76,11 @@ fun StartMenuDialog(
     }
     var selectedTab by remember { mutableStateOf(StartMenuTab.BIBLIOTECA) }
     var isVisible by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         isVisible = true
+        focusRequester.requestFocus()
     }
 
     Dialog(
@@ -90,6 +92,39 @@ fun StartMenuDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
+                                val tabs = StartMenuTab.values()
+                                val curIdx = tabs.indexOf(selectedTab)
+                                if (curIdx > 0) {
+                                    selectedTab = tabs[curIdx - 1]
+                                    SoundEffectManager.playTabSwitch()
+                                }
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                val tabs = StartMenuTab.values()
+                                val curIdx = tabs.indexOf(selectedTab)
+                                if (curIdx < tabs.size - 1) {
+                                    selectedTab = tabs[curIdx + 1]
+                                    SoundEffectManager.playTabSwitch()
+                                }
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
