@@ -412,7 +412,8 @@ fun DeckHomeScreen(
                 isTopBarFocused = focusArea == FocusArea.TOP_BAR,
                 topBarIndex = topBarIndex,
                 onOpenProfileSettings = onRequestOpenLauncherSettings,
-                onOpenAddGame = onRequestAddGameOptions
+                onOpenAddGame = onRequestAddGameOptions,
+                onOpenStartMenu = onRequestOpenLauncherSettings
             )
 
             // 2. Main Content Area
@@ -523,18 +524,18 @@ fun DeckHomeScreen(
                                         items = filteredApps,
                                         key = { _, app -> app.id }
                                     ) { index, app ->
-                                        GameCard(
-                                            app = app,
-                                            isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
-                                            onSelect = { onSelectedIndexChange(index) },
-                                            onLaunch = { onLaunchApp(app) },
-                                            onLongClick = {
-                                                onSelectedIndexChange(index)
-                                                onRequestManageMetadata(app)
-                                            },
-                                            isReorderMode = isReorderMode,
-                                            accentColor = accentColor
-                                        )
+                                            GameCard(
+                                                app = app,
+                                                isSelected = index == safeIndex && focusArea == FocusArea.CAROUSEL,
+                                                onSelect = { onSelectedIndexChange(index) },
+                                                onLaunch = { onLaunchApp(app) },
+                                                onLongClick = {
+                                                    onSelectedIndexChange(index)
+                                                    onOpenSettings(app)
+                                                },
+                                                isReorderMode = isReorderMode,
+                                                accentColor = accentColor
+                                            )
                                     }
                                 }
                             }
@@ -655,12 +656,28 @@ fun DeckHomeScreen(
                 }
             }
 
-            // 3. Bottom Controller Hints: (A) Jogar/Abrir   (X) Opções   (Y) Adicionar Jogos
+            // 3. Bottom Controller Hints e Botões Tocáveis (T4.2)
             BottomBar(
                 isAppsTab = selectedTab == 2,
                 isInsideFolder = activeFolder != null,
                 isReorderMode = isReorderMode,
-                isEmulatorsTab = selectedTab == 1
+                isEmulatorsTab = selectedTab == 1,
+                onPrimaryAction = {
+                    val app = filteredApps.getOrNull(safeIndex)
+                    if (app != null) {
+                        onLaunchApp(app)
+                    }
+                },
+                onOptionsAction = {
+                    val app = filteredApps.getOrNull(safeIndex)
+                    if (app != null) {
+                        onOpenSettings(app)
+                    }
+                },
+                onAddGameAction = onRequestAddGameOptions,
+                onBackAction = {
+                    if (activeFolder != null) onCloseFolder()
+                }
             )
         }
 

@@ -56,6 +56,7 @@ fun TopBar(
     topBarIndex: Int = 0,
     onOpenProfileSettings: () -> Unit = {},
     onOpenAddGame: () -> Unit = {},
+    onOpenStartMenu: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -273,6 +274,22 @@ fun TopBar(
                         textAlign = TextAlign.Center
                     )
                 }
+            }
+
+            // Engrenagem Start Menu tocável (T4.1)
+            Box(
+                modifier = Modifier
+                    .size(if (isCompactHeight) 26.dp else 34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x22FFFFFF))
+                    .clickable { onOpenStartMenu() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⚙",
+                    color = Color.White,
+                    fontSize = if (isCompactHeight) 14.sp else 16.sp
+                )
             }
 
             // Signal + Battery + Time

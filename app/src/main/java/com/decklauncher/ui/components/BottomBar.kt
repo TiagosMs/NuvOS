@@ -3,6 +3,7 @@ package com.decklauncher.ui.components
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +23,10 @@ fun BottomBar(
     isInsideFolder: Boolean = false,
     isReorderMode: Boolean = false,
     isEmulatorsTab: Boolean = false,
+    onPrimaryAction: () -> Unit = {},
+    onOptionsAction: () -> Unit = {},
+    onAddGameAction: () -> Unit = {},
+    onBackAction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -70,20 +75,23 @@ fun BottomBar(
                     buttonLetter = "A",
                     buttonColor = BtnAGreen,
                     actionLabel = if (isAppsTab && !isInsideFolder) "Abrir" else if (isEmulatorsTab) "Ver Jogos" else "Jogar",
-                    isCompactHeight = isCompactHeight
+                    isCompactHeight = isCompactHeight,
+                    onClick = onPrimaryAction
                 )
                 ControllerActionPrompt(
                     buttonLetter = "X",
                     buttonColor = BtnXBlue,
                     actionLabel = "Opções",
-                    isCompactHeight = isCompactHeight
+                    isCompactHeight = isCompactHeight,
+                    onClick = onOptionsAction
                 )
                 if (!isAppsTab) {
                     ControllerActionPrompt(
                         buttonLetter = "Y",
                         buttonColor = BtnYYellow,
                         actionLabel = "Adicionar Jogos",
-                        isCompactHeight = isCompactHeight
+                        isCompactHeight = isCompactHeight,
+                        onClick = onAddGameAction
                     )
                 }
                 if (isAppsTab && isInsideFolder) {
@@ -91,7 +99,8 @@ fun BottomBar(
                         buttonLetter = "B",
                         buttonColor = BtnBRed,
                         actionLabel = "Voltar",
-                        isCompactHeight = isCompactHeight
+                        isCompactHeight = isCompactHeight,
+                        onClick = onBackAction
                     )
                 }
             }
@@ -105,10 +114,17 @@ fun ControllerActionPrompt(
     buttonColor: Color,
     actionLabel: String,
     isCompactHeight: Boolean = false,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier,
+        modifier = modifier
+            .heightIn(min = 48.dp) // rule-ok: toque minimo 48dp
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
+                } else Modifier
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 5.dp else 7.dp)
     ) {
