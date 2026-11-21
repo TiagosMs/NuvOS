@@ -2,6 +2,7 @@ package com.decklauncher
 
 import android.app.ActivityOptions
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -343,11 +344,14 @@ class MainActivity : ComponentActivity() {
                         triggerHaptic()
                     },
                     onLaunchApp = { app ->
-                        if (app.category == AppCategory.EMULADORES && app.itemType == ItemType.APP) {
-                            activeEmulatorAppState.value = app
-                            showEmulatorGamesDialogState.value = true
-                        } else {
-                            requestLaunchItem(app)
+                        when (val route = com.decklauncher.model.LaunchRoute.resolve(app, isFromEmulatorDialog = false)) {
+                            is com.decklauncher.model.LaunchRoute.OpenEmulatorDialog -> {
+                                activeEmulatorAppState.value = route.item
+                                showEmulatorGamesDialogState.value = true
+                            }
+                            is com.decklauncher.model.LaunchRoute.LaunchNow -> {
+                                requestLaunchItem(route.item)
+                            }
                         }
                     },
                     onOpenSettings = { openAppOptions(it) },
@@ -385,6 +389,7 @@ class MainActivity : ComponentActivity() {
                         ).show()
                     },
                     onLaunchRom = { requestLaunchItem(it) },
+                    onLaunchEmulatorDirectly = { requestLaunchItem(it) },
                     onRequestManageMetadata = { item ->
                         activeDialogAppState.value = item
                         showGameMetadataDialogState.value = true
@@ -859,13 +864,38 @@ class MainActivity : ComponentActivity() {
                 }
             }
             ItemType.APP -> {
-                val launchIntent = packageManager.getLaunchIntentForPackage(item.packageName)
+                var launchIntent = packageManager.getLaunchIntentForPackage(item.packageName)
+                if (launchIntent == null) {
+                    try {
+                        val mainIntent = Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_LAUNCHER)
+                            setPackage(item.packageName)
+                        }
+                        val resolveInfos = packageManager.queryIntentActivities(mainIntent, 0)
+                        val resolveInfo = resolveInfos.firstOrNull()
+                        if (resolveInfo != null) {
+                            launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                                addCategory(Intent.CATEGORY_LAUNCHER)
+                                component = ComponentName(resolveInfo.activityInfo.packageName, resolveInfo.activityInfo.name)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("LauncherLaunch", "Falha ao consultar intent principal para ${item.packageName}", e)
+                    }
+                }
                 if (launchIntent != null) {
                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    if (bundle != null) startActivity(launchIntent, bundle) else startActivity(launchIntent)
-                    applyPostLaunchTransition()
+                    try {
+                        if (bundle != null) startActivity(launchIntent, bundle) else startActivity(launchIntent)
+                        applyPostLaunchTransition()
+                    } catch (e: Exception) {
+                        android.util.Log.e("LauncherLaunch", "Erro ao executar startActivity para ${item.packageName}", e)
+                        Toast.makeText(this, "Erro ao abrir ${item.label} (${item.packageName})", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(this, "Não foi possível iniciar ${item.label}", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("LauncherLaunch", "Nenhuma atividade de lançamento encontrada para pacote: ${item.packageName}")
+                    Toast.makeText(this, "Não foi possível iniciar ${item.label} (${item.packageName})", Toast.LENGTH_SHORT).show()
                 }
             }
         }

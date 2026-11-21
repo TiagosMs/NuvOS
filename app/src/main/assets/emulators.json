@@ -30,8 +30,9 @@
     "extensions": ["iso", "chd", "bin", "cso", "gz"],
     "intro": "ps2",
     "launch": {
-      "action": "android.intent.action.VIEW",
-      "data": "{uri}"
+      "action": "android.intent.action.MAIN",
+      "component": "xyz.aethersx2.android/xyz.aethersx2.android.MainActivity",
+      "bootPath": "{path}"
     }
   },
   {
@@ -41,8 +42,9 @@
     "extensions": ["iso", "chd", "bin", "cso", "gz"],
     "intro": "ps2",
     "launch": {
-      "action": "android.intent.action.VIEW",
-      "data": "{uri}"
+      "action": "android.intent.action.MAIN",
+      "component": "xyz.nethersx2.android/xyz.nethersx2.android.MainActivity",
+      "bootPath": "{path}"
     }
   },
   {
@@ -63,7 +65,8 @@
     "extensions": ["nds"],
     "intro": "nds",
     "launch": {
-      "action": "android.intent.action.VIEW",
+      "action": "me.magnum.melonds.LAUNCH_ROM",
+      "component": "me.magnum.melonds/me.magnum.melonds.ui.emulator.EmulatorActivity",
       "data": "{uri}"
     }
   },

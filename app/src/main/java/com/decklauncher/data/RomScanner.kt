@@ -141,38 +141,7 @@ object RomScanner {
         val config = configs.firstOrNull { it.packageName == item.packageName }
 
         try {
-            // Specialized intents for known emulators
-            if (item.packageName == "com.rfandango.haku_x") {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setClassName("com.rfandango.haku_x", "com.rfandango.haku_x.LauncherActivity")
-                    setDataAndType(uri, "*/*")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                }
-                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
-                return true
-            }
-
-            if (item.packageName.contains("ppsspp")) {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setPackage(item.packageName)
-                    setDataAndType(uri, "application/octet-stream")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
-                return true
-            }
-
-            if (item.packageName.contains("aethersx2") || item.packageName.contains("nether")) {
-                val intent = Intent().apply {
-                    setPackage(item.packageName)
-                    putExtra("bootPath", file.absolutePath)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
-                return true
-            }
-
-            // Usando configuração declarativa se disponível
+            // Se houver configuração declarativa em emulators.json, constrói a Intent estritamente baseada nela
             if (config != null) {
                 val act = config.action ?: Intent.ACTION_VIEW
                 val intent = Intent(act).apply {
@@ -183,19 +152,22 @@ object RomScanner {
                             component = ComponentName(parts[0], parts[1])
                         }
                     }
-                    val mime = config.mimeType ?: "*/*"
-                    setDataAndType(uri, mime)
+                    if (config.bootPathExtra != null) {
+                        putExtra("bootPath", file.absolutePath)
+                    }
+                    if (config.dataPattern != null || config.mimeType != null) {
+                        val mime = config.mimeType ?: "*/*"
+                        setDataAndType(uri, mime)
+                    }
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                 }
                 if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
                 return true
             }
 
-            // General ACTION_VIEW with fallback
+            // Fallback genérico com intent explícita
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                if (item.packageName.startsWith("com.") || item.packageName.startsWith("org.") || item.packageName.startsWith("info.") || item.packageName.startsWith("io.") || item.packageName.startsWith("net.")) {
-                    setPackage(item.packageName)
-                }
+                setPackage(item.packageName)
                 setDataAndType(uri, "*/*")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }

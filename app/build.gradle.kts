@@ -78,4 +78,7 @@ dependencies {
     // Imagens e Rede
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Testes Unitários
+    testImplementation("junit:junit:4.13.2")
 }

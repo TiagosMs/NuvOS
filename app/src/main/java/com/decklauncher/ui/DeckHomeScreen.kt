@@ -130,6 +130,7 @@ fun DeckHomeScreen(
     onSaveIidbKey: (String) -> Unit = {},
     onTogglePinGame: (AppItem) -> Unit = {},
     onLaunchRom: (AppItem) -> Unit = {},
+    onLaunchEmulatorDirectly: (AppItem) -> Unit = {},
     onRequestManageMetadata: (AppItem) -> Unit = {},
     onRequestEditMusic: (AppItem) -> Unit = {},
     onDeleteAllGameMetadata: (AppItem) -> Unit = {},
@@ -819,7 +820,7 @@ fun DeckHomeScreen(
                 allRoms = allScannedRoms,
                 pinnedGameIds = pinnedGameIds,
                 onDismiss = onDismissEmulatorGames,
-                onLaunchEmulator = { onLaunchApp(activeEmulatorApp) },
+                onLaunchEmulator = { onLaunchEmulatorDirectly(activeEmulatorApp) },
                 onLaunchRom = onLaunchRom,
                 onTogglePinGame = onTogglePinGame
             )
