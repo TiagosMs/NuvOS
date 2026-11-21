@@ -81,12 +81,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Paleta Frosted Glass (Vidro translúcido desfocado profundo)
-private val SteamDeckBg = Color(0xC025282F) // ~75% opacidade para efeito de vidro fosco profundo
-private val SteamDeckCardBg = Color(0x99181A1F) // ~60% opacidade para pílulas de vidro fosco
-private val SteamDeckBorder = Color(0x28FFFFFF)
-private val SteamDeckTextMuted = Color(0xFFD6D6D6)
-private val SteamDeckButtonBlue = Color(0xFF1A73E8)
+// Paleta base usando tokens oficiais v1.1
+private val SteamDeckBg = ColorBgDeep
+private val SteamDeckCardBg = NeutralBtnBg
+private val SteamDeckBorder = CardBorderUnselected
+private val SteamDeckTextMuted = TextPrimary
+private val SteamDeckButtonBlue = NeutralBtnBgFocused
 
 @Composable
 fun EnableWindowBlur(blurRadius: Int = 100) {

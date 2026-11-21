@@ -5,7 +5,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Tokens Oficiais - GUIA_DE_DESIGN_LAUNCHER.md
+// Tokens Oficiais - GUIA_DE_DESIGN_LAUNCHER.md & D5 v1.1
 val ColorBgDeep = Color(0xFF1C212A)
 val TabActiveBg = Color(0xFF191919)
 val SurfaceItem = Color(0xFF292727)
@@ -23,16 +23,26 @@ val TextWhite = Color(0xFFFFFFFF)
 val GlowWhite = Color(0xFFFFFFFF)
 val TabInactiveText = Color(0xFFCBCBCB)
 
-// Gamepad Prompts & Ações
-val BtnAGreen = Color(0xFF55A43B)
-val BtnBRed = Color(0xFFDA1725)
-val BtnXBlue = Color(0xFF039AC9)
-val BtnYYellow = Color(0xFFF1D514)
-val BtnShoulder = Color(0xFFD6E1F6)
-val LbRbPillBg = Color(0xFFD6E1F6)
-val LbRbPillText = Color(0xFF1C212A)
-val StatusPlaying = Color(0xFF1E7900)
-val DotGreen = Color(0xFF55A43B)
+// Gamepad Prompts & Ações (D5: Botões e glifos em cinza do tema)
+val NeutralBtnBg = Color(0xFF2A323D)
+val NeutralBtnBgFocused = Color(0xFF3B4654)
+val NeutralBtnText = Color(0xFFE2E8F0)
+val NeutralGlyphBg = Color(0xFF424E5E)
+val FocusRing = Color(0xFFFFFFFF)
+val ScrimColor = Color(0x99000000)
+val DangerBtnBg = Color(0xFF3B2A2D)
+val DangerBtnText = Color(0xFFFCA5A5)
+
+// Cores Legadas compatíveis
+val BtnAGreen = Color(0xFF424E5E)
+val BtnBRed = Color(0xFF424E5E)
+val BtnXBlue = Color(0xFF424E5E)
+val BtnYYellow = Color(0xFF424E5E)
+val BtnShoulder = Color(0xFF424E5E)
+val LbRbPillBg = Color(0xFF2A323D)
+val LbRbPillText = Color(0xFFE2E8F0)
+val StatusPlaying = Color(0xFF10B981)
+val DotGreen = Color(0xFF10B981)
 
 // Cards & Bordas
 val CardBgDark = Color(0xFF3D3A3A)
@@ -41,7 +51,7 @@ val ScrollbarColor = Color(0xFF373737)
 
 private val DarkColorScheme = darkColorScheme(
     primary = WhiteFocus,
-    secondary = BtnAGreen,
+    secondary = NeutralBtnBgFocused,
     background = ConsoleBg,
     surface = SurfaceCard,
     onPrimary = Color.Black,
@@ -54,6 +64,7 @@ private val DarkColorScheme = darkColorScheme(
 fun DeckLauncherTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DarkColorScheme,
+        typography = DeckTypography,
         content = content
     )
 }

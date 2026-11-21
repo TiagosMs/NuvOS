@@ -669,7 +669,7 @@ fun DeckHomeScreen(
 
         if (showOptionsDialog && targetApp != null) {
             val appItem = targetApp
-            OptionsDialog(
+            ItemMenuDialog(
                 app = appItem,
                 onDismiss = onDismissOptions,
                 onLaunch = { onLaunchApp(appItem) },
@@ -679,8 +679,6 @@ fun DeckHomeScreen(
                 onRequestEditLogo = { onRequestEditLogo(appItem) },
                 onRequestSelectIntro = { onRequestSelectIntro(appItem) },
                 onRequestFetchIidb = { onRequestFetchIidb(appItem) },
-                onRequestSteamGridSettings = onRequestSteamGridSettings,
-                onRescanRoms = onRescanRoms,
                 onOpenAppSettings = { onOpenSettings(appItem) },
                 onUninstallApp = { onUninstallApp(appItem) },
                 onRemoveItem = { onRemoveItem(appItem) },
@@ -770,14 +768,13 @@ fun DeckHomeScreen(
         }
 
         if (showLauncherSettingsDialog) {
-            LauncherSettingsDialog(
+            StartMenuDialog(
                 onDismiss = onDismissLauncherSettings,
                 onRequestChangeAvatar = onRequestChangeAvatar,
                 onRequestSteamGridKey = onRequestSteamGridSettings,
                 onRequestIidbKey = onRequestIidbKey,
                 onArtworkProviderSelected = onArtworkProviderSelected,
                 onRescanRoms = onRescanRoms,
-                onRequestReorderMode = onRequestReorderMode,
                 onRequestSetupFolders = onRequestSetupFolders,
                 profileName = profileName,
                 avatarId = avatarId,
