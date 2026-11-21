@@ -135,6 +135,7 @@ fun StartMenuDialog(
                                 .fillMaxWidth()
                                 .heightIn(min = 52.dp)
                                 .onFocusChanged { isProfileFocused = it.isFocused }
+                                .focusable()
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(if (isProfileFocused) NeutralBtnBgFocused else NeutralBtnBg)
                                 .border(
@@ -198,15 +199,18 @@ fun StartMenuDialog(
                         ) {
                             StartMenuTab.values().forEach { tab ->
                                 val isSelected = selectedTab == tab
+                                var isTabFocused by remember { mutableStateOf(false) }
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(72.dp)
+                                        .onFocusChanged { isTabFocused = it.isFocused }
+                                        .focusable()
                                         .clip(RoundedCornerShape(18.dp))
-                                        .background(if (isSelected) NeutralBtnBgFocused else NeutralBtnBg)
+                                        .background(if (isSelected || isTabFocused) NeutralBtnBgFocused else NeutralBtnBg)
                                         .border(
-                                            width = if (isSelected) 2.dp else 1.dp,
-                                            color = if (isSelected) FocusRing else CardBorderUnselected,
+                                            width = if (isSelected || isTabFocused) 2.dp else 1.dp,
+                                            color = if (isTabFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
                                             shape = RoundedCornerShape(18.dp)
                                         )
                                         .clickable { selectedTab = tab }
@@ -382,15 +386,18 @@ private fun StartMenuTabAparencia(
         ) {
             BackgroundMode.values().forEach { mode ->
                 val isSelected = currentBgMode == mode
+                var isModeFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
+                        .onFocusChanged { isModeFocused = it.isFocused }
+                        .focusable()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) NeutralBtnBgFocused else NeutralBtnBg)
+                        .background(if (isSelected || isModeFocused) NeutralBtnBgFocused else NeutralBtnBg)
                         .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) FocusRing else CardBorderUnselected,
+                            width = if (isSelected || isModeFocused) 2.dp else 1.dp,
+                            color = if (isModeFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable { onBgModeSelected(mode) },
@@ -471,15 +478,18 @@ private fun StartMenuTabBancosDados(
         ) {
             ArtworkProvider.values().forEach { provider ->
                 val isSelected = preferredProvider == provider
+                var isProviderFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
+                        .onFocusChanged { isProviderFocused = it.isFocused }
+                        .focusable()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) NeutralBtnBgFocused else NeutralBtnBg)
+                        .background(if (isSelected || isProviderFocused) NeutralBtnBgFocused else NeutralBtnBg)
                         .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) FocusRing else CardBorderUnselected,
+                            width = if (isSelected || isProviderFocused) 2.dp else 1.dp,
+                            color = if (isProviderFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable {
@@ -554,6 +564,7 @@ fun StartOptionRow(
                 shape = RoundedCornerShape(16.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
             .clickable(role = Role.Button) { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {

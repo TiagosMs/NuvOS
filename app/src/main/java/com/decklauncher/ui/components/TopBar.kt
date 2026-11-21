@@ -94,6 +94,10 @@ fun TopBar(
     val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.15f else 1.0f, label = "add_scale")
     val addBorderWidth by animateDpAsState(targetValue = if (isAddFocused) 2.5.dp else 1.dp, label = "add_border")
 
+    val isSettingsFocused = isTopBarFocused && topBarIndex == 2
+    val settingsScale by animateFloatAsState(targetValue = if (isSettingsFocused) 1.15f else 1.0f, label = "settings_scale")
+    val settingsBorderWidth by animateDpAsState(targetValue = if (isSettingsFocused) 2.5.dp else 1.dp, label = "settings_border")
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -273,12 +277,15 @@ fun TopBar(
                 }
             }
 
-            // Engrenagem Start Menu tocável (T4.1)
+            // Engrenagem Start Menu tocável (T4.1) / Configurações do Tablet
             Box(
                 modifier = Modifier
                     .size(if (isCompactHeight) 26.dp else 34.dp)
+                    .scale(settingsScale)
+                    .shadow(if (isSettingsFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
                     .clip(CircleShape)
-                    .background(Color(0x22FFFFFF))
+                    .background(if (isSettingsFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
+                    .border(settingsBorderWidth, if (isSettingsFocused) Color.White else Color(0x33FFFFFF), CircleShape)
                     .clickable { onOpenStartMenu() },
                 contentAlignment = Alignment.Center
             ) {

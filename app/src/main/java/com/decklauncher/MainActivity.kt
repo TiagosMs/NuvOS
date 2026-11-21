@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
     private var selectedIndexState = mutableIntStateOf(0)
     private var selectedTabState = mutableIntStateOf(0)
     private var focusAreaState = mutableStateOf(FocusArea.CAROUSEL)
-    private var topBarIndexState = mutableIntStateOf(0) // 0: Perfil, 1: Add Game (+)
+    private var topBarIndexState = mutableIntStateOf(0) // 0: Perfil, 1: Add Game (+), 2: Configurações (Engrenagem)
     private var appsListState = mutableStateOf<List<AppItem>>(emptyList())
     private var batteryState = mutableIntStateOf(100)
     private var activeFolderState = mutableStateOf<AppFolder?>(null)
@@ -379,16 +379,7 @@ class MainActivity : ComponentActivity() {
                         triggerHaptic()
                     },
                     onLaunchApp = { app ->
-                        when (val route = com.decklauncher.model.LaunchRoute.resolve(app, isFromEmulatorDialog = false)) {
-                            is com.decklauncher.model.LaunchRoute.OpenEmulatorDialog -> {
-                                activeEmulatorAppState.value = route.item
-                                showEmulatorGamesDialogState.value = true
-                                SoundEffectManager.playMenuOpen()
-                            }
-                            is com.decklauncher.model.LaunchRoute.LaunchNow -> {
-                                requestLaunchItem(route.item)
-                            }
-                        }
+                        requestLaunchItem(app)
                     },
                     onOpenSettings = { openAppOptions(it) },
                     onUninstallApp = { uninstallApp(it) },
@@ -531,6 +522,13 @@ class MainActivity : ComponentActivity() {
                     onRequestOpenLauncherSettings = {
                         showLauncherSettingsDialogState.value = true
                         SoundEffectManager.playMenuOpen()
+                    },
+                    onRequestOpenSystemSettings = {
+                        try {
+                            startActivity(Intent(Settings.ACTION_SETTINGS))
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity, "Não foi possível abrir as configurações do dispositivo", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onRequestChangeAvatar = {
                         showChangeAvatarDialogState.value = true
@@ -1220,17 +1218,45 @@ class MainActivity : ComponentActivity() {
                     isReorderModeState.value = false
                     Toast.makeText(this, "Ordem salva com sucesso!", Toast.LENGTH_SHORT).show()
                     triggerHaptic()
+                    SoundEffectManager.playConfirm()
                     return true
                 }
             }
         }
 
-        // O clique no botão A abre/inicia imediatamente no ACTION_UP sem abrir menu ao segurar (Regra 1: Apenas START abre menu)
+        // Controle do botão A com toque rápido (iniciar) vs segurar (entrar em modo mover)
         if (focusAreaState.value == FocusArea.CAROUSEL) {
             if (event.keyCode in listOf(KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER)) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
+                    if (event.repeatCount == 0) {
+                        isButtonALongPressed = false
+                        buttonALongPressJob?.cancel()
+                        buttonALongPressJob = lifecycleScope.launch(Dispatchers.Main) {
+                            delay(500)
+                            if (isActive && !isReorderModeState.value) {
+                                isButtonALongPressed = true
+                                isReorderModeState.value = true
+                                triggerHaptic()
+                                SoundEffectManager.playMenuOpen()
+                                Toast.makeText(this@MainActivity, "Modo Mover ativado! Use o D-Pad para organizar.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                     return true
                 } else if (event.action == KeyEvent.ACTION_UP) {
+                    buttonALongPressJob?.cancel()
+                    buttonALongPressJob = null
+                    if (isButtonALongPressed) {
+                        isButtonALongPressed = false
+                        return true
+                    }
+                    if (isReorderModeState.value) {
+                        isReorderModeState.value = false
+                        Toast.makeText(this, "Ordem salva com sucesso!", Toast.LENGTH_SHORT).show()
+                        triggerHaptic()
+                        SoundEffectManager.playConfirm()
+                        return true
+                    }
                     handleConfirmPress()
                     return true
                 }
@@ -1338,7 +1364,7 @@ class MainActivity : ComponentActivity() {
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
-                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(1)
+                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(2)
                     triggerHaptic()
                     return true
                 }
@@ -1514,7 +1540,7 @@ class MainActivity : ComponentActivity() {
             }
             JoystickDir.RIGHT -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
-                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(1)
+                    topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(2)
                     triggerHaptic()
                     SoundEffectManager.playNavMove()
                 } else if (count > 0) {
@@ -1549,6 +1575,13 @@ class MainActivity : ComponentActivity() {
             when (topBarIndexState.intValue) {
                 0 -> showLauncherSettingsDialogState.value = true
                 1 -> showAddGameOptionsDialogState.value = true
+                2 -> {
+                    try {
+                        startActivity(Intent(Settings.ACTION_SETTINGS))
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Não foi possível abrir as configurações do dispositivo", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             triggerHaptic()
             SoundEffectManager.playConfirm()
@@ -1574,13 +1607,7 @@ class MainActivity : ComponentActivity() {
             // Abas Jogos e Emuladores
             val current = filtered.getOrNull(selectedIndexState.intValue)
             if (current != null) {
-                if (current.category == AppCategory.EMULADORES && current.itemType == ItemType.APP) {
-                    activeEmulatorAppState.value = current
-                    showEmulatorGamesDialogState.value = true
-                    SoundEffectManager.playMenuOpen()
-                } else {
-                    requestLaunchItem(current)
-                }
+                requestLaunchItem(current)
             }
         }
         triggerHaptic()

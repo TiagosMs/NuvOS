@@ -2496,14 +2496,48 @@ fun SteamGridHeroSelectDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         EnableWindowBlur()
+        var isVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
+
         Box(
             modifier = Modifier
-                .width(620.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(22.dp)
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
         ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(540.dp)
+                        .fillMaxHeight(0.92f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -2673,6 +2707,8 @@ fun SteamGridHeroSelectDialog(
                 }
             }
         }
+        }
+        }
     }
 }
 
@@ -2768,14 +2804,48 @@ fun SteamGridLogoSelectDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         EnableWindowBlur()
+        var isVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
+
         Box(
             modifier = Modifier
-                .width(620.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(22.dp)
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
         ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(540.dp)
+                        .fillMaxHeight(0.92f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -2940,6 +3010,8 @@ fun SteamGridLogoSelectDialog(
                     }
                 }
             }
+        }
+        }
         }
     }
 }
@@ -3126,14 +3198,48 @@ fun SelectConsoleIntroDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         EnableWindowBlur()
+        var isVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
+
         Box(
             modifier = Modifier
-                .width(440.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(22.dp)
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
         ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(480.dp)
+                        .fillMaxHeight(0.92f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -3227,6 +3333,8 @@ fun SelectConsoleIntroDialog(
                 }
             }
         }
+        }
+        }
     }
 }
 
@@ -3270,28 +3378,48 @@ fun GameMetadataDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         EnableWindowBlur()
+        var isVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onDismiss
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.CenterStart
         ) {
-            Box(
-                modifier = Modifier
-                    .width(530.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(Color(0xFF323337))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {} // Previne dismiss ao tocar dentro do card
-                    )
-                    .padding(horizontal = 24.dp, vertical = 20.dp)
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
             ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(530.dp)
+                        .fillMaxHeight(0.92f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -3682,6 +3810,7 @@ fun GameMetadataDialog(
                 }
             }
         }
+        }
     }
 }
 
@@ -3734,29 +3863,48 @@ fun SelectMusicDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         EnableWindowBlur()
+        var isVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onDismiss
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.CenterStart
         ) {
-            Box(
-                modifier = Modifier
-                    .width(520.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(SteamDeckBg)
-                    .border(1.2.dp, Color(0x33FFFFFF), RoundedCornerShape(26.dp))
-                    .padding(22.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {}
-                    )
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
             ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(520.dp)
+                        .fillMaxHeight(0.92f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(SteamDeckBg)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -3978,6 +4126,7 @@ fun SelectMusicDialog(
                     }
                 }
             }
+        }
         }
     }
 }

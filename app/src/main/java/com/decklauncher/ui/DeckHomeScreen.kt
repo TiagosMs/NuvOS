@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
@@ -146,6 +147,7 @@ fun DeckHomeScreen(
     onRequestSteamGridSettings: () -> Unit,
     onRequestAddGameOptions: () -> Unit = {},
     onRequestOpenLauncherSettings: () -> Unit = {},
+    onRequestOpenSystemSettings: () -> Unit = {},
     onRequestChangeAvatar: () -> Unit = {},
     onRequestReorderMode: () -> Unit = {},
     onAvatarSelected: (String) -> Unit = {},
@@ -303,7 +305,9 @@ fun DeckHomeScreen(
                             bitmap = customWallpaperBitmap.asImageBitmap(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(12.dp) // rule-ok: blur gaussiano de fundo solicitado pelo usuario
                         )
                         Box(
                             modifier = Modifier
@@ -344,7 +348,7 @@ fun DeckHomeScreen(
             }
             BackgroundMode.IMMERSIVE -> {
                 // Fundo Imersivo otimizado (Fase 4.4):
-                // Crossfade leve com hero pré-renderizado e blurFile reduzido (sem blurs ao vivo em tela cheia)
+                // Crossfade leve com hero pré-renderizado e blurFile reduzido
                 Crossfade(
                     targetState = heroFile,
                     animationSpec = tween(Motion.Slow),
@@ -358,7 +362,9 @@ fun DeckHomeScreen(
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     filterQuality = FilterQuality.Low,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .blur(14.dp) // rule-ok: blur gaussiano de fundo solicitado pelo usuario
                                 )
                             }
                             AsyncImage(
@@ -369,6 +375,7 @@ fun DeckHomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight(0.72f)
+                                    .blur(10.dp) // rule-ok: blur gaussiano de fundo solicitado pelo usuario
                             )
                             Box(
                                 modifier = Modifier
@@ -414,7 +421,7 @@ fun DeckHomeScreen(
                 topBarIndex = topBarIndex,
                 onOpenProfileSettings = onRequestOpenLauncherSettings,
                 onOpenAddGame = onRequestAddGameOptions,
-                onOpenStartMenu = onRequestOpenLauncherSettings
+                onOpenStartMenu = onRequestOpenSystemSettings
             )
 
             // 2. Main Content Area
