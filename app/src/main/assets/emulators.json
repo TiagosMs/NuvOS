@@ -67,7 +67,7 @@
     "launch": {
       "action": "me.magnum.melonds.LAUNCH_ROM",
       "component": "me.magnum.melonds/me.magnum.melonds.ui.emulator.EmulatorActivity",
-      "data": "{uri}"
+      "uriExtra": "uri"
     }
   },
   {

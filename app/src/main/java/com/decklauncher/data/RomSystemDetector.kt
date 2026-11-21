@@ -15,7 +15,8 @@ data class EmulatorConfig(
     val component: String? = null,
     val mimeType: String? = null,
     val dataPattern: String? = null,
-    val bootPathExtra: String? = null
+    val bootPathExtra: String? = null,
+    val uriExtra: String? = null
 )
 
 object RomSystemDetector {
@@ -192,7 +193,8 @@ object RomSystemDetector {
                         component = launchObj?.optString("component"),
                         mimeType = launchObj?.optString("type"),
                         dataPattern = launchObj?.optString("data"),
-                        bootPathExtra = launchObj?.optString("bootPath")
+                        bootPathExtra = launchObj?.optString("bootPath"),
+                        uriExtra = launchObj?.optString("uriExtra")
                     )
                 )
             }

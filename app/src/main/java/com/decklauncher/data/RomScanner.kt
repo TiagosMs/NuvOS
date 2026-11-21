@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Environment
+import android.provider.DocumentsContract
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.ItemType
@@ -155,15 +156,31 @@ object RomScanner {
         }
     }
 
+    private fun buildSafUriForPackage(context: Context, targetPackage: String, file: File): Uri? {
+        val relPath = file.absolutePath.removePrefix("/storage/emulated/0/").removePrefix("storage/emulated/0/")
+        val docId = "primary:$relPath"
+        val folderRel = file.parentFile?.absolutePath?.removePrefix("/storage/emulated/0/")?.removePrefix("storage/emulated/0/") ?: ""
+        val treeId = if (folderRel.isNotBlank()) "primary:$folderRel" else "primary:Rom"
+        return DocumentsContract.buildDocumentUriUsingTree(
+            DocumentsContract.buildTreeDocumentUri("com.android.externalstorage.documents", treeId),
+            docId
+        )
+    }
+
     fun launchRom(context: Context, item: AppItem, options: android.os.Bundle? = null): Boolean {
+        android.util.Log.i("NuvOSLaunch", "launchRom: label=${item.label}, pkg=${item.packageName}, path=${item.romPath}")
         val path = item.romPath ?: return false
         val file = File(path)
-        if (!file.exists()) return false
+        if (!file.exists()) {
+            android.util.Log.e("NuvOSLaunch", "launchRom: file does not exist: $path")
+            return false
+        }
 
         val uri = Uri.fromFile(file) // rule-ok: excecao T2.4 retrocompatibilidade com emuladores sem suporte a SAF content URI
         val ext = file.extension.lowercase()
         val configs = RomSystemDetector.loadEmulatorConfigs(context)
         val config = configs.firstOrNull { it.packageName == item.packageName }
+        android.util.Log.i("NuvOSLaunch", "launchRom: matched config=${config?.name}, uriExtra=${config?.uriExtra}")
 
         try {
             // Se houver configuração declarativa em emulators.json, constrói a Intent estritamente baseada nela
@@ -180,13 +197,19 @@ object RomScanner {
                     if (config.bootPathExtra != null) {
                         putExtra("bootPath", file.absolutePath)
                     }
-                    if (config.mimeType != null) {
+                    if (config.uriExtra != null) {
+                        // melonDS e emuladores SAF: constrói a tree URI canônica correspondente à permissão persistida do emulador
+                        val safeUri = buildSafUriForPackage(context, config.packageName, file) ?: uri
+                        android.util.Log.i("NuvOSLaunch", "launchRom: putting ${config.uriExtra} = $safeUri")
+                        putExtra(config.uriExtra, safeUri.toString())
+                    } else if (config.mimeType != null) {
                         setDataAndType(uri, config.mimeType)
-                    } else if (config.dataPattern != null || act == Intent.ACTION_VIEW || config.action != null) {
+                    } else if (config.dataPattern != null || act == Intent.ACTION_VIEW || (config.action != null && config.action != "me.magnum.melonds.LAUNCH_ROM")) {
                         data = uri
                     }
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                 }
+                android.util.Log.i("NuvOSLaunch", "launchRom: intent=$intent, extras=${intent.extras}")
                 if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
                 return true
             }
@@ -197,9 +220,11 @@ object RomScanner {
                 data = uri
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
+            android.util.Log.i("NuvOSLaunch", "launchRom fallback: intent=$intent")
             if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
             return true
         } catch (e: Exception) {
+            android.util.Log.e("NuvOSLaunch", "launchRom exception", e)
             e.printStackTrace()
             return false
         }
