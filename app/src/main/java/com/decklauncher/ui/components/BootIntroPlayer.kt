@@ -117,83 +117,66 @@ fun BootIntroPlayer(
                 }
             }
     ) {
-        // Encaixa o vídeo perfeitamente na proporção 16:9, centralizado e sem qualquer distorção
-        BoxWithConstraints(
+        // Preenche a tela toda conforme solicitado pelo usuário
+        AndroidView(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            val targetRatio = 16f / 9f
-            val screenRatio = maxWidth.value / maxHeight.value
+            factory = { ctx ->
+                TextureView(ctx).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                        override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                            try {
+                                val surface = Surface(st)
+                                val mp = MediaPlayer().apply {
+                                    setSurface(surface)
 
-            val (videoWidth, videoHeight) = if (screenRatio > targetRatio) {
-                // Tela mais larga que 16:9 (ex: 20:9 ultra-wide): fixa na altura e ajusta largura
-                (maxHeight * targetRatio) to maxHeight
-            } else {
-                // Tela mais alta/quadrada que 16:9 (ex: tablets 16:10, 5:3, 4:3): fixa na largura e ajusta altura
-                maxWidth to (maxWidth / targetRatio)
-            }
-
-            // Reprodução de Vídeo via Hardware TextureView
-            AndroidView(
-                modifier = Modifier.size(videoWidth, videoHeight),
-                factory = { ctx ->
-                    TextureView(ctx).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                            override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                                try {
-                                    val surface = Surface(st)
-                                    val mp = MediaPlayer().apply {
-                                        setSurface(surface)
-
-                                        val customFile = IntroManager.getCustomFile(intro)
-                                        if (customFile != null) {
-                                            setDataSource(customFile.absolutePath)
-                                        } else {
-                                            val afd = IntroManager.getAssetFd(ctx, intro)
-                                            if (afd != null) {
-                                                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                                                afd.close()
-                                            }
+                                    val customFile = IntroManager.getCustomFile(intro)
+                                    if (customFile != null) {
+                                        setDataSource(customFile.absolutePath)
+                                    } else {
+                                        val afd = IntroManager.getAssetFd(ctx, intro)
+                                        if (afd != null) {
+                                            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                                            afd.close()
                                         }
-
-                                        setOnPreparedListener { player ->
-                                            player.start()
-                                        }
-                                        setOnCompletionListener {
-                                            triggerFinishWithFade()
-                                        }
-                                        setOnErrorListener { _, _, _ ->
-                                            triggerFinishWithFade()
-                                            true
-                                        }
-                                        prepareAsync()
                                     }
-                                    mediaPlayer = mp
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                    triggerFinishWithFade()
-                                }
-                            }
 
-                            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
-                            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                                try {
-                                    mediaPlayer?.stop()
-                                    mediaPlayer?.release()
-                                    mediaPlayer = null
-                                } catch (_: Exception) {}
-                                return true
+                                    setOnPreparedListener { player ->
+                                        player.start()
+                                    }
+                                    setOnCompletionListener {
+                                        triggerFinishWithFade()
+                                    }
+                                    setOnErrorListener { _, _, _ ->
+                                        triggerFinishWithFade()
+                                        true
+                                    }
+                                    prepareAsync()
+                                }
+                                mediaPlayer = mp
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                triggerFinishWithFade()
                             }
-                            override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
                         }
+
+                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
+                        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                            try {
+                                mediaPlayer?.stop()
+                                mediaPlayer?.release()
+                                mediaPlayer = null
+                            } catch (_: Exception) {}
+                            return true
+                        }
+                        override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
                     }
                 }
-            )
-        }
+            }
+        )
 
         // Indicador discreto no canto inferior "Segure para Pular"
         AnimatedVisibility(
