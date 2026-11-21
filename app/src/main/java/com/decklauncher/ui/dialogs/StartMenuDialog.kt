@@ -39,12 +39,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.*
+import com.decklauncher.ui.components.*
 import com.decklauncher.ui.theme.*
 
-enum class StartMenuTab(val title: String, val icon: String) {
-    BIBLIOTECA("Biblioteca", "📚"),
-    APARENCIA("Aparência e Navegação", "🎨"),
-    BANCOS_DADOS("Bancos de Dados", "🗄️")
+enum class StartMenuTab(val title: String) {
+    BIBLIOTECA("Biblioteca"),
+    APARENCIA("Aparência e Navegação"),
+    BANCOS_DADOS("Bancos de Dados")
 }
 
 @Composable
@@ -186,7 +187,7 @@ fun StartMenuDialog(
                                     .clip(CircleShape)
                                     .background(NeutralGlyphBg)
                             ) {
-                                Text("✕", color = TextWhite, fontSize = 14.sp)
+                                VectorIconClose(tint = TextWhite)
                             }
                         }
 
@@ -216,7 +217,11 @@ fun StartMenuDialog(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
-                                        Text(text = tab.icon, fontSize = 20.sp)
+                                        when (tab) {
+                                            StartMenuTab.BIBLIOTECA -> VectorIconBooks(tint = if (isSelected) TextWhite else TextPrimary)
+                                            StartMenuTab.APARENCIA -> VectorIconPalette(tint = if (isSelected) TextWhite else TextPrimary)
+                                            StartMenuTab.BANCOS_DADOS -> VectorIconDatabase(tint = if (isSelected) TextWhite else TextPrimary)
+                                        }
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = tab.title,
@@ -339,6 +344,29 @@ private fun StartMenuTabAparencia(
         Text("Configuração do Sistema", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
         StartOptionRow(
+            label = "Definir NuvOS como Launcher Padrão",
+            onClick = {
+                val activity = context as? android.app.Activity
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && activity != null) {
+                    val roleManager = activity.getSystemService(android.app.role.RoleManager::class.java)
+                    if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                        val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
+                        activity.startActivity(intent)
+                        onDismiss()
+                        return@StartOptionRow
+                    }
+                }
+                try {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_HOME_SETTINGS)
+                    context.startActivity(intent)
+                } catch (_: Exception) {
+                    android.widget.Toast.makeText(context, "Abra Configurações do Android › Apps padrão › Início", android.widget.Toast.LENGTH_LONG).show()
+                }
+                onDismiss()
+            }
+        )
+
+        StartOptionRow(
             label = "Refazer Configuração Inicial (Wizard)",
             onClick = {
                 onRequestRestartWizard()
@@ -383,7 +411,7 @@ private fun StartMenuTabAparencia(
 
         if (currentBgMode == BackgroundMode.WALLPAPER) {
             StartOptionRow(
-                label = if (hasCustomWallpaper) "Wallpaper ativo ✓ (Trocar)" else "Escolher Imagem do Dispositivo",
+                label = if (hasCustomWallpaper) "Wallpaper ativo (Trocar)" else "Escolher Imagem do Dispositivo",
                 onClick = onRequestPickWallpaper
             )
         }
@@ -392,7 +420,7 @@ private fun StartMenuTabAparencia(
 
         var introsActive by remember { mutableStateOf(IntroManager.isIntroEnabled(context)) }
         StartOptionRow(
-            label = if (introsActive) "Intros de Boot dos Consoles: Ativado ✓" else "Intros de Boot dos Consoles: Desativado",
+            label = if (introsActive) "Intros de Boot dos Consoles: Ativado" else "Intros de Boot dos Consoles: Desativado",
             onClick = {
                 val next = !introsActive
                 introsActive = next
@@ -539,15 +567,6 @@ fun StartOptionRow(
                 color = if (isFocused) TextWhite else NeutralBtnText,
                 style = MaterialTheme.typography.bodyLarge
             )
-
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(FocusRing)
-                )
-            }
         }
     }
 }

@@ -48,20 +48,16 @@ fun BottomBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "◀ D-Pad ▶ Mover",
-                    color = Color(0xFFF59E0B),
+                    text = "Mover Itens",
+                    color = TextWhite,
                     fontSize = if (isCompactHeight) 11.sp else 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 ControllerActionPrompt(
-                    buttonLetter = "A",
-                    buttonColor = BtnAGreen,
                     actionLabel = "Fixar / Salvar",
                     isCompactHeight = isCompactHeight
                 )
                 ControllerActionPrompt(
-                    buttonLetter = "B",
-                    buttonColor = BtnBRed,
                     actionLabel = "Concluir",
                     isCompactHeight = isCompactHeight
                 )
@@ -72,23 +68,17 @@ fun BottomBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ControllerActionPrompt(
-                    buttonLetter = "A",
-                    buttonColor = BtnAGreen,
                     actionLabel = if (isAppsTab && !isInsideFolder) "Abrir" else if (isEmulatorsTab) "Ver Jogos" else "Jogar",
                     isCompactHeight = isCompactHeight,
                     onClick = onPrimaryAction
                 )
                 ControllerActionPrompt(
-                    buttonLetter = "X",
-                    buttonColor = BtnXBlue,
                     actionLabel = "Opções",
                     isCompactHeight = isCompactHeight,
                     onClick = onOptionsAction
                 )
                 if (!isAppsTab) {
                     ControllerActionPrompt(
-                        buttonLetter = "Y",
-                        buttonColor = BtnYYellow,
                         actionLabel = "Adicionar Jogos",
                         isCompactHeight = isCompactHeight,
                         onClick = onAddGameAction
@@ -96,8 +86,6 @@ fun BottomBar(
                 }
                 if (isAppsTab && isInsideFolder) {
                     ControllerActionPrompt(
-                        buttonLetter = "B",
-                        buttonColor = BtnBRed,
                         actionLabel = "Voltar",
                         isCompactHeight = isCompactHeight,
                         onClick = onBackAction
@@ -110,14 +98,12 @@ fun BottomBar(
 
 @Composable
 fun ControllerActionPrompt(
-    buttonLetter: String,
-    buttonColor: Color,
     actionLabel: String,
     isCompactHeight: Boolean = false,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Box(
         modifier = modifier
             .heightIn(min = 48.dp) // rule-ok: toque minimo 48dp
             .then(
@@ -125,34 +111,13 @@ fun ControllerActionPrompt(
                     Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
                 } else Modifier
             ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 5.dp else 7.dp)
+        contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(if (isCompactHeight) 14.dp else 17.dp)) {
-            val radius = size.minDimension / 2f
-            drawCircle(
-                color = buttonColor,
-                radius = radius,
-                center = center
-            )
-
-            val paint = Paint().apply {
-                color = android.graphics.Color.parseColor("#1C212A")
-                textSize = (if (isCompactHeight) 8.2.sp else 9.8.sp).toPx()
-                textAlign = Paint.Align.CENTER
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                isAntiAlias = true
-            }
-
-            val yOffset = center.y - ((paint.descent() + paint.ascent()) / 2f)
-            drawContext.canvas.nativeCanvas.drawText(buttonLetter, center.x, yOffset, paint)
-        }
-
         Text(
             text = actionLabel,
             color = TextPrimary,
-            fontSize = if (isCompactHeight) 10.sp else 12.sp,
-            fontWeight = FontWeight.Medium
+            fontSize = if (isCompactHeight) 11.sp else 13.sp,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

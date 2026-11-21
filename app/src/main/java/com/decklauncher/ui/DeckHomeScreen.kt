@@ -831,7 +831,7 @@ fun DeckHomeScreen(
         }
 
         if (showEmulatorGamesDialog && activeEmulatorApp != null) {
-            EmulatorGamesDialog(
+            com.decklauncher.ui.dialogs.EmulatorGamesDrawer(
                 emulatorApp = activeEmulatorApp,
                 allRoms = allScannedRoms,
                 pinnedGameIds = pinnedGameIds,

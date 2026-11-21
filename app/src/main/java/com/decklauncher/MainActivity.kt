@@ -481,7 +481,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestReorderMode = {
                         isReorderModeState.value = true
-                        Toast.makeText(this@MainActivity, "Modo Mover: D-Pad ◀ / ▶ troca de posição, (A) fixa", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "Modo Mover: D-Pad troca de posição", Toast.LENGTH_LONG).show()
                     },
                     onAvatarSelected = { avatarId ->
                         avatarIdState.value = avatarId
@@ -1160,36 +1160,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Detecção de clique longo (segurar botão de abrir por 450ms abre metadados/opções)
+        // O clique no botão A abre/inicia imediatamente no ACTION_UP sem abrir menu ao segurar (Regra 1: Apenas START abre menu)
         if (focusAreaState.value == FocusArea.CAROUSEL) {
             if (event.keyCode in listOf(KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER)) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
-                    if (event.repeatCount == 0) {
-                        isButtonALongPressed = false
-                        buttonALongPressJob?.cancel()
-                        buttonALongPressJob = lifecycleScope.launch(Dispatchers.Main) {
-                            delay(450)
-                            isButtonALongPressed = true
-                            triggerHaptic()
-                            val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
-                                activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
-                            } else {
-                                getFilteredApps().getOrNull(selectedIndexState.intValue)
-                            }
-                            if (current != null) {
-                                activeDialogAppState.value = current
-                                showGameMetadataDialogState.value = true
-                            }
-                        }
-                    }
                     return true
                 } else if (event.action == KeyEvent.ACTION_UP) {
-                    buttonALongPressJob?.cancel()
-                    buttonALongPressJob = null
-                    if (isButtonALongPressed) {
-                        isButtonALongPressed = false
-                        return true
-                    }
                     handleConfirmPress()
                     return true
                 }
@@ -1238,10 +1214,20 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão START / F1: Abre Configurações do Launcher
+            // Botão START / F1: Abre Opções do app/jogo focado na lista (ou menu geral se nada focado)
             KeyEvent.KEYCODE_BUTTON_START,
             KeyEvent.KEYCODE_F1 -> {
-                showLauncherSettingsDialogState.value = true
+                val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
+                    activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
+                } else {
+                    filtered.getOrNull(selectedIndexState.intValue)
+                }
+                if (current != null) {
+                    activeDialogAppState.value = current
+                    showOptionsDialogState.value = true
+                } else {
+                    showLauncherSettingsDialogState.value = true
+                }
                 triggerHaptic()
                 return true
             }

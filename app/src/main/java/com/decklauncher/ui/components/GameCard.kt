@@ -42,6 +42,7 @@ import coil.request.ImageRequest
 import com.decklauncher.data.rememberAppIcon
 import com.decklauncher.model.AppItem
 import com.decklauncher.ui.theme.Motion
+import com.decklauncher.ui.theme.NeutralBtnBgFocused
 import com.decklauncher.ui.theme.StatusPlaying
 import com.decklauncher.ui.theme.TextPrimary
 import com.decklauncher.ui.theme.TextWhite
@@ -228,55 +229,27 @@ fun GameCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFF59E0B))
+                        .background(NeutralBtnBgFocused)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "◀ MOVER ▶",
-                        color = Color.Black,
+                        text = "MOVER",
+                        color = TextWhite,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
             } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                Text(
+                    text = app.label,
+                    color = TextPrimary,
+                    fontSize = labelFontSize,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    val badgeSize = if (isCompactHeight) 10.dp else 14.dp
-                    Box(
-                        modifier = Modifier
-                            .size(badgeSize)
-                            .clip(CircleShape)
-                            .background(StatusPlaying),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.foundation.Canvas(
-                            modifier = Modifier.size(if (isCompactHeight) 4.5.dp else 6.5.dp)
-                        ) {
-                            val path = Path().apply {
-                                moveTo(0f, 0f)
-                                lineTo(size.width, size.height * 0.5f)
-                                lineTo(0f, size.height)
-                                close()
-                            }
-                            drawPath(path, Color.Black)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(if (isCompactHeight) 4.dp else 6.dp))
-
-                    Text(
-                        text = app.label,
-                        color = TextPrimary,
-                        fontSize = labelFontSize,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Start
-                    )
-                }
+                )
             }
         }
     }

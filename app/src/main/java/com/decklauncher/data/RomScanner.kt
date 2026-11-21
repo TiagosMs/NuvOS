@@ -32,12 +32,17 @@ object RomScanner {
         // 2. Diretórios padrão de busca
         searchDirs.addAll(
             listOf(
-                File(Environment.getExternalStorageDirectory(), "Download/MDS"),
-                File(Environment.getExternalStorageDirectory(), "Download"),
+                File(Environment.getExternalStorageDirectory(), "Rom"),
+                File(Environment.getExternalStorageDirectory(), "ROM"),
                 File(Environment.getExternalStorageDirectory(), "ROMs"),
                 File(Environment.getExternalStorageDirectory(), "Roms"),
+                File(Environment.getExternalStorageDirectory(), "roms"),
                 File(Environment.getExternalStorageDirectory(), "Games"),
+                File(Environment.getExternalStorageDirectory(), "games"),
                 File(Environment.getExternalStorageDirectory(), "ISOs"),
+                File(Environment.getExternalStorageDirectory(), "isos"),
+                File(Environment.getExternalStorageDirectory(), "Download"),
+                File(Environment.getExternalStorageDirectory(), "Download/MDS"),
                 File(Environment.getExternalStorageDirectory(), "RetroArch/downloads")
             )
         )
@@ -46,7 +51,7 @@ object RomScanner {
         for (dir in searchDirs.distinctBy { it.absolutePath }) {
             if (dir.exists() && dir.isDirectory) {
                 try {
-                    dir.walkTopDown().maxDepth(3).forEach { file ->
+                    dir.walkTopDown().maxDepth(10).forEach { file ->
                         if (file.isFile && RomSystemDetector.ALL_SUPPORTED_EXTENSIONS.contains(file.extension.lowercase())) {
                             foundFiles.add(file)
                         }

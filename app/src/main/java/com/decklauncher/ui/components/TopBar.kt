@@ -161,16 +161,6 @@ fun TopBar(
                 fontSize = if (isCompactHeight) 11.sp else 13.sp,
                 fontWeight = if (isProfileFocused) FontWeight.ExtraBold else FontWeight.Bold
             )
-
-            if (isProfileFocused) {
-                // Ponto indicador de foco
-                Box(
-                    modifier = Modifier
-                        .size(if (isCompactHeight) 5.dp else 7.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                )
-            }
         }
 
         // Center Tabs: [LB] Jogos Emuladores Apps [RB]
@@ -292,10 +282,9 @@ fun TopBar(
                     .clickable { onOpenStartMenu() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "⚙",
-                    color = Color.White,
-                    fontSize = if (isCompactHeight) 14.sp else 16.sp
+                VectorIconGear(
+                    modifier = Modifier.size(if (isCompactHeight) 14.dp else 18.dp),
+                    tint = Color.White
                 )
             }
 

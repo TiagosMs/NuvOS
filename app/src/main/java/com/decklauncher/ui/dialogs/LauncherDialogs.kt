@@ -923,7 +923,7 @@ fun EmulatorGamesDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "(B) Voltar",
+                                text = "Voltar",
                                 color = Color(0xFFAAAAAA),
                                 fontSize = 11.sp
                             )
@@ -1257,15 +1257,6 @@ fun SteamDeckOptionRow(
                 fontSize = 13.sp,
                 fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold
             )
-            if (isFocused) {
-                // Indicador nítido de cursor focado
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                )
-            }
         }
     }
 }
