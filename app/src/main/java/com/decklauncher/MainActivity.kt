@@ -252,6 +252,7 @@ class MainActivity : ComponentActivity() {
 
         setupImmersiveMode()
         requestHighestRefreshRate()
+        SoundEffectManager.init(this)
 
         // Migração v1.1: limpar preferência legada de pacote de ícones
         getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
@@ -590,6 +591,7 @@ class MainActivity : ComponentActivity() {
         isLaunchingFadeState.value = false
         setupImmersiveMode()
         requestHighestRefreshRate()
+        SoundEffectManager.init(this)
 
         // Migração v1.1: limpar preferência legada de pacote de ícones
         getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
@@ -628,6 +630,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ThemeMusicManager.stopTheme()
+        SoundEffectManager.release()
     }
 
     @Suppress("DEPRECATION")
@@ -882,6 +885,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchItem(item: AppItem) {
+        SoundEffectManager.playGameLaunch()
         val bundle = getLaunchBundle()
         when (item.itemType) {
             ItemType.CLOUD -> {
@@ -1187,6 +1191,7 @@ class MainActivity : ComponentActivity() {
                 activeFolderState.value = null
                 focusAreaState.value = FocusArea.CAROUSEL
                 triggerHaptic()
+                SoundEffectManager.playTabSwitch()
                 return true
             }
             KeyEvent.KEYCODE_BUTTON_R1 -> {
@@ -1195,6 +1200,7 @@ class MainActivity : ComponentActivity() {
                 activeFolderState.value = null
                 focusAreaState.value = FocusArea.CAROUSEL
                 triggerHaptic()
+                SoundEffectManager.playTabSwitch()
                 return true
             }
 
@@ -1206,11 +1212,13 @@ class MainActivity : ComponentActivity() {
                         activeDialogAppState.value = app
                         showOptionsDialogState.value = true
                         triggerHaptic()
+                        SoundEffectManager.playMenuOpen()
                         return true
                     }
                 }
                 showAddGameOptionsDialogState.value = true
                 triggerHaptic()
+                SoundEffectManager.playMenuOpen()
                 return true
             }
 
@@ -1219,6 +1227,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_F1 -> {
                 showLauncherSettingsDialogState.value = true
                 triggerHaptic()
+                SoundEffectManager.playMenuOpen()
                 return true
             }
 
@@ -1237,6 +1246,7 @@ class MainActivity : ComponentActivity() {
                     showOptionsDialogState.value = true
                 }
                 triggerHaptic()
+                SoundEffectManager.playMenuOpen()
                 return true
             }
 
@@ -1294,12 +1304,14 @@ class MainActivity : ComponentActivity() {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
                     focusAreaState.value = FocusArea.CAROUSEL
                     triggerHaptic()
+                    SoundEffectManager.playCancelBack()
                     return true
                 }
                 if (activeFolderState.value != null) {
                     activeFolderState.value = null
                     selectedIndexState.intValue = lastFolderIndex
                     triggerHaptic()
+                    SoundEffectManager.playCancelBack()
                     return true
                 }
                 return true
@@ -1416,18 +1428,24 @@ class MainActivity : ComponentActivity() {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
                     topBarIndexState.intValue = (topBarIndexState.intValue - 1).coerceAtLeast(0)
                     triggerHaptic()
+                    SoundEffectManager.playNavMove()
                 } else if (count > 0) {
+                    val prev = selectedIndexState.intValue
                     selectedIndexState.intValue = (selectedIndexState.intValue - 1).coerceAtLeast(0)
                     triggerHaptic()
+                    if (selectedIndexState.intValue != prev) SoundEffectManager.playNavMove() else SoundEffectManager.playBoundary()
                 }
             }
             JoystickDir.RIGHT -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
                     topBarIndexState.intValue = (topBarIndexState.intValue + 1).coerceAtMost(1)
                     triggerHaptic()
+                    SoundEffectManager.playNavMove()
                 } else if (count > 0) {
+                    val prev = selectedIndexState.intValue
                     selectedIndexState.intValue = (selectedIndexState.intValue + 1).coerceAtMost(count - 1)
                     triggerHaptic()
+                    if (selectedIndexState.intValue != prev) SoundEffectManager.playNavMove() else SoundEffectManager.playBoundary()
                 }
             }
             JoystickDir.UP -> {
@@ -1435,12 +1453,14 @@ class MainActivity : ComponentActivity() {
                     focusAreaState.value = FocusArea.TOP_BAR
                     topBarIndexState.intValue = 0
                     triggerHaptic()
+                    SoundEffectManager.playNavMove()
                 }
             }
             JoystickDir.DOWN -> {
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
                     focusAreaState.value = FocusArea.CAROUSEL
                     triggerHaptic()
+                    SoundEffectManager.playNavMove()
                 }
             }
             JoystickDir.NONE -> {}
@@ -1455,6 +1475,7 @@ class MainActivity : ComponentActivity() {
                 1 -> showAddGameOptionsDialogState.value = true
             }
             triggerHaptic()
+            SoundEffectManager.playConfirm()
             return
         }
         val folders = CategoryManager.groupIntoFolders(appsListState.value)
@@ -1467,6 +1488,7 @@ class MainActivity : ComponentActivity() {
                     lastFolderIndex = selectedIndexState.intValue
                     activeFolderState.value = folder
                     selectedIndexState.intValue = 0
+                    SoundEffectManager.playConfirm()
                 }
             } else {
                 val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
@@ -1479,6 +1501,7 @@ class MainActivity : ComponentActivity() {
                 if (current.category == AppCategory.EMULADORES && current.itemType == ItemType.APP) {
                     activeEmulatorAppState.value = current
                     showEmulatorGamesDialogState.value = true
+                    SoundEffectManager.playMenuOpen()
                 } else {
                     requestLaunchItem(current)
                 }

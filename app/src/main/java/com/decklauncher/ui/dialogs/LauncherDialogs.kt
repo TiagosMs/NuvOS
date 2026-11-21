@@ -53,6 +53,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -73,6 +76,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.decklauncher.data.*
 import com.decklauncher.ui.components.*
 import androidx.compose.ui.window.Dialog
@@ -378,172 +383,249 @@ fun EditCoverSteamGridDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         EnableWindowBlur()
+        var isVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
+
         Box(
             modifier = Modifier
-                .width(520.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(22.dp)
+                .fillMaxSize()
+                .background(ScrimColor)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Editar Capa - ${app.label}",
-                        color = TextWhite,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = DotGreen,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(18.dp)
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(540.dp)
+                        .fillMaxHeight(0.92f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
                         )
-                    }
-                }
-
-                // Seletor de Database / Provedor
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(ColorBgDeep)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
                 ) {
-                    ArtworkProvider.values().forEach { prov ->
-                        val isSel = activeProvider == prov
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSel) SteamDeckButtonBlue.copy(alpha = 0.35f) else SteamDeckCardBg)
-                                .border(
-                                    width = if (isSel) 1.5.dp else 1.dp,
-                                    color = if (isSel) SteamDeckButtonBlue else Color(0x22FFFFFF),
-                                    shape = RoundedCornerShape(16.dp)
-                                )
-                                .clickable {
-                                    activeProvider = prov
-                                    doSearch(searchTitle, prov)
-                                }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Header com nome do item e fechar
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = prov.title,
-                                color = if (isSel) TextWhite else SteamDeckTextMuted,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Escolher Capa / Ícone",
+                                    color = TextWhite,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = app.label,
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        color = FocusRing,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(NeutralBtnBg)
+                                        .clickable { onDismiss() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    VectorIconClose(tint = TextWhite)
+                                }
+                            }
                         }
-                    }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = searchTitle,
-                        onValueChange = { searchTitle = it },
-                        label = { Text("Nome do Jogo") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = Color(0x44FFFFFF)
-                        ),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
+                        // Seletor de Database / Provedor
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ArtworkProvider.values().forEach { prov ->
+                                val isSel = activeProvider == prov
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (isSel) NeutralBtnBgFocused else NeutralBtnBg)
+                                        .border(
+                                            width = if (isSel) 1.5.dp else 1.dp,
+                                            color = if (isSel) FocusRing else CardBorderUnselected,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .clickable {
+                                            activeProvider = prov
+                                            doSearch(searchTitle, prov)
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = prov.title,
+                                        color = if (isSel) TextWhite else TextPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
 
-                    Button(
-                        onClick = { doSearch(searchTitle) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                        shape = RoundedCornerShape(20.dp),
-                        enabled = !isLoading
-                    ) {
-                        Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
+                        // Barra de busca
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = searchTitle,
+                                onValueChange = { searchTitle = it },
+                                label = { Text("Nome do Jogo / App") },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = TextWhite,
+                                    unfocusedTextColor = TextWhite,
+                                    focusedBorderColor = FocusRing,
+                                    unfocusedBorderColor = CardBorderUnselected
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
 
-                if (statusMessage != null) {
-                    Text(text = statusMessage!!, color = Color(0xFF22C55E), fontSize = 12.sp)
-                }
+                            Button(
+                                onClick = { doSearch(searchTitle) },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeutralBtnBgFocused),
+                                shape = RoundedCornerShape(14.dp),
+                                enabled = !isLoading
+                            ) {
+                                Text("Buscar", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
 
-                if (results.isNotEmpty()) {
-                    Text(
-                        text = "Selecione uma capa vertical:",
-                        color = SteamDeckTextMuted,
-                        fontSize = 12.sp
-                    )
+                        if (statusMessage != null) {
+                            Text(text = statusMessage!!, color = TextPrimary, fontSize = 12.sp)
+                        }
 
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(results) { artwork ->
-                            var isCandidateFocused by remember { mutableStateOf(false) }
+                        // Grade quadrada com os ícones / capas encontrados
+                        if (results.isEmpty() && !isLoading) {
                             Box(
                                 modifier = Modifier
-                                    .width(90.dp)
-                                    .height(135.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .border(
-                                        width = if (isCandidateFocused) 3.dp else 1.dp,
-                                        color = if (isCandidateFocused) Color.White else Color(0x33FFFFFF),
-                                        shape = RoundedCornerShape(20.dp)
-                                    )
-                                    .onFocusChanged { isCandidateFocused = it.isFocused }
-                                    .focusable()
-                                    .clickable {
-                                        onApplyCoverUrl(artwork.url)
-                                        onDismiss()
-                                    }
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                var thumbBmp by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-                                LaunchedEffect(artwork.thumbUrl) {
-                                    withContext(Dispatchers.IO) {
-                                        try {
-                                            val url = java.net.URL(artwork.thumbUrl)
-                                            val stream = url.openStream()
-                                            thumbBmp = android.graphics.BitmapFactory.decodeStream(stream)
-                                            stream.close()
-                                        } catch (_: Exception) {}
-                                    }
-                                }
-
-                                if (thumbBmp != null) {
-                                    Image(
-                                        bitmap = thumbBmp!!.asImageBitmap(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
+                                Text(
+                                    text = "Nenhuma arte encontrada.\nDigite o nome e toque em Buscar.",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentPadding = PaddingValues(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                gridItemsIndexed(results) { _, artwork ->
+                                    var isCandidateFocused by remember { mutableStateOf(false) }
                                     Box(
-                                        modifier = Modifier.fillMaxSize().background(Color(0xFF27303D)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1.0f)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (isCandidateFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                                            .border(
+                                                width = if (isCandidateFocused) 2.5.dp else 1.dp,
+                                                color = if (isCandidateFocused) FocusRing else CardBorderUnselected,
+                                                shape = RoundedCornerShape(16.dp)
+                                            )
+                                            .onFocusChanged { isCandidateFocused = it.isFocused }
+                                            .focusable()
+                                            .clickable {
+                                                onApplyCoverUrl(artwork.url)
+                                                onDismiss()
+                                            },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data(artwork.thumbUrl)
+                                                .crossfade(true)
+                                                .build(),
+                                            contentDescription = artwork.label,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+
+                                        if (!artwork.label.isNullOrBlank()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .align(Alignment.BottomCenter)
+                                                    .background(ColorBgDeep.copy(alpha = 0.85f))
+                                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = artwork.label,
+                                                    color = TextWhite,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Cancelar", color = SteamDeckTextMuted)
                 }
             }
         }
