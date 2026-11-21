@@ -51,6 +51,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -67,10 +69,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.decklauncher.data.*
+import com.decklauncher.ui.components.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.*
@@ -549,10 +553,28 @@ fun EditCoverSteamGridDialog(
 @Composable
 fun AddGameOptionsDialog(
     onDismiss: () -> Unit,
-    onRescanRoms: () -> Unit
+    onRescanRoms: () -> Unit,
+    allRoms: List<AppItem> = emptyList(),
+    pinnedGameIds: Set<String> = emptySet(),
+    onTogglePinGame: (AppItem) -> Unit = {}
 ) {
+    var showRomPicker by remember { mutableStateOf(false) }
+
+    if (showRomPicker) {
+        AddEmulatorGamePickerDialog(
+            allRoms = allRoms,
+            pinnedGameIds = pinnedGameIds,
+            onDismiss = { showRomPicker = false },
+            onTogglePin = onTogglePinGame
+        )
+        return
+    }
+
     val actions = remember {
         listOf(
+            DialogActionItem("Adicionar Jogos de Emuladores à Tela Inicial") {
+                showRomPicker = true
+            },
             DialogActionItem("Escanear Pasta de ROMs (/sdcard/ROMs)") {
                 onDismiss()
                 onRescanRoms()
@@ -663,6 +685,221 @@ fun AddGameOptionsDialog(
                                 isExternalFocused = selectedIndex == idx,
                                 onClick = item.onClick
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddEmulatorGamePickerDialog(
+    allRoms: List<AppItem>,
+    pinnedGameIds: Set<String>,
+    onDismiss: () -> Unit,
+    onTogglePin: (AppItem) -> Unit
+) {
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val focusRequester = remember { FocusRequester() }
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+        focusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        EnableWindowBlur()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> {
+                                selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
+                                selectedIndex = (selectedIndex + 1).coerceAtMost((allRoms.size - 1).coerceAtLeast(0))
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                val item = allRoms.getOrNull(selectedIndex)
+                                if (item != null) onTogglePin(item)
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(animationSpec = tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(480.dp)
+                        .fillMaxHeight(0.92f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(ColorBgDeep)
+                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
+                        .padding(22.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Jogos de Emuladores",
+                                    color = TextWhite,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Selecione quais jogos fixar na Tela Inicial",
+                                    color = TextPrimary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(NeutralBtnBg)
+                                    .border(1.dp, CardBorderUnselected, RoundedCornerShape(12.dp))
+                                    .clickable { onDismiss() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                VectorIconClose(tint = TextWhite)
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 2.dp))
+
+                        if (allRoms.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Nenhuma ROM encontrada no armazenamento.\nColoque seus jogos em /sdcard/Rom.",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            val listState = rememberLazyListState()
+                            LaunchedEffect(selectedIndex) {
+                                listState.animateScrollToItem(selectedIndex.coerceAtLeast(0))
+                            }
+
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                itemsIndexed(allRoms) { idx, rom ->
+                                    val isFocused = selectedIndex == idx
+                                    val isPinned = pinnedGameIds.contains(rom.id)
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(if (isFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                                            .border(
+                                                width = if (isFocused) 2.dp else 1.dp,
+                                                color = if (isFocused) FocusRing else CardBorderUnselected,
+                                                shape = RoundedCornerShape(14.dp)
+                                            )
+                                            .clickable { onTogglePin(rom) }
+                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = rom.label,
+                                                color = if (isFocused) TextWhite else NeutralBtnText,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                text = rom.romPath ?: "",
+                                                color = TextPrimary.copy(alpha = 0.7f),
+                                                fontSize = 10.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(10.dp))
+
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isPinned) NeutralBtnBgFocused else Color(0xFF2A3240))
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = if (isPinned) FocusRing else CardBorderUnselected,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isPinned) "Fixado" else "Adicionar",
+                                                color = TextWhite,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -1214,25 +1214,15 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão START / F1: Abre Opções do app/jogo focado na lista (ou menu geral se nada focado)
+            // Botão START / F1: Abre SEMPRE o menu principal do launcher (Start Menu)
             KeyEvent.KEYCODE_BUTTON_START,
             KeyEvent.KEYCODE_F1 -> {
-                val current = if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
-                    activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
-                } else {
-                    filtered.getOrNull(selectedIndexState.intValue)
-                }
-                if (current != null) {
-                    activeDialogAppState.value = current
-                    showOptionsDialogState.value = true
-                } else {
-                    showLauncherSettingsDialogState.value = true
-                }
+                showLauncherSettingsDialogState.value = true
                 triggerHaptic()
                 return true
             }
 
-            // Botão X / SELECT / MENU: Abre Opções do app/jogo focado
+            // Botão SELECT / X / MENU: Abre Opções do app/jogo focado
             KeyEvent.KEYCODE_BUTTON_X,
             KeyEvent.KEYCODE_X,
             KeyEvent.KEYCODE_BUTTON_SELECT,

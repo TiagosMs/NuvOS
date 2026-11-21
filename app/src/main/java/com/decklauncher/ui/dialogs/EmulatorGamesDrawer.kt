@@ -113,11 +113,11 @@ fun EmulatorGamesDrawer(
                     if (keyEvent.type == KeyEventType.KeyDown) {
                         when (keyEvent.nativeKeyEvent.keyCode) {
                             NativeKeyEvent.KEYCODE_DPAD_UP -> {
-                                selectedIndex = (selectedIndex - 3).coerceAtLeast(0)
+                                selectedIndex = (selectedIndex - 2).coerceAtLeast(0)
                                 true
                             }
                             NativeKeyEvent.KEYCODE_DPAD_DOWN -> {
-                                selectedIndex = (selectedIndex + 3).coerceAtMost(emulatorRoms.size)
+                                selectedIndex = (selectedIndex + 2).coerceAtMost(emulatorRoms.size)
                                 true
                             }
                             NativeKeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -144,6 +144,20 @@ fun EmulatorGamesDrawer(
                                 true
                             }
                             NativeKeyEvent.KEYCODE_BUTTON_X,
+                            NativeKeyEvent.KEYCODE_BUTTON_SELECT,
+                            NativeKeyEvent.KEYCODE_MENU -> {
+                                if (selectedIndex > 0) {
+                                    val rom = emulatorRoms.getOrNull(selectedIndex - 1)
+                                    if (rom != null) {
+                                        if (onRequestChangeArtwork != null) {
+                                            onRequestChangeArtwork(rom)
+                                        } else {
+                                            onTogglePinGame(rom)
+                                        }
+                                    }
+                                }
+                                true
+                            }
                             NativeKeyEvent.KEYCODE_BUTTON_Y -> {
                                 if (selectedIndex > 0) {
                                     val rom = emulatorRoms.getOrNull(selectedIndex - 1)
@@ -306,7 +320,7 @@ fun EmulatorGamesDrawer(
                             }
                         } else {
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(3),
+                                columns = GridCells.Fixed(2),
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxWidth(),
@@ -327,7 +341,11 @@ fun EmulatorGamesDrawer(
                                             onDismiss()
                                         },
                                         onLongClick = {
-                                            onTogglePinGame(rom)
+                                            if (onRequestChangeArtwork != null) {
+                                                onRequestChangeArtwork(rom)
+                                            } else {
+                                                onTogglePinGame(rom)
+                                            }
                                         }
                                     )
                                 }
@@ -356,7 +374,7 @@ fun RomGridCardItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.72f)
+            .aspectRatio(1.0f)
             .scale(if (isFocused) 1.04f else 1.0f)
             .clip(RoundedCornerShape(16.dp))
             .background(if (isFocused) NeutralBtnBgFocused else NeutralBtnBg)

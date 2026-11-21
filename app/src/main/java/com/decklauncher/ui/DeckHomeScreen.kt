@@ -767,7 +767,10 @@ fun DeckHomeScreen(
         if (showAddGameOptionsDialog) {
             AddGameOptionsDialog(
                 onDismiss = onDismissAddGameOptions,
-                onRescanRoms = onRescanRoms
+                onRescanRoms = onRescanRoms,
+                allRoms = allScannedRoms,
+                pinnedGameIds = pinnedGameIds,
+                onTogglePinGame = onTogglePinGame
             )
         }
 
@@ -838,7 +841,11 @@ fun DeckHomeScreen(
                 onDismiss = onDismissEmulatorGames,
                 onLaunchEmulator = { onLaunchEmulatorDirectly(activeEmulatorApp) },
                 onLaunchRom = onLaunchRom,
-                onTogglePinGame = onTogglePinGame
+                onTogglePinGame = onTogglePinGame,
+                onRequestChangeArtwork = { rom ->
+                    onDismissEmulatorGames()
+                    onRequestEditCover(rom)
+                }
             )
         }
 

@@ -44,7 +44,7 @@ import com.decklauncher.ui.theme.*
 
 enum class StartMenuTab(val title: String) {
     BIBLIOTECA("Biblioteca"),
-    APARENCIA("Aparência e Navegação"),
+    APARENCIA("Aparência"),
     BANCOS_DADOS("Bancos de Dados")
 }
 

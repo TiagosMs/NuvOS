@@ -160,9 +160,10 @@ object RomScanner {
                     if (config.bootPathExtra != null) {
                         putExtra("bootPath", file.absolutePath)
                     }
-                    if (config.dataPattern != null || config.mimeType != null) {
-                        val mime = config.mimeType ?: "*/*"
-                        setDataAndType(uri, mime)
+                    if (config.mimeType != null) {
+                        setDataAndType(uri, config.mimeType)
+                    } else if (config.dataPattern != null || act == Intent.ACTION_VIEW || config.action != null) {
+                        data = uri
                     }
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                 }
@@ -173,7 +174,7 @@ object RomScanner {
             // Fallback genérico com intent explícita
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setPackage(item.packageName)
-                setDataAndType(uri, "*/*")
+                data = uri
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
             if (options != null) context.startActivity(intent, options) else context.startActivity(intent)
