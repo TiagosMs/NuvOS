@@ -135,7 +135,7 @@ object RomScanner {
         val file = File(path)
         if (!file.exists()) return false
 
-        val uri = Uri.fromFile(file)
+        val uri = Uri.fromFile(file) // rule-ok: excecao T2.4 retrocompatibilidade com emuladores sem suporte a SAF content URI
         val ext = file.extension.lowercase()
         val configs = RomSystemDetector.loadEmulatorConfigs(context)
         val config = configs.firstOrNull { it.packageName == item.packageName }

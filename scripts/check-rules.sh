@@ -19,4 +19,10 @@ check "possível segredo hardcoded"           '(api[_-]?key|secret|token|passwor
 check "Log de dados sensíveis"               'Log\.[dvi]\(.*(key|token|senha|password)'      "$SRC/java"
 check "mutableMapOf como cache"              'memoryCache\s*=\s*mutableMapOf'                 "$SRC/java"
 
+# Regras Automáticas v1.1 (T8.2)
+check "Pacote de ícones proibido no código"  'iconpack'                                       "app/src"
+check "Better xCloud fixo proibido"          'betterxc'                                       "app/src"
+check "Uri.fromFile não permitido"           'Uri\.fromFile'                                  "$SRC/java"
+check "delete recursivo fora de RomOrganizer" '\.deleteRecursively\(\)'                       "$SRC/java/com/decklauncher/data/RomScanner.kt"
+
 [ "$fail" -eq 0 ] && echo "✅ check-rules OK" || { echo "Corrija os itens acima."; exit 1; }

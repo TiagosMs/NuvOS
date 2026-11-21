@@ -444,6 +444,28 @@ Por que isso importa: no relatório anterior, itens do plano ficaram sem mençã
 
 ---
 
+## 11. Novas Regras e Padrões da Versão 1.1
+
+### 11.1 Sistema de Cores e Tokens Neutros
+- Cores de botões, glifos de controle (A/B/X/Y/LB/RB) e diálogos devem derivar exclusivamente de `Theme.kt` (`NeutralBtnBg`, `NeutralBtnBgFocused`, `FocusRing`, `ScrimColor`, etc.).
+- Proibido hardcodear `Color(0x...)` diretamente em novos componentes sem justificativa marcada com `// rule-ok: <motivo>`.
+- Ações destrutivas (ex: Remover, Desinstalar) usam confirmação obrigatória via `ConfirmActionDialog`.
+
+### 11.2 Atalhos Fixados de Nuvem (PinItemRequest)
+- Atalhos de streaming e web apps devem ser recebidos via `android.content.pm.action.CONFIRM_PIN_SHORTCUT` e lançados estritamente via `LauncherApps.startShortcut(...)`.
+- Nunca montar Intents avulsas a partir de dados não confiáveis de atalhos.
+
+### 11.3 Organização e Segurança de ROMs
+- Operações de organização de ROMs devem ser estritamente puras na fase de planejamento (`RomOrganizer.plan`).
+- Apenas renomeações atômicas no mesmo sistema de arquivos (`renameTo`) são permitidas. Chamadas de deleção física de ROMs são expressamente proibidas.
+
+### 11.4 Tipografia e Fontes Embutidas
+- Títulos: **Chakra Petch** (OFL).
+- Corpo: **Rajdhani** (OFL).
+- Ambas devem estar embutidas localmente em `res/font` com cobertura completa para caracteres e acentos da língua portuguesa.
+
+---
+
 ## Resumo de uma página (cole na parede)
 
 **Antes de codar:** qual regra isso toca? Preciso medir antes?

@@ -254,7 +254,7 @@ class MainActivity : ComponentActivity() {
         requestHighestRefreshRate()
 
         // Migração v1.1: limpar preferência legada de pacote de ícones
-        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
 
         setContent {
             DeckLauncherTheme {
@@ -592,7 +592,7 @@ class MainActivity : ComponentActivity() {
         requestHighestRefreshRate()
 
         // Migração v1.1: limpar preferência legada de pacote de ícones
-        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
         ThemeMusicManager.resumeTheme()
     }
 
