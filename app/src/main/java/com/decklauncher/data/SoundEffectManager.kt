@@ -23,7 +23,7 @@ object SoundEffectManager {
         if (soundPool != null) return
 
         val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
 
@@ -31,6 +31,12 @@ object SoundEffectManager {
             .setMaxStreams(6)
             .setAudioAttributes(attrs)
             .build()
+
+        pool.setOnLoadCompleteListener { _, sampleId, status ->
+            if (status == 0) {
+                isLoaded = true
+            }
+        }
 
         soundNavMove = pool.load(context, R.raw.sfx_nav_move, 1)
         soundTabSwitch = pool.load(context, R.raw.sfx_tab_switch, 1)
@@ -42,12 +48,11 @@ object SoundEffectManager {
         soundGameLaunch = pool.load(context, R.raw.sfx_game_launch, 1)
 
         soundPool = pool
-        isLoaded = true
     }
 
-    private fun play(soundId: Int, volume: Float = 0.85f) {
+    private fun play(soundId: Int, volume: Float = 0.95f) {
         val pool = soundPool ?: return
-        if (soundId != 0 && isLoaded) {
+        if (soundId != 0) {
             pool.play(soundId, volume, volume, 1, 0, 1.0f)
         }
     }

@@ -84,6 +84,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.*
 import com.decklauncher.model.AppItem
+import com.decklauncher.model.AppCategory
 import com.decklauncher.model.ItemType
 import com.decklauncher.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -641,6 +642,8 @@ fun AddGameOptionsDialog(
     onTogglePinGame: (AppItem) -> Unit = {}
 ) {
     var showRomPicker by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     if (showRomPicker) {
         AddEmulatorGamePickerDialog(
@@ -652,10 +655,50 @@ fun AddGameOptionsDialog(
         return
     }
 
+    if (showAppPicker) {
+        val installedApps = remember {
+            val pm = context.packageManager
+            val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val list = pm.queryIntentActivities(intent, 0)
+            list.mapNotNull { resolveInfo ->
+                val pkg = resolveInfo.activityInfo.packageName
+                if (pkg == context.packageName) null
+                else {
+                    val label = resolveInfo.loadLabel(pm).toString()
+                    AppItem(
+                        id = "app_${pkg.lowercase()}",
+                        label = label,
+                        packageName = pkg,
+                        activityName = resolveInfo.activityInfo.name,
+                        category = AppCategory.APPS,
+                        itemType = ItemType.APP,
+                        coverPath = CoverManager.getCoverPath(context, "app_${pkg.lowercase()}")
+                    )
+                }
+            }.sortedBy { it.label.lowercase() }
+        }
+
+        AddEmulatorGamePickerDialog(
+            allRoms = installedApps,
+            pinnedGameIds = pinnedGameIds,
+            title = "Aplicativos Instalados",
+            subtitle = "Selecione quais aplicativos fixar na Tela Inicial",
+            emptyText = "Nenhum aplicativo encontrado.",
+            onDismiss = { showAppPicker = false },
+            onTogglePin = onTogglePinGame
+        )
+        return
+    }
+
     val actions = remember {
         listOf(
             DialogActionItem("Adicionar Jogos de Emuladores à Tela Inicial") {
                 showRomPicker = true
+            },
+            DialogActionItem("Adicionar Aplicativos à Tela Inicial") {
+                showAppPicker = true
             },
             DialogActionItem("Escanear Pasta de ROMs (/sdcard/ROMs)") {
                 onDismiss()
@@ -779,6 +822,9 @@ fun AddGameOptionsDialog(
 fun AddEmulatorGamePickerDialog(
     allRoms: List<AppItem>,
     pinnedGameIds: Set<String>,
+    title: String = "Jogos de Emuladores",
+    subtitle: String = "Selecione quais jogos fixar na Tela Inicial",
+    emptyText: String = "Nenhuma ROM encontrada no armazenamento.\nColoque seus jogos em /sdcard/Rom.",
     onDismiss: () -> Unit,
     onTogglePin: (AppItem) -> Unit
 ) {
@@ -874,13 +920,13 @@ fun AddEmulatorGamePickerDialog(
                         ) {
                             Column {
                                 Text(
-                                    text = "Jogos de Emuladores",
+                                    text = title,
                                     color = TextWhite,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Selecione quais jogos fixar na Tela Inicial",
+                                    text = subtitle,
                                     color = TextPrimary,
                                     fontSize = 12.sp
                                 )
@@ -906,7 +952,7 @@ fun AddEmulatorGamePickerDialog(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Nenhuma ROM encontrada no armazenamento.\nColoque seus jogos em /sdcard/Rom.",
+                                    text = emptyText,
                                     color = TextPrimary,
                                     fontSize = 13.sp,
                                     textAlign = TextAlign.Center

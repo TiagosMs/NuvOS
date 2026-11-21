@@ -751,7 +751,7 @@ class MainActivity : ComponentActivity() {
             val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
             val pinnedRomGames = romGames.filter { pinnedIds.contains(it.id) }
 
-            val rawJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedShortcuts + pinnedRomGames).distinctBy { it.id }.sortedBy { it.label.lowercase() }
+            val rawJogos = (appItems.filter { it.category == AppCategory.JOGOS || pinnedIds.contains(it.id) } + cloudGames + pinnedShortcuts + pinnedRomGames).distinctBy { it.id }.sortedBy { it.label.lowercase() }
             val rawEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.distinctBy { it.id }.sortedBy { it.label.lowercase() }
             val rawApps = appItems.filter { it.category == AppCategory.APPS }.distinctBy { it.id }.sortedBy { it.label.lowercase() }
 
