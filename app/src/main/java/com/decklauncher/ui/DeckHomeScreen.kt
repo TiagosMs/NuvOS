@@ -76,10 +76,8 @@ fun DeckHomeScreen(
     showEditLogoDialog: Boolean = false,
     showSelectIntroDialog: Boolean = false,
     showInitialSetupDialog: Boolean = false,
-    showAddCloudDialog: Boolean,
     showAddGameOptionsDialog: Boolean,
     showSteamGridDialog: Boolean,
-    showIconPackDialog: Boolean,
     showLauncherSettingsDialog: Boolean = false,
     showChangeAvatarDialog: Boolean = false,
     showEmulatorGamesDialog: Boolean = false,
@@ -120,10 +118,8 @@ fun DeckHomeScreen(
     onDismissEditLogo: () -> Unit = {},
     onDismissSelectIntro: () -> Unit = {},
     onDismissInitialSetup: () -> Unit = {},
-    onDismissAddCloud: () -> Unit,
     onDismissAddGameOptions: () -> Unit,
     onDismissSteamGrid: () -> Unit,
-    onDismissIconPack: () -> Unit,
     onDismissLauncherSettings: () -> Unit = {},
     onDismissChangeAvatar: () -> Unit = {},
     onDismissEmulatorGames: () -> Unit = {},
@@ -145,9 +141,7 @@ fun DeckHomeScreen(
     onRequestPickDownloadFolder: () -> Unit = {},
     onRequestSetupFolders: () -> Unit = {},
     onCompleteSetup: () -> Unit = {},
-    onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
-    onRequestIconPackSettings: () -> Unit,
     onRequestAddGameOptions: () -> Unit = {},
     onRequestOpenLauncherSettings: () -> Unit = {},
     onRequestChangeAvatar: () -> Unit = {},
@@ -156,7 +150,6 @@ fun DeckHomeScreen(
     onProfileNameUpdated: (String) -> Unit = {},
     onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
     onSaveSteamGridKey: (String) -> Unit,
-    onSelectIconPack: (String?) -> Unit,
     onApplyCoverUrl: (AppItem, String) -> Unit,
     onApplyHeroUrl: (AppItem, String) -> Unit = { _, _ -> },
     onApplyLogoUrl: (AppItem, String) -> Unit = { _, _ -> },
@@ -165,7 +158,6 @@ fun DeckHomeScreen(
     onRemoveSoundbite: (AppItem) -> Unit = {},
     onClearAllMetadata: () -> Unit = {},
     metadataUpdateCounter: Int = 0,
-    onAddCloudGameConfirm: (String, String) -> Unit,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
     modifier: Modifier = Modifier
@@ -686,9 +678,7 @@ fun DeckHomeScreen(
                 onRequestEditLogo = { onRequestEditLogo(appItem) },
                 onRequestSelectIntro = { onRequestSelectIntro(appItem) },
                 onRequestFetchIidb = { onRequestFetchIidb(appItem) },
-                onRequestAddGame = onRequestAddGame,
                 onRequestSteamGridSettings = onRequestSteamGridSettings,
-                onRequestIconPackSettings = onRequestIconPackSettings,
                 onRescanRoms = onRescanRoms,
                 onOpenAppSettings = { onOpenSettings(appItem) },
                 onUninstallApp = { onUninstallApp(appItem) },
@@ -760,15 +750,7 @@ fun DeckHomeScreen(
         if (showAddGameOptionsDialog) {
             AddGameOptionsDialog(
                 onDismiss = onDismissAddGameOptions,
-                onOpenCloudCatalog = onRequestAddGame,
                 onRescanRoms = onRescanRoms
-            )
-        }
-
-        if (showAddCloudDialog) {
-            CloudGameCatalogDialog(
-                onDismiss = onDismissAddCloud,
-                onSelectGame = onAddCloudGameConfirm
             )
         }
 
@@ -786,13 +768,6 @@ fun DeckHomeScreen(
             )
         }
 
-        if (showIconPackDialog) {
-            IconPackDialog(
-                onDismiss = onDismissIconPack,
-                onSelectPack = onSelectIconPack
-            )
-        }
-
         if (showLauncherSettingsDialog) {
             LauncherSettingsDialog(
                 onDismiss = onDismissLauncherSettings,
@@ -800,8 +775,6 @@ fun DeckHomeScreen(
                 onRequestSteamGridKey = onRequestSteamGridSettings,
                 onRequestIidbKey = onRequestIidbKey,
                 onArtworkProviderSelected = onArtworkProviderSelected,
-                onRequestIconPack = onRequestIconPackSettings,
-                onRequestAddCloudGame = onRequestAddGame,
                 onRescanRoms = onRescanRoms,
                 onRequestReorderMode = onRequestReorderMode,
                 onRequestSetupFolders = onRequestSetupFolders,

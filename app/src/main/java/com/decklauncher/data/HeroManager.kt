@@ -110,7 +110,7 @@ object HeroManager {
         t = t.replace(Regex("\\.[a-zA-Z0-9]{2,4}$"), "")
         t = t.replace(Regex("\\s*[\\[\\(].*?[\\]\\)]"), "")
         val lower = t.trim().lowercase()
-        if (lower.contains("better xcloud") || lower.contains("betterxc")) return "Xbox Cloud Gaming"
+        if (lower.contains("xbox cloud") || lower.contains("xcloud")) return "Xbox Cloud Gaming"
         if (lower.contains("hakux")) return "Xbox"
         return t.trim()
     }

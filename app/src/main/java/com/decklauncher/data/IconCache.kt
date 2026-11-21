@@ -47,8 +47,8 @@ fun drawableToBitmap(drawable: Drawable): Bitmap {
 
 fun loadIcon(context: Context, app: AppItem): ImageBitmap? {
     val pm = context.packageManager
-    val customIconDrawable = IconPackManager.getIcon(context, app.packageName, app.activityName)
-    val drawable = customIconDrawable ?: try {
+    // Ícones vêm sempre do PackageManager (+ IconCache local)
+    val drawable = try {
         pm.getApplicationIcon(app.packageName)
     } catch (_: Exception) {
         null

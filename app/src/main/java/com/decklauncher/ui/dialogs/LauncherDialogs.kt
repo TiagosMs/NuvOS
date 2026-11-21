@@ -125,9 +125,7 @@ fun OptionsDialog(
     onRequestEditLogo: () -> Unit = {},
     onRequestSelectIntro: () -> Unit = {},
     onRequestFetchIidb: () -> Unit = {},
-    onRequestAddGame: () -> Unit,
     onRequestSteamGridSettings: () -> Unit,
-    onRequestIconPackSettings: () -> Unit,
     onRescanRoms: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onUninstallApp: () -> Unit,
@@ -146,14 +144,12 @@ fun OptionsDialog(
         list.add(DialogActionItem("Editar Fundo / Hero (${preferredProvider.shortName})") { onRequestEditHero(); onDismiss() })
         list.add(DialogActionItem("Editar Logo 3D (${preferredProvider.shortName})") { onRequestEditLogo(); onDismiss() })
         list.add(DialogActionItem("Trocar Intro do Console") { onRequestSelectIntro(); onDismiss() })
-        list.add(DialogActionItem("Adicionar Jogos em Nuvem (Better xCloud)") { onRequestAddGame(); onDismiss() })
         if (app.itemType == ItemType.APP) {
             list.add(DialogActionItem("Informações do Aplicativo") { onOpenAppSettings(); onDismiss() })
             list.add(DialogActionItem("Desinstalar Aplicativo", Color(0xFFEF4444)) { onUninstallApp(); onDismiss() })
         } else {
             list.add(DialogActionItem("Remover da Tela Inicial", Color(0xFFEF4444)) { onRemoveItem(); onDismiss() })
         }
-        list.add(DialogActionItem("Pacote de Ícones") { onRequestIconPackSettings(); onDismiss() })
         list.add(DialogActionItem("Re-escanear Armazenamento") { onRescanRoms(); onDismiss() })
         list.add(DialogActionItem("Fechar") { onDismiss() })
         list
@@ -261,7 +257,7 @@ fun OptionsDialog(
                         )
                         Text(
                             text = when (app.itemType) {
-                                ItemType.CLOUD -> "Jogo em Nuvem (Better xCloud)"
+                                ItemType.CLOUD -> "Jogo em Nuvem"
                                 ItemType.ROM -> "Jogo de Emulador (${app.romPath ?: ""})"
                                 ItemType.APP -> "Aplicativo Android"
                             },
@@ -552,15 +548,10 @@ fun EditCoverSteamGridDialog(
 @Composable
 fun AddGameOptionsDialog(
     onDismiss: () -> Unit,
-    onOpenCloudCatalog: () -> Unit,
     onRescanRoms: () -> Unit
 ) {
     val actions = remember {
         listOf(
-            DialogActionItem("Catálogo Xbox Cloud (Better xCloud)") {
-                onOpenCloudCatalog()
-                onDismiss()
-            },
             DialogActionItem("Escanear Pasta de ROMs (/sdcard/ROMs)") {
                 onDismiss()
                 onRescanRoms()
@@ -927,15 +918,9 @@ fun EmulatorGamesDialog(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0x30000000))
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "🎮 (A) Jogar  •  (X) Fixar na Home",
-                                color = Color(0xFFD6D6D6),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
                             Text(
                                 text = "(B) Voltar",
                                 color = Color(0xFFAAAAAA),
@@ -1068,156 +1053,6 @@ fun EmulatorRomItemRow(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun CloudGameCatalogDialog(
-    onDismiss: () -> Unit,
-    onSelectGame: (String, String) -> Unit
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    val catalog = remember { CloudGameManager.XBOX_CLOUD_CATALOG }
-
-    val filteredList = remember(searchQuery) {
-        if (searchQuery.isBlank()) {
-            catalog
-        } else {
-            catalog.filter { it.title.contains(searchQuery.trim(), ignoreCase = true) }
-        }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        EnableWindowBlur()
-        Box(
-            modifier = Modifier
-                .width(480.dp)
-                .height(520.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(20.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Text(
-                    text = "Catálogo Xbox Cloud Gaming",
-                    color = TextWhite,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Selecione um jogo para iniciar diretamente no Better xCloud:",
-                    color = SteamDeckTextMuted,
-                    fontSize = 12.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Pesquisar jogo no catálogo") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color(0x44FFFFFF)
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(filteredList) { item ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(SteamDeckCardBg)
-                                .clickable {
-                                    onSelectGame(item.title, item.url)
-                                    onDismiss()
-                                }
-                                .padding(horizontal = 14.dp, vertical = 12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = item.title,
-                                        color = TextWhite,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        text = "Xbox Cloud • Better xCloud",
-                                        color = SteamDeckTextMuted,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                                Text(
-                                    text = "Adicionar",
-                                    color = BtnAGreen,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    if (filteredList.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "Nenhum jogo encontrado para '$searchQuery'",
-                                        color = SteamDeckTextMuted,
-                                        fontSize = 12.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Button(
-                                        onClick = {
-                                            val customUrl = "https://www.xbox.com/play/games/" + searchQuery.lowercase().replace(" ", "-")
-                                            onSelectGame(searchQuery.trim(), customUrl)
-                                            onDismiss()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = BtnAGreen),
-                                        shape = RoundedCornerShape(20.dp)
-                                    ) {
-                                        Text("Adicionar '$searchQuery' mesmo assim", color = Color.White, fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = SteamDeckTextMuted)
-                    }
-                }
             }
         }
     }
@@ -1371,115 +1206,6 @@ fun IidbApiKeyDialog(
 }
 
 @Composable
-fun IconPackDialog(
-    onDismiss: () -> Unit,
-    onSelectPack: (String?) -> Unit
-) {
-    val context = LocalContext.current
-    val installedPacks = remember { IconPackManager.getInstalledIconPacks(context) }
-    val currentPack = remember { IconPackManager.getSelectedPack(context) }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        EnableWindowBlur()
-        Box(
-            modifier = Modifier
-                .width(420.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(20.dp)
-        ) {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Pacote de Ícones",
-                    color = TextWhite,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Button(
-                    onClick = { IconPackManager.openIconPackStudioLink(context) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27303D)),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "Abrir iiSU style 1 no Icon Pack Studio",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = "Baixe ou exporte o tema para aplicar neste launcher",
-                            color = SteamDeckTextMuted,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-
-                HorizontalDivider(color = Color(0x22FFFFFF))
-
-                Text(
-                    text = "Pacotes instalados no dispositivo:",
-                    color = SteamDeckTextMuted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                SteamDeckIconPackRow(
-                    name = "Padrão do Sistema",
-                    subtitle = "Ícones originais dos aplicativos",
-                    isSelected = currentPack == null,
-                    onClick = {
-                        onSelectPack(null)
-                        onDismiss()
-                    }
-                )
-
-                if (installedPacks.isEmpty()) {
-                    Text(
-                        text = "Nenhum pacote de ícones APK detectado ainda.\nAbra o link acima no Icon Pack Studio e clique em 'Exportar' para instalar.",
-                        color = SteamDeckTextMuted,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                } else {
-                    for (pack in installedPacks) {
-                        SteamDeckIconPackRow(
-                            name = pack.name,
-                            subtitle = if (pack.isIconPackStudio) "Icon Pack Studio (iiSU style)" else pack.packageName,
-                            isSelected = currentPack == pack.packageName,
-                            onClick = {
-                                onSelectPack(pack.packageName)
-                                onDismiss()
-                            }
-                        )
-                    }
-                }
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Fechar", color = SteamDeckTextMuted)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun SteamDeckOptionRow(
     label: String,
     color: Color = TextWhite,
@@ -1543,41 +1269,6 @@ fun SteamDeckOptionRow(
     }
 }
 
-@Composable
-private fun SteamDeckIconPackRow(
-    name: String,
-    subtitle: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Color(0x3322C55E) else SteamDeckCardBg)
-            .border(
-                1.dp,
-                if (isSelected) BtnAGreen else Color(0x22FFFFFF),
-                RoundedCornerShape(20.dp)
-            )
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(text = name, color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text(text = subtitle, color = SteamDeckTextMuted, fontSize = 11.sp)
-            }
-            if (isSelected) {
-                Text(text = "Ativo", color = BtnAGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
 
 @Composable
 fun LauncherSettingsDialog(
@@ -1586,8 +1277,6 @@ fun LauncherSettingsDialog(
     onRequestSteamGridKey: () -> Unit,
     onRequestIidbKey: () -> Unit = {},
     onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
-    onRequestIconPack: () -> Unit,
-    onRequestAddCloudGame: () -> Unit,
     onRescanRoms: () -> Unit,
     onRequestReorderMode: () -> Unit,
     onRequestSetupFolders: () -> Unit = {},
@@ -1766,14 +1455,6 @@ fun LauncherSettingsDialog(
                     label = "Mover e Trocar Ordem dos Itens",
                     onClick = {
                         onRequestReorderMode()
-                        onDismiss()
-                    }
-                )
-
-                SteamDeckOptionRow(
-                    label = "Adicionar Jogos em Nuvem (Better xCloud)",
-                    onClick = {
-                        onRequestAddCloudGame()
                         onDismiss()
                     }
                 )
@@ -2118,15 +1799,6 @@ fun LauncherSettingsDialog(
                     )
                 }
 
-                SteamDeckOptionRow(
-                    label = "Selecionar Pacote de Ícones",
-                    onClick = {
-                        onRequestIconPack()
-                        onDismiss()
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
 
                 var isClearAllFocused by remember { mutableStateOf(false) }
                 Box(

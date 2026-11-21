@@ -423,13 +423,6 @@ fun AppFolderCard(
                 maxLines = 1,
                 textAlign = TextAlign.Center
             )
-
-            Text(
-                text = "${folder.apps.size} ${if (folder.apps.size == 1) "app" else "apps"}",
-                color = if (isSelected) DotGreen else Color(0x88FFFFFF),
-                fontSize = if (isCompactHeight) 10.sp else 11.sp,
-                fontWeight = FontWeight.SemiBold
-            )
         }
     }
 }
@@ -758,7 +751,7 @@ fun FolderDetailPreview(
             }
         }
 
-        Spacer(modifier = Modifier.height(if (isCompactHeight) 6.dp else 10.dp))
+        Spacer(modifier = Modifier.height(if (isCompactHeight) 8.dp else 12.dp))
 
         // Título em destaque da categoria
         Text(
@@ -768,33 +761,6 @@ fun FolderDetailPreview(
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center
         )
-
-        Spacer(modifier = Modifier.height(if (isCompactHeight) 3.dp else 5.dp))
-
-        // Pílula com contagem de aplicativos estilo console
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0x28FFFFFF))
-                .border(1.dp, Color(0x2AFFFFFF), RoundedCornerShape(12.dp))
-                .padding(horizontal = 10.dp, vertical = if (isCompactHeight) 2.dp else 4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(if (isCompactHeight) 5.dp else 6.dp)
-                    .clip(CircleShape)
-                    .background(DotGreen)
-            )
-            Text(
-                text = "${folder.apps.size} ${if (folder.apps.size == 1) "APLICATIVO" else "APLICATIVOS"}",
-                color = TextWhite,
-                fontSize = if (isCompactHeight) 10.sp else 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.8.sp
-            )
-        }
     }
 }
 

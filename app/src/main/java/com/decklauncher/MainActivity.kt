@@ -63,10 +63,8 @@ class MainActivity : ComponentActivity() {
     private var showGameMetadataDialogState = mutableStateOf(false)
     private var showSelectMusicDialogState = mutableStateOf(false)
     private var showEditCoverDialogState = mutableStateOf(false)
-    private var showAddCloudDialogState = mutableStateOf(false)
     private var showAddGameOptionsDialogState = mutableStateOf(false)
     private var showSteamGridDialogState = mutableStateOf(false)
-    private var showIconPackDialogState = mutableStateOf(false)
     private var showLauncherSettingsDialogState = mutableStateOf(false)
     private var showChangeAvatarDialogState = mutableStateOf(false)
     private var isReorderModeState = mutableStateOf(false)
@@ -83,9 +81,9 @@ class MainActivity : ComponentActivity() {
             showSelectMusicDialogState.value ||
             showEditCoverDialogState.value || showEditHeroDialogState.value ||
             showEditLogoDialogState.value || showSelectIntroDialogState.value ||
-            showInitialSetupDialogState.value || showAddCloudDialogState.value ||
+            showInitialSetupDialogState.value ||
             showAddGameOptionsDialogState.value || showSteamGridDialogState.value ||
-            showIconPackDialogState.value || showLauncherSettingsDialogState.value ||
+            showLauncherSettingsDialogState.value ||
             showChangeAvatarDialogState.value || showEmulatorGamesDialogState.value ||
             showIidbKeyDialogState.value
 
@@ -98,11 +96,9 @@ class MainActivity : ComponentActivity() {
         showEditLogoDialogState.value = false
         showSelectIntroDialogState.value = false
         showInitialSetupDialogState.value = false
-        showAddCloudDialogState.value = false
         showAddGameOptionsDialogState.value = false
         showSteamGridDialogState.value = false
         showIidbKeyDialogState.value = false
-        showIconPackDialogState.value = false
         showLauncherSettingsDialogState.value = false
         showChangeAvatarDialogState.value = false
         showEmulatorGamesDialogState.value = false
@@ -248,6 +244,9 @@ class MainActivity : ComponentActivity() {
         setupImmersiveMode()
         requestHighestRefreshRate()
 
+        // Migração v1.1: limpar preferência legada de pacote de ícones
+        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+
         setContent {
             DeckLauncherTheme {
                 DeckHomeScreen(
@@ -277,7 +276,6 @@ class MainActivity : ComponentActivity() {
                             launchItem(item)
                         }
                     },
-                    showAddCloudDialog = showAddCloudDialogState.value,
                     showAddGameOptionsDialog = showAddGameOptionsDialogState.value,
                     showSteamGridDialog = showSteamGridDialogState.value,
                     showIidbKeyDialog = showIidbKeyDialogState.value,
@@ -288,7 +286,6 @@ class MainActivity : ComponentActivity() {
                         Toast.makeText(this@MainActivity, "Chave iiDB salva!", Toast.LENGTH_SHORT).show()
                     },
                     onRequestFetchIidb = { item -> fetchIidbAssets(item) },
-                    showIconPackDialog = showIconPackDialogState.value,
                     showLauncherSettingsDialog = showLauncherSettingsDialogState.value,
                     showChangeAvatarDialog = showChangeAvatarDialogState.value,
                     showEmulatorGamesDialog = showEmulatorGamesDialogState.value,
@@ -369,10 +366,8 @@ class MainActivity : ComponentActivity() {
                     onDismissEditLogo = { showEditLogoDialogState.value = false },
                     onDismissSelectIntro = { showSelectIntroDialogState.value = false },
                     onDismissInitialSetup = { showInitialSetupDialogState.value = false },
-                    onDismissAddCloud = { showAddCloudDialogState.value = false },
                     onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
                     onDismissSteamGrid = { showSteamGridDialogState.value = false },
-                    onDismissIconPack = { showIconPackDialogState.value = false },
                     onDismissLauncherSettings = { showLauncherSettingsDialogState.value = false },
                     onDismissChangeAvatar = { showChangeAvatarDialogState.value = false },
                     onDismissEmulatorGames = {
@@ -440,17 +435,11 @@ class MainActivity : ComponentActivity() {
                         loadInstalledApps()
                         Toast.makeText(this@MainActivity, "Configuração concluída! Biblioteca atualizada.", Toast.LENGTH_LONG).show()
                     },
-                    onRequestAddGame = {
-                        showAddCloudDialogState.value = true
-                    },
                     onRequestAddGameOptions = {
                         showAddGameOptionsDialogState.value = true
                     },
                     onRequestSteamGridSettings = {
                         showSteamGridDialogState.value = true
-                    },
-                    onRequestIconPackSettings = {
-                        showIconPackDialogState.value = true
                     },
                     onRequestOpenLauncherSettings = {
                         showLauncherSettingsDialogState.value = true
@@ -480,11 +469,6 @@ class MainActivity : ComponentActivity() {
                     },
                     onClearAllMetadata = {
                         clearAllAppsMetadata()
-                    },
-                    onSelectIconPack = { packPkg ->
-                        IconPackManager.setSelectedPack(this, packPkg)
-                        loadInstalledApps(forceReloadPack = true)
-                        Toast.makeText(this, if (packPkg != null) "Pacote de ícones aplicado!" else "Ícones padrão restaurados", Toast.LENGTH_SHORT).show()
                     },
                     onApplyCoverUrl = { item, url ->
                         downloadCoverFromUrl(item, url)
@@ -525,29 +509,6 @@ class MainActivity : ComponentActivity() {
                     onIntroSelected = { item, introId ->
                         IntroManager.setCustomIntroId(this@MainActivity, item.id, introId)
                         Toast.makeText(this@MainActivity, "Intro do console atualizada!", Toast.LENGTH_SHORT).show()
-                    },
-                    onAddCloudGameConfirm = { title, url ->
-                        val item = CloudGameManager.addCloudGame(this, title, url)
-                        showAddCloudDialogState.value = false
-                        loadInstalledApps()
-                        // Busca e aplica capa e artes conforme provedor selecionado
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            val provider = ArtworkProviderManager.getPreferredProvider(this@MainActivity)
-                            if (provider == ArtworkProvider.IIDB && IidbManager.hasApiKey(this@MainActivity)) {
-                                IidbManager.fetchAndApplyAllAssets(this@MainActivity, item.id, title)
-                                loadInstalledApps()
-                            } else {
-                                val games = SteamGridDbManager.searchGames(this@MainActivity, title)
-                                if (games.isNotEmpty()) {
-                                    val grids = SteamGridDbManager.getGridsForGame(this@MainActivity, games.first().id)
-                                    if (grids.isNotEmpty()) {
-                                        CoverManager.downloadCover(this@MainActivity, item.id, grids.first().url)
-                                        loadInstalledApps()
-                                    }
-                                }
-                            }
-                        }
-                        Toast.makeText(this, "$title adicionado para Better xCloud!", Toast.LENGTH_SHORT).show()
                     },
                     onRescanRoms = {
                         loadInstalledApps()
@@ -592,6 +553,9 @@ class MainActivity : ComponentActivity() {
         isLaunchingFadeState.value = false
         setupImmersiveMode()
         requestHighestRefreshRate()
+
+        // Migração v1.1: limpar preferência legada de pacote de ícones
+        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply()
         ThemeMusicManager.resumeTheme()
     }
 
@@ -666,10 +630,9 @@ class MainActivity : ComponentActivity() {
         return if (filtered.isEmpty() && cat != AppCategory.APPS) all else filtered
     }
 
-    private fun loadInstalledApps(forceReloadPack: Boolean = false) {
+    private fun loadInstalledApps() {
         isLoadingState.value = true
         lifecycleScope.launch(Dispatchers.IO) {
-            IconPackManager.loadIconPack(this@MainActivity, forceReload = forceReloadPack)
 
             val pm = packageManager
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -874,27 +837,14 @@ class MainActivity : ComponentActivity() {
             ItemType.CLOUD -> {
                 val url = item.cloudUrl
                 if (!url.isNullOrBlank()) {
-                    var openedInBxc = false
                     try {
-                        val bxcIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                            setPackage("com.redphx.betterxc")
+                        val launchIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
-                        if (bundle != null) startActivity(bxcIntent, bundle) else startActivity(bxcIntent)
+                        if (bundle != null) startActivity(launchIntent, bundle) else startActivity(launchIntent)
                         applyPostLaunchTransition()
-                        openedInBxc = true
-                    } catch (_: Exception) {}
-
-                    if (!openedInBxc) {
-                        try {
-                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            if (bundle != null) startActivity(browserIntent, bundle) else startActivity(browserIntent)
-                            applyPostLaunchTransition()
-                        } catch (e: Exception) {
-                            Toast.makeText(this, "Não foi possível abrir o jogo", Toast.LENGTH_SHORT).show()
-                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Não foi possível abrir o jogo na nuvem", Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     Toast.makeText(this, "URL de streaming inválida", Toast.LENGTH_SHORT).show()
@@ -1186,7 +1136,7 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
-            // Botão Y: No interior de pastas abre opções do app focado, na tela inicial abre Better xCloud
+            // Botão Y: No interior de pastas abre opções do app focado, na tela inicial abre opções de jogos
             KeyEvent.KEYCODE_BUTTON_Y -> {
                 if (selectedTabState.intValue == 2 && activeFolderState.value != null) {
                     val app = activeFolderState.value?.apps?.getOrNull(selectedIndexState.intValue)
@@ -1197,7 +1147,7 @@ class MainActivity : ComponentActivity() {
                         return true
                     }
                 }
-                showAddCloudDialogState.value = true
+                showAddGameOptionsDialogState.value = true
                 triggerHaptic()
                 return true
             }
