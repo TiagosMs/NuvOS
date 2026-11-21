@@ -212,6 +212,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    SoundEffectManager.playSleep()
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -373,6 +383,7 @@ class MainActivity : ComponentActivity() {
                             is com.decklauncher.model.LaunchRoute.OpenEmulatorDialog -> {
                                 activeEmulatorAppState.value = route.item
                                 showEmulatorGamesDialogState.value = true
+                                SoundEffectManager.playMenuOpen()
                             }
                             is com.decklauncher.model.LaunchRoute.LaunchNow -> {
                                 requestLaunchItem(route.item)
@@ -384,24 +395,57 @@ class MainActivity : ComponentActivity() {
                     onDismissOptions = {
                         showOptionsDialogState.value = false
                         activeDialogAppState.value = null
+                        SoundEffectManager.playMenuClose()
                     },
                     onDismissGameMetadata = {
                         showGameMetadataDialogState.value = false
                         activeDialogAppState.value = null
+                        SoundEffectManager.playMenuClose()
                     },
-                    onDismissSelectMusic = { showSelectMusicDialogState.value = false },
-                    onDismissEditCover = { showEditCoverDialogState.value = false },
-                    onDismissEditHero = { showEditHeroDialogState.value = false },
-                    onDismissEditLogo = { showEditLogoDialogState.value = false },
-                    onDismissSelectIntro = { showSelectIntroDialogState.value = false },
-                    onDismissInitialSetup = { showInitialSetupDialogState.value = false },
-                    onDismissAddGameOptions = { showAddGameOptionsDialogState.value = false },
-                    onDismissSteamGrid = { showSteamGridDialogState.value = false },
-                    onDismissLauncherSettings = { showLauncherSettingsDialogState.value = false },
-                    onDismissChangeAvatar = { showChangeAvatarDialogState.value = false },
+                    onDismissSelectMusic = {
+                        showSelectMusicDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissEditCover = {
+                        showEditCoverDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissEditHero = {
+                        showEditHeroDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissEditLogo = {
+                        showEditLogoDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissSelectIntro = {
+                        showSelectIntroDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissInitialSetup = {
+                        showInitialSetupDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissAddGameOptions = {
+                        showAddGameOptionsDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissSteamGrid = {
+                        showSteamGridDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissLauncherSettings = {
+                        showLauncherSettingsDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
+                    onDismissChangeAvatar = {
+                        showChangeAvatarDialogState.value = false
+                        SoundEffectManager.playMenuClose()
+                    },
                     onDismissEmulatorGames = {
                         showEmulatorGamesDialogState.value = false
                         activeEmulatorAppState.value = null
+                        SoundEffectManager.playMenuClose()
                     },
                     onTogglePinGame = { game ->
                         val pinned = PinnedGamesManager.togglePin(this@MainActivity, game.id)
@@ -418,10 +462,12 @@ class MainActivity : ComponentActivity() {
                     onRequestManageMetadata = { item ->
                         activeDialogAppState.value = item
                         showGameMetadataDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestEditMusic = { item ->
                         activeDialogAppState.value = item
                         showSelectMusicDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onDeleteAllGameMetadata = { item ->
                         deleteAllGameMetadata(item)
@@ -429,18 +475,22 @@ class MainActivity : ComponentActivity() {
                     onRequestEditCover = { item ->
                         activeDialogAppState.value = item
                         showEditCoverDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestEditHero = { item ->
                         activeDialogAppState.value = item
                         showEditHeroDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestEditLogo = { item ->
                         activeDialogAppState.value = item
                         showEditLogoDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestSelectIntro = { item ->
                         activeDialogAppState.value = item
                         showSelectIntroDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestPickRomFolder = {
                         try {
@@ -458,9 +508,11 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestSetupFolders = {
                         showInitialSetupDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestRestartWizard = {
                         showWizardState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onCompleteSetup = {
                         SetupManager.setSetupCompleted(this@MainActivity, true)
@@ -470,15 +522,19 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestAddGameOptions = {
                         showAddGameOptionsDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestSteamGridSettings = {
                         showSteamGridDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestOpenLauncherSettings = {
                         showLauncherSettingsDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestChangeAvatar = {
                         showChangeAvatarDialogState.value = true
+                        SoundEffectManager.playMenuOpen()
                     },
                     onRequestReorderMode = {
                         isReorderModeState.value = true
@@ -556,7 +612,7 @@ class MainActivity : ComponentActivity() {
                             ShortcutManager.removePinnedShortcut(this, item.id)
                             loadInstalledApps()
                             Toast.makeText(this, "Atalho removido da Tela Inicial", Toast.LENGTH_SHORT).show()
-                        } else if (item.itemType == ItemType.ROM) {
+                        } else {
                             PinnedGamesManager.unpinGame(this, item.id)
                             pinnedGameIdsState.value = PinnedGamesManager.getPinnedGameIds(this)
                             loadInstalledApps()
@@ -582,6 +638,7 @@ class MainActivity : ComponentActivity() {
                 addDataScheme("package")
             }
             registerReceiver(packageReceiver, pkgFilter)
+            registerReceiver(screenStateReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
         } catch (_: Exception) {}
     }
 
@@ -624,6 +681,7 @@ class MainActivity : ComponentActivity() {
         try {
             unregisterReceiver(batteryReceiver)
             unregisterReceiver(packageReceiver)
+            unregisterReceiver(screenStateReceiver)
         } catch (_: Exception) {}
     }
 
@@ -673,6 +731,7 @@ class MainActivity : ComponentActivity() {
     private fun loadInstalledApps() {
         isLoadingState.value = true
         lifecycleScope.launch(Dispatchers.IO) {
+            val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
 
             val pm = packageManager
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -693,15 +752,17 @@ class MainActivity : ComponentActivity() {
                     // Identifica apps emuladores de forma abrangente e unificada
                     val isEmulator = IntroManager.isEmulator(pkg, label)
 
-                    // Identifica jogos Android nativos
+                    // Identifica se foi fixado na tela inicial ou se é jogo Android nativo
+                    val isPinned = pinnedIds.contains(appId)
                     val isGame = !isEmulator && (
-                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.activityInfo.applicationInfo.category == ApplicationInfo.CATEGORY_GAME)
+                        isPinned
+                        || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && info.activityInfo.applicationInfo.category == ApplicationInfo.CATEGORY_GAME)
                         || pkgLower.contains("minecraft") || pkgLower.contains("game") || pkgLower.contains("roblox")
                         || pkgLower.contains("xbox") || labelLower.contains("minecraft") || labelLower.contains("game")
                         || labelLower.contains("xcloud") || labelLower.contains("moonlight")
                     )
 
-                    // Emuladores vão para Tab 1; Jogos para Tab 0; demais para Tab 2 (Apps)
+                    // Emuladores vão para Tab 1; Jogos (e apps fixados) para Tab 0; demais para Tab 2 (Apps)
                     val category = when {
                         isEmulator -> AppCategory.EMULADORES
                         isGame -> AppCategory.JOGOS
@@ -748,10 +809,9 @@ class MainActivity : ComponentActivity() {
             }
 
             // Apenas as ROMs selecionadas/fixadas pelo usuário vão para a Tela Inicial (Tab Jogos)
-            val pinnedIds = PinnedGamesManager.getPinnedGameIds(this@MainActivity)
             val pinnedRomGames = romGames.filter { pinnedIds.contains(it.id) }
 
-            val rawJogos = (appItems.filter { it.category == AppCategory.JOGOS || pinnedIds.contains(it.id) } + cloudGames + pinnedShortcuts + pinnedRomGames).distinctBy { it.id }.sortedBy { it.label.lowercase() }
+            val rawJogos = (appItems.filter { it.category == AppCategory.JOGOS } + cloudGames + pinnedShortcuts + pinnedRomGames).distinctBy { it.id }.sortedBy { it.label.lowercase() }
             val rawEmuladores = appItems.filter { it.category == AppCategory.EMULADORES }.distinctBy { it.id }.sortedBy { it.label.lowercase() }
             val rawApps = appItems.filter { it.category == AppCategory.APPS }.distinctBy { it.id }.sortedBy { it.label.lowercase() }
 
@@ -1184,6 +1244,21 @@ class MainActivity : ComponentActivity() {
         val filtered = getFilteredApps()
 
         when (event.keyCode) {
+            // Teclas de Volume Físico
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                SoundEffectManager.playVolumeUp()
+                return super.dispatchKeyEvent(event)
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                SoundEffectManager.playVolumeDown()
+                return super.dispatchKeyEvent(event)
+            }
+            KeyEvent.KEYCODE_SLEEP,
+            KeyEvent.KEYCODE_POWER -> {
+                SoundEffectManager.playSleep()
+                return super.dispatchKeyEvent(event)
+            }
+
             // EXCLUSIVAMENTE LB e RB trocam de abas:
             KeyEvent.KEYCODE_BUTTON_L1 -> {
                 selectedTabState.intValue = (selectedTabState.intValue - 1).coerceAtLeast(0)

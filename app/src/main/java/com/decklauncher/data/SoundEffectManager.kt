@@ -18,6 +18,9 @@ object SoundEffectManager {
     private var soundMenuOpen = 0
     private var soundMenuClose = 0
     private var soundGameLaunch = 0
+    private var soundVolumeUp = 0
+    private var soundVolumeDown = 0
+    private var soundSleep = 0
 
     fun init(context: Context) {
         if (soundPool != null) return
@@ -28,7 +31,7 @@ object SoundEffectManager {
             .build()
 
         val pool = SoundPool.Builder()
-            .setMaxStreams(6)
+            .setMaxStreams(8)
             .setAudioAttributes(attrs)
             .build()
 
@@ -46,6 +49,9 @@ object SoundEffectManager {
         soundMenuOpen = pool.load(context, R.raw.sfx_menu_open, 1)
         soundMenuClose = pool.load(context, R.raw.sfx_menu_close, 1)
         soundGameLaunch = pool.load(context, R.raw.sfx_game_launch, 1)
+        soundVolumeUp = pool.load(context, R.raw.sfx_volume_up, 1)
+        soundVolumeDown = pool.load(context, R.raw.sfx_volume_down, 1)
+        soundSleep = pool.load(context, R.raw.sfx_sleep, 1)
 
         soundPool = pool
     }
@@ -65,6 +71,9 @@ object SoundEffectManager {
     fun playMenuOpen() = play(soundMenuOpen, 0.85f)
     fun playMenuClose() = play(soundMenuClose, 0.85f)
     fun playGameLaunch() = play(soundGameLaunch, 1.0f)
+    fun playVolumeUp() = play(soundVolumeUp, 0.95f)
+    fun playVolumeDown() = play(soundVolumeDown, 0.95f)
+    fun playSleep() = play(soundSleep, 1.0f)
 
     fun release() {
         soundPool?.release()
