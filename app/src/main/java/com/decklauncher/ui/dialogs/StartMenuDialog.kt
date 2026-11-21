@@ -33,6 +33,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -40,10 +41,10 @@ import androidx.compose.ui.window.DialogProperties
 import com.decklauncher.data.*
 import com.decklauncher.ui.theme.*
 
-enum class StartMenuTab(val title: String) {
-    BIBLIOTECA("Biblioteca"),
-    APARENCIA("Aparência e Navegação"),
-    BANCOS_DADOS("Bancos de Dados")
+enum class StartMenuTab(val title: String, val icon: String) {
+    BIBLIOTECA("Biblioteca", "📚"),
+    APARENCIA("Aparência e Navegação", "🎨"),
+    BANCOS_DADOS("Bancos de Dados", "🗄️")
 }
 
 @Composable
@@ -55,6 +56,7 @@ fun StartMenuDialog(
     onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
     onRescanRoms: () -> Unit,
     onRequestSetupFolders: () -> Unit = {},
+    onRequestRestartWizard: () -> Unit = {},
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
     currentBgMode: BackgroundMode = BackgroundMode.IMMERSIVE,
@@ -68,6 +70,9 @@ fun StartMenuDialog(
     onClearAllMetadata: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val activePreset = remember(avatarId) {
+        ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
+    }
     var selectedTab by remember { mutableStateOf(StartMenuTab.BIBLIOTECA) }
     var isVisible by remember { mutableStateOf(false) }
 
@@ -83,23 +88,31 @@ fun StartMenuDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ScrimColor) // rule-ok: scrim escurecido padrão
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onDismiss
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.CenterStart
         ) {
+            // Slide saindo da lateral esquerda para a direita (T3.1 / Requisito do usuario)
             AnimatedVisibility(
                 visible = isVisible,
-                enter = scaleIn(initialScale = 0.94f, animationSpec = spring(dampingRatio = 0.85f, stiffness = 400f)) + fadeIn(tween(180)),
-                exit = scaleOut(targetScale = 0.94f, animationSpec = tween(150)) + fadeOut(tween(150))
+                enter = slideInHorizontally(
+                    initialOffsetX = { -it },
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
+                ) + fadeIn(tween(200)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(180)
+                ) + fadeOut(tween(150))
             ) {
                 Box(
                     modifier = Modifier
-                        .width(520.dp)
-                        .fillMaxHeight(0.88f)
+                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
+                        .width(480.dp)
+                        .fillMaxHeight(0.92f)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -108,72 +121,116 @@ fun StartMenuDialog(
                         .clip(RoundedCornerShape(26.dp))
                         .background(ColorBgDeep)
                         .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
-                        .padding(22.dp)
+                        .padding(20.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Header com Título e Botão Fechar visível para Touch (D10 / T4.2)
+                        // 1. Topo: Perfil do Jogador centralizado no topo com avatar
+                        var isProfileFocused by remember { mutableStateOf(false) }
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .onFocusChanged { isProfileFocused = it.isFocused }
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(if (isProfileFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                                .border(
+                                    width = if (isProfileFocused) 2.dp else 1.dp,
+                                    color = if (isProfileFocused) FocusRing else CardBorderUnselected,
+                                    shape = RoundedCornerShape(18.dp)
+                                )
+                                .clickable { onRequestChangeAvatar() }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "MENU PRINCIPAL",
-                                style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
-                                color = TextWhite
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                val customAvatar = remember(avatarId, ProfileManager.avatarVersion) {
+                                    if (avatarId == ProfileManager.CUSTOM_AVATAR_ID) ProfileManager.loadCustomAvatar(context) else null
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(NeutralGlyphBg),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (customAvatar != null) {
+                                        Image(
+                                            bitmap = customAvatar.asImageBitmap(),
+                                            contentDescription = "Avatar",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Text(text = activePreset.initial, color = TextWhite, style = MaterialTheme.typography.titleMedium)
+                                    }
+                                }
+
+                                Column {
+                                    Text(text = profileName, color = TextWhite, style = MaterialTheme.typography.bodyLarge)
+                                    Text(text = "Perfil do Jogador", color = TextPrimary, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
 
                             IconButton(
                                 onClick = onDismiss,
                                 modifier = Modifier
-                                    .size(48.dp) // rule-ok: alvo de toque >= 48dp
+                                    .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(NeutralBtnBg)
+                                    .background(NeutralGlyphBg)
                             ) {
-                                Text("✕", color = TextWhite, fontSize = 16.sp)
+                                Text("✕", color = TextWhite, fontSize = 14.sp)
                             }
                         }
 
-                        // Abas horizontais: Biblioteca | Aparência e Navegação | Bancos de Dados
+                        // 2. Abas: Botoes quadrados centralizados com cantos arredondados e icones
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(NeutralBtnBg)
-                                .padding(4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             StartMenuTab.values().forEach { tab ->
                                 val isSelected = selectedTab == tab
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) NeutralBtnBgFocused else Color.Transparent)
+                                        .height(72.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .background(if (isSelected) NeutralBtnBgFocused else NeutralBtnBg)
                                         .border(
-                                            width = if (isSelected) 1.5.dp else 0.dp,
-                                            color = if (isSelected) FocusRing else Color.Transparent,
-                                            shape = RoundedCornerShape(12.dp)
+                                            width = if (isSelected) 2.dp else 1.dp,
+                                            color = if (isSelected) FocusRing else CardBorderUnselected,
+                                            shape = RoundedCornerShape(18.dp)
                                         )
                                         .clickable { selectedTab = tab }
-                                        .padding(horizontal = 6.dp),
+                                        .padding(6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = tab.title,
-                                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                                        color = if (isSelected) TextWhite else TextPrimary,
-                                        maxLines = 1
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(text = tab.icon, fontSize = 20.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = tab.title,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (isSelected) TextWhite else TextPrimary,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        // Conteúdo da Aba Ativa (D2: compõe apenas a aba ativa para economia de recursos)
+                        // 3. Conteudo da aba ativa
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -200,6 +257,7 @@ fun StartMenuDialog(
                                         onAccentColorSelected = onAccentColorSelected,
                                         currentLaunchTransition = currentLaunchTransition,
                                         onLaunchTransitionSelected = onLaunchTransitionSelected,
+                                        onRequestRestartWizard = onRequestRestartWizard,
                                         onDismiss = onDismiss
                                     )
                                 }
@@ -234,7 +292,7 @@ private fun StartMenuTabBiblioteca(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Gerenciamento de Jogos & Emuladores", style = androidx.compose.material3.MaterialTheme.typography.titleMedium, color = TextWhite)
+        Text("Gerenciamento de Jogos & Emuladores", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
         StartOptionRow(
             label = "Re-escanear Armazenamento e ROMs",
@@ -267,12 +325,10 @@ private fun StartMenuTabAparencia(
     onAccentColorSelected: (Long) -> Unit,
     currentLaunchTransition: LaunchTransitionType,
     onLaunchTransitionSelected: (LaunchTransitionType) -> Unit,
+    onRequestRestartWizard: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val activePreset = remember(avatarId) {
-        ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
-    }
 
     Column(
         modifier = Modifier
@@ -280,65 +336,17 @@ private fun StartMenuTabAparencia(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Perfil do Jogador", style = androidx.compose.material3.MaterialTheme.typography.titleMedium, color = TextWhite)
+        Text("Configuração do Sistema", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
-        var isProfileFocused by remember { mutableStateOf(false) }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .onFocusChanged { isProfileFocused = it.isFocused }
-                .clip(RoundedCornerShape(18.dp))
-                .background(if (isProfileFocused) NeutralBtnBgFocused else NeutralBtnBg)
-                .border(
-                    width = if (isProfileFocused) 2.dp else 1.dp,
-                    color = if (isProfileFocused) FocusRing else CardBorderUnselected,
-                    shape = RoundedCornerShape(18.dp)
-                )
-                .clickable {
-                    onRequestChangeAvatar()
-                }
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val customAvatar = remember(avatarId, ProfileManager.avatarVersion) {
-                    if (avatarId == ProfileManager.CUSTOM_AVATAR_ID) ProfileManager.loadCustomAvatar(context) else null
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(NeutralGlyphBg),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (customAvatar != null) {
-                        Image(
-                            bitmap = customAvatar.asImageBitmap(),
-                            contentDescription = "Avatar",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Text(text = activePreset.initial, color = TextWhite, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                    }
-                }
-
-                Column {
-                    Text(text = profileName, color = TextWhite, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
-                    Text(text = "Alterar avatar ou nome", color = TextPrimary, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
-                }
+        StartOptionRow(
+            label = "Refazer Configuração Inicial (Wizard)",
+            onClick = {
+                onRequestRestartWizard()
+                onDismiss()
             }
+        )
 
-            Text("Editar", color = TextPrimary, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
-        }
-
-        Text("Plano de Fundo", style = androidx.compose.material3.MaterialTheme.typography.titleMedium, color = TextWhite)
+        Text("Plano de Fundo", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -367,7 +375,7 @@ private fun StartMenuTabAparencia(
                             BackgroundMode.SOLID -> "Sóbrio"
                         },
                         color = if (isSelected) TextWhite else TextPrimary,
-                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
@@ -380,7 +388,7 @@ private fun StartMenuTabAparencia(
             )
         }
 
-        Text("Intros de Boot & Transições", style = androidx.compose.material3.MaterialTheme.typography.titleMedium, color = TextWhite)
+        Text("Intros de Boot & Transições", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
         var introsActive by remember { mutableStateOf(IntroManager.isIntroEnabled(context)) }
         StartOptionRow(
@@ -427,7 +435,7 @@ private fun StartMenuTabBancosDados(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Provedor Padrão de Artes", style = androidx.compose.material3.MaterialTheme.typography.titleMedium, color = TextWhite)
+        Text("Provedor Padrão de Artes", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -456,7 +464,7 @@ private fun StartMenuTabBancosDados(
                     Text(
                         text = provider.title,
                         color = if (isSelected) TextWhite else TextPrimary,
-                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
@@ -493,7 +501,7 @@ private fun StartMenuTabBancosDados(
             ),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Limpar Cache e Metadados Salvos", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
+            Text("Limpar Cache e Metadados Salvos", style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -529,7 +537,7 @@ fun StartOptionRow(
             Text(
                 text = label,
                 color = if (isFocused) TextWhite else NeutralBtnText,
-                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge
             )
 
             if (isFocused) {

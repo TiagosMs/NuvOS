@@ -11,10 +11,14 @@ object SetupManager {
 
     private const val PREFS_NAME = "deck_setup_prefs"
     private const val KEY_SETUP_COMPLETED = "is_setup_completed"
+    private const val KEY_SETUP_VERSION = "setup_version"
+    private const val KEY_SETUP_STEP = "setup_current_step"
     private const val KEY_ROM_FOLDER_URI = "rom_folder_uri"
     private const val KEY_ROM_FOLDER_PATH = "rom_folder_path"
     private const val KEY_DOWNLOAD_FOLDER_URI = "download_folder_uri"
     private const val KEY_DOWNLOAD_FOLDER_PATH = "download_folder_path"
+
+    const val CURRENT_SETUP_VERSION = 1
 
     fun isSetupCompleted(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -23,7 +27,21 @@ object SetupManager {
 
     fun setSetupCompleted(context: Context, completed: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_SETUP_COMPLETED, completed).apply()
+        prefs.edit()
+            .putBoolean(KEY_SETUP_COMPLETED, completed)
+            .putInt(KEY_SETUP_VERSION, CURRENT_SETUP_VERSION)
+            .putInt(KEY_SETUP_STEP, 0)
+            .apply()
+    }
+
+    fun getSavedSetupStep(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_SETUP_STEP, 0)
+    }
+
+    fun saveSetupStep(context: Context, step: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_SETUP_STEP, step).apply()
     }
 
     fun getRomFolderUri(context: Context): Uri? {

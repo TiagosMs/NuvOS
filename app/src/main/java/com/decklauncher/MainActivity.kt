@@ -34,6 +34,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.decklauncher.data.*
 import com.decklauncher.shortcut.ShortcutManager
+import com.decklauncher.ui.wizard.SetupWizardScreen
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 import com.decklauncher.model.FocusArea
@@ -119,6 +120,7 @@ class MainActivity : ComponentActivity() {
     private var showEditLogoDialogState = mutableStateOf(false)
     private var showSelectIntroDialogState = mutableStateOf(false)
     private var showInitialSetupDialogState = mutableStateOf(false)
+    private var showWizardState = mutableStateOf(false)
     private var activeIntroPlayingState = mutableStateOf<ConsoleIntro?>(null)
     private var pendingLaunchAppState = mutableStateOf<AppItem?>(null)
     private var launchTransitionState = mutableStateOf(LaunchTransitionType.FADE)
@@ -240,7 +242,12 @@ class MainActivity : ComponentActivity() {
         }
 
         if (!SetupManager.isSetupCompleted(this)) {
-            showInitialSetupDialogState.value = true
+            val hasExistingData = SetupManager.getRomFolderUri(this) != null || SteamGridDbManager.hasApiKey(this)
+            if (!hasExistingData) {
+                showWizardState.value = true
+            } else {
+                SetupManager.setSetupCompleted(this, true)
+            }
         }
 
         setupImmersiveMode()
@@ -251,7 +258,23 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DeckLauncherTheme {
-                DeckHomeScreen(
+                if (showWizardState.value) {
+                    SetupWizardScreen(
+                        onComplete = {
+                            showWizardState.value = false
+                            loadInstalledApps()
+                            Toast.makeText(this@MainActivity, "Configuração concluída! Biblioteca atualizada.", Toast.LENGTH_LONG).show()
+                        },
+                        onRequestPickRomFolder = {
+                            try {
+                                romFolderPickerLauncher.launch(null)
+                            } catch (e: Exception) {
+                                Toast.makeText(this@MainActivity, "Erro ao abrir seletor: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                } else {
+                    DeckHomeScreen(
                     apps = appsListState.value,
                     selectedIndex = selectedIndexState.intValue,
                     selectedTab = selectedTabState.intValue,
@@ -435,6 +458,9 @@ class MainActivity : ComponentActivity() {
                     onRequestSetupFolders = {
                         showInitialSetupDialogState.value = true
                     },
+                    onRequestRestartWizard = {
+                        showWizardState.value = true
+                    },
                     onCompleteSetup = {
                         SetupManager.setSetupCompleted(this@MainActivity, true)
                         showInitialSetupDialogState.value = false
@@ -537,6 +563,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                }
             }
         }
 

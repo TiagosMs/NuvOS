@@ -47,6 +47,10 @@ val DotGreen = Color(0xFF10B981)
 // Cards & Bordas
 val CardBgDark = Color(0xFF3D3A3A)
 val CardBorderUnselected = Color(0x22FFFFFF)
+val NeutralBtnBorder = Color(0x33FFFFFF)
+val ColorSurfaceLow = Color(0xFF222831)
+val ColorSurfaceMid = Color(0xFF2A323D)
+val ColorSurfaceHigh = Color(0xFF3B4654)
 val ScrollbarColor = Color(0xFF373737)
 
 private val DarkColorScheme = darkColorScheme(
