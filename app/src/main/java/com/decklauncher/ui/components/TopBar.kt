@@ -253,19 +253,26 @@ fun TopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 14.dp)
         ) {
-            // Botão Adicionar Jogo (+) - Apenas na aba Jogos
-            if (selectedTab == 0) {
-                Box(
-                    modifier = Modifier
-                        .size(if (isCompactHeight) 26.dp else 34.dp)
-                        .scale(addScale)
-                        .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
-                        .clip(CircleShape)
-                        .background(if (isAddFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
-                        .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x33FFFFFF), CircleShape)
-                        .clickable { onOpenAddGame() },
-                    contentAlignment = Alignment.Center
-                ) {
+            // Botão Adicionar Jogo (+) - Presente com largura fixa para não deslocar as abas centrais
+            Box(
+                modifier = Modifier
+                    .size(if (isCompactHeight) 26.dp else 34.dp)
+                    .then(
+                        if (selectedTab == 0) {
+                            Modifier
+                                .scale(addScale)
+                                .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
+                                .clip(CircleShape)
+                                .background(if (isAddFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
+                                .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x33FFFFFF), CircleShape)
+                                .clickable { onOpenAddGame() }
+                        } else {
+                            Modifier // invisivel mantendo o espaco exato para layout fixo
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selectedTab == 0) {
                     Text(
                         text = "+",
                         color = Color.White,
