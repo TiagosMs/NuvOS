@@ -178,6 +178,7 @@ class MainActivity : ComponentActivity() {
     private var currentJoyDir = JoystickDir.NONE
     private var joyRepeatJob: Job? = null
     private var lastNavTime = 0L
+    private var lastJoyEventTime = 0L
 
     companion object {
         private const val HOLD_THRESHOLD_MS = 1000L
@@ -1518,6 +1519,13 @@ class MainActivity : ComponentActivity() {
             }
             return super.onGenericMotionEvent(event)
         }
+
+        // Throttle temporal de 16ms para eventos redundantes na mesma direção (evita inundações a 125-250Hz)
+        val now = SystemClock.uptimeMillis()
+        if (newDir == currentJoyDir && (now - lastJoyEventTime < 16L)) {
+            return true
+        }
+        lastJoyEventTime = now
 
         if (newDir != currentJoyDir) {
             joyRepeatJob?.cancel()
