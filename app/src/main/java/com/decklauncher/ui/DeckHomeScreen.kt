@@ -167,8 +167,6 @@ fun DeckHomeScreen(
     metadataUpdateCounter: Int = 0,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
-    parallaxX: Float = 0f,
-    parallaxY: Float = 0f,
     showGameHubSheet: Boolean = false,
     onDismissGameHubSheet: () -> Unit = {},
     showQuickAccessDrawer: Boolean = false,
@@ -375,12 +373,7 @@ fun DeckHomeScreen(
                 ) { file ->
                     if (file != null) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    translationX = parallaxX * 10.dp.toPx()
-                                    translationY = parallaxY * 6.dp.toPx()
-                                }
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             if (blurFile != null) {
                                 AsyncImage(
@@ -572,9 +565,7 @@ fun DeckHomeScreen(
                                         currentApp = currentFocusedApp,
                                         logoBitmap = currentLogoBitmap,
                                         accentColor = accentColor,
-                                        metadataUpdateCounter = metadataUpdateCounter,
-                                        parallaxX = parallaxX,
-                                        parallaxY = parallaxY
+                                        metadataUpdateCounter = metadataUpdateCounter
                                     )
                                 }
 

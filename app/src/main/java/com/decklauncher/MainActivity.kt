@@ -80,11 +80,6 @@ class MainActivity : ComponentActivity() {
     private var isButtonALongPressed = false
     private var showGameHubSheetState = mutableStateOf(false)
     private var showQuickAccessDrawerState = mutableStateOf(false)
-    private var tiltXState = mutableFloatStateOf(0f)
-    private var tiltYState = mutableFloatStateOf(0f)
-    private var sensorManager: android.hardware.SensorManager? = null
-    private var rotationSensor: android.hardware.Sensor? = null
-    private var sensorListener: android.hardware.SensorEventListener? = null
 
     private val isAnyDialogOpen: Boolean
         get() = showOptionsDialogState.value || showGameMetadataDialogState.value ||
@@ -272,11 +267,6 @@ class MainActivity : ComponentActivity() {
         setupImmersiveMode()
         requestHighestRefreshRate()
         SoundEffectManager.init(this)
-
-        // Sensor de Giroscópio / Gravidade para Paralaxe Vivo (Feature 1 Next-Gen)
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as? android.hardware.SensorManager
-        rotationSensor = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
-            ?: sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_GRAVITY)
 
         // Migração v1.1: limpar preferência legada de pacote de ícones uma única vez
         val cleanupPrefs = getSharedPreferences("nuvos_app_prefs", Context.MODE_PRIVATE)
@@ -635,8 +625,6 @@ class MainActivity : ComponentActivity() {
                             Toast.makeText(this, "${item.label} removido da Tela Inicial", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    parallaxX = tiltXState.floatValue,
-                    parallaxY = tiltYState.floatValue,
                     showGameHubSheet = showGameHubSheetState.value,
                     onDismissGameHubSheet = { showGameHubSheetState.value = false },
                     showQuickAccessDrawer = showQuickAccessDrawerState.value,
@@ -689,21 +677,6 @@ class MainActivity : ComponentActivity() {
         requestHighestRefreshRate()
         SoundEffectManager.init(this)
 
-        // Registra sensor para paralaxe vivo do giroscópio
-        rotationSensor?.let { sensor ->
-            sensorListener = object : android.hardware.SensorEventListener {
-                override fun onSensorChanged(event: android.hardware.SensorEvent?) {
-                    if (event == null) return
-                    val rawX = (-event.values[0] * 1.5f).coerceIn(-1f, 1f)
-                    val rawY = (event.values[1] * 1.5f).coerceIn(-1f, 1f)
-                    tiltXState.floatValue = tiltXState.floatValue * 0.82f + rawX * 0.18f
-                    tiltYState.floatValue = tiltYState.floatValue * 0.82f + rawY * 0.18f
-                }
-                override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
-            }
-            sensorManager?.registerListener(sensorListener, sensor, android.hardware.SensorManager.SENSOR_DELAY_UI)
-        }
-
         ThemeMusicManager.resumeTheme()
     }
 
@@ -733,10 +706,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        sensorListener?.let {
-            sensorManager?.unregisterListener(it)
-            sensorListener = null
-        }
         joyRepeatJob?.cancel()
         currentJoyDir = JoystickDir.NONE
         ThemeMusicManager.pauseTheme()
@@ -1526,17 +1495,6 @@ class MainActivity : ComponentActivity() {
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (event.source and InputDevice.SOURCE_JOYSTICK != InputDevice.SOURCE_JOYSTICK ||
             event.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(event)
-
-        // Right Stick Parallax (Feature 1 Next-Gen)
-        val rAxisX = event.getAxisValue(MotionEvent.AXIS_Z).takeIf { kotlin.math.abs(it) > 0.08f }
-            ?: event.getAxisValue(MotionEvent.AXIS_RX).takeIf { kotlin.math.abs(it) > 0.08f } ?: 0f
-        val rAxisY = event.getAxisValue(MotionEvent.AXIS_RZ).takeIf { kotlin.math.abs(it) > 0.08f }
-            ?: event.getAxisValue(MotionEvent.AXIS_RY).takeIf { kotlin.math.abs(it) > 0.08f } ?: 0f
-
-        if (kotlin.math.abs(rAxisX) > 0.05f || kotlin.math.abs(rAxisY) > 0.05f) {
-            tiltXState.floatValue = rAxisX.coerceIn(-1f, 1f)
-            tiltYState.floatValue = rAxisY.coerceIn(-1f, 1f)
-        }
 
         val axisX = event.getAxisValue(MotionEvent.AXIS_X).takeIf { it != 0f }
             ?: event.getAxisValue(MotionEvent.AXIS_HAT_X)
