@@ -269,6 +269,13 @@ class MainActivity : ComponentActivity() {
         requestHighestRefreshRate()
         SoundEffectManager.init(this)
 
+        // Cache persistido para primeiro frame instantâneo em Cold Start (PERF-04)
+        val cached = AppCacheManager.loadCachedApps(this)
+        if (cached.isNotEmpty()) {
+            appsListState.value = cached
+            isLoadingState.value = false
+        }
+
         // Migração v1.1: limpar preferência legada de pacote de ícones uma única vez
         val cleanupPrefs = getSharedPreferences("nuvos_app_prefs", Context.MODE_PRIVATE)
         if (!cleanupPrefs.getBoolean("legacy_icons_cleaned", false)) {
@@ -871,6 +878,8 @@ class MainActivity : ComponentActivity() {
             val orderedApps = OrderManager.applyOrder(this@MainActivity, "apps", rawApps)
 
             val combined = (orderedJogos + orderedEmuladores + orderedApps).distinctBy { it.id }
+
+            AppCacheManager.saveCachedApps(this@MainActivity, combined)
 
             withContext(Dispatchers.Main) {
                 appsListState.value = combined
