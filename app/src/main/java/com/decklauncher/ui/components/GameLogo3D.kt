@@ -54,7 +54,8 @@ fun GameLogo3D(
     logoBitmap: Bitmap?,
     accentColor: Color,
     modifier: Modifier = Modifier,
-    metadataUpdateCounter: Int = 0
+    metadataUpdateCounter: Int = 0,
+    isPaused: Boolean = false
 ) {
     if (currentApp == null) return
 
@@ -68,16 +69,20 @@ fun GameLogo3D(
     val fallbackFontSize = if (isCompactHeight) 20.sp else 32.sp
 
     // Uma só animação de fase contínua com harmônicos inteiros (Fase 4.3 Passo B)
-    // Mantém o objeto State para ler phase.value somente dentro da fase de draw (graphicsLayer)
-    val phase = rememberInfiniteTransition(label = "logo_3d_idle").animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 8500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase"
-    )
+    // Se pausado (coberto por drawer/diálogo), não consome frames de animação
+    val phase = if (!isPaused) {
+        rememberInfiniteTransition(label = "logo_3d_idle").animateFloat(
+            initialValue = 0f,
+            targetValue = (2 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 8500, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "phase"
+        )
+    } else {
+        remember { mutableFloatStateOf(0f) }
+    }
 
     // Pré-renderiza a extrusão em memória para renderização direta a 60/120 fps
     val extrudedBitmap = remember(currentApp.id, logoBitmap) {
@@ -120,10 +125,11 @@ fun GameLogo3D(
                     )
             ) {
                 // Palco do Logo 3D: valores animados lidos estritamente dentro da fase de draw do graphicsLayer
+                val shouldAnimate3D = !isPaused && extruded != null
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .graphicsLayer {
+                    modifier = if (shouldAnimate3D) {
+                        Modifier.graphicsLayer {
                             val p = phase.value
                             translationY = sin(p) * (if (isCompactHeight) 6.dp.toPx() else 10.dp.toPx())
                             rotationY = sin(p + 1f) * 9.5f
@@ -131,6 +137,9 @@ fun GameLogo3D(
                             rotationZ = sin(3f * p + 2f) * 1.4f
                             cameraDistance = 16f * density
                         }
+                    } else {
+                        Modifier
+                    }
                 ) {
                     if (extruded != null) {
                         Image(

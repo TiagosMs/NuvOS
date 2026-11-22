@@ -455,6 +455,13 @@ fun DeckHomeScreen(
         )
 
         // Depth Recede Animation quando Quick Access Drawer está aberto
+        val isAnyOverlayOpen = showGameHubSheet || showQuickAccessDrawer ||
+                showOptionsDialog || showGameMetadataDialog || showSelectMusicDialog ||
+                showEditCoverDialog || showEditHeroDialog || showEditLogoDialog ||
+                showSelectIntroDialog || showAddGameOptionsDialog || showSteamGridDialog ||
+                showIidbKeyDialog || showLauncherSettingsDialog || showInitialSetupDialog ||
+                showChangeAvatarDialog || showEmulatorGamesDialog
+
         val contentScale by animateFloatAsState(
             targetValue = if (showQuickAccessDrawer) 0.965f else 1.0f,
             animationSpec = Motion.ConsoleDrawerSpring,
@@ -580,7 +587,8 @@ fun DeckHomeScreen(
                                         currentApp = currentFocusedApp,
                                         logoBitmap = currentLogoBitmap,
                                         accentColor = accentColor,
-                                        metadataUpdateCounter = metadataUpdateCounter
+                                        metadataUpdateCounter = metadataUpdateCounter,
+                                        isPaused = isAnyOverlayOpen
                                     )
                                 }
 
