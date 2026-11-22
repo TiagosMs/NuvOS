@@ -2,6 +2,7 @@ package com.decklauncher.data
 
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import androidx.compose.runtime.Immutable
 import com.decklauncher.model.AppCategory
 import com.decklauncher.model.AppItem
 
@@ -15,6 +16,7 @@ enum class FolderCategory(val id: String, val title: String) {
     OTHERS("others", "Outros")
 }
 
+@Immutable
 data class AppFolder(
     val id: String,
     val title: String,

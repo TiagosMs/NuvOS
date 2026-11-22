@@ -1,5 +1,6 @@
 package com.decklauncher.model
 
+import androidx.compose.runtime.Immutable
 import com.decklauncher.data.FolderCategory
 
 enum class AppCategory {
@@ -15,6 +16,7 @@ enum class ItemType {
     SHORTCUT
 }
 
+@Immutable
 data class AppItem(
     val id: String,
     val label: String,

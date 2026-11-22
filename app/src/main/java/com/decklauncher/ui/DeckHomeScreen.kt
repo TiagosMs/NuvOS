@@ -604,7 +604,8 @@ fun DeckHomeScreen(
                                 ) {
                                     itemsIndexed(
                                         items = filteredApps,
-                                        key = { _, app -> app.id }
+                                        key = { _, app -> app.id },
+                                        contentType = { _, _ -> "game_card" }
                                     ) { index, app ->
                                             GameCard(
                                                 app = app,
@@ -660,7 +661,8 @@ fun DeckHomeScreen(
                                     ) {
                                         itemsIndexed(
                                             items = folders,
-                                            key = { _, folder -> folder.id }
+                                            key = { _, folder -> folder.id },
+                                            contentType = { _, _ -> "folder_card" }
                                         ) { index, folder ->
                                             AppFolderCard(
                                                 folder = folder,
@@ -717,7 +719,8 @@ fun DeckHomeScreen(
                                     ) {
                                         itemsIndexed(
                                             items = activeFolder.apps,
-                                            key = { _, app -> app.id }
+                                            key = { _, app -> app.id },
+                                            contentType = { _, _ -> "console_app_tile" }
                                         ) { index, app ->
                                             ConsoleAppTile(
                                                 app = app,
