@@ -10,6 +10,6 @@ object Motion {
     const val Slow = 420      // troca de fundo/hero
 
     val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)          // entrar: rápido e suave no fim
-    val SelectSpring = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow)
-    val SoftSpring   = spring<Float>(dampingRatio = 0.9f,  stiffness = Spring.StiffnessLow)
+    val SelectSpring = spring<Float>(dampingRatio = 0.92f, stiffness = Spring.StiffnessMedium)
+    val SoftSpring   = spring<Float>(dampingRatio = 0.95f, stiffness = Spring.StiffnessLow)
 }

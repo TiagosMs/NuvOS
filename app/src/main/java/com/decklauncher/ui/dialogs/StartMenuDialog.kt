@@ -1,8 +1,10 @@
 package com.decklauncher.ui.dialogs
 
 import android.content.Context
-import android.graphics.Bitmap
+import android.net.Uri
 import android.view.KeyEvent as AndroidKeyEvent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -11,7 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -26,13 +27,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,9 +44,14 @@ import com.decklauncher.ui.components.*
 import com.decklauncher.ui.theme.*
 
 enum class StartMenuTab(val title: String) {
-    BIBLIOTECA("Biblioteca"),
+    BIBLIOTECA("Jogos"),
     APARENCIA("Aparência"),
-    BANCOS_DADOS("Bancos de Dados")
+    BANCOS_DADOS("Metadados")
+}
+
+enum class StartMenuFocusArea {
+    TABS,
+    CONTENT
 }
 
 @Composable
@@ -56,8 +62,8 @@ fun StartMenuDialog(
     onRequestIidbKey: () -> Unit = {},
     onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
     onRescanRoms: () -> Unit,
-    onRequestSetupFolders: () -> Unit = {},
-    onRequestRestartWizard: () -> Unit = {},
+    onRequestSetupFolders: () -> Unit,
+    onRequestRestartWizard: () -> Unit,
     profileName: String = "Tiago",
     avatarId: String = "deck_blue",
     currentBgMode: BackgroundMode = BackgroundMode.IMMERSIVE,
@@ -71,12 +77,15 @@ fun StartMenuDialog(
     onClearAllMetadata: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    var selectedTab by remember { mutableStateOf(StartMenuTab.BIBLIOTECA) }
+    var focusArea by remember { mutableStateOf(StartMenuFocusArea.TABS) }
+    var selectedOptionIndex by remember { mutableIntStateOf(0) }
+    val focusRequester = remember { FocusRequester() }
+    var isVisible by remember { mutableStateOf(false) }
+
     val activePreset = remember(avatarId) {
         ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
     }
-    var selectedTab by remember { mutableStateOf(StartMenuTab.BIBLIOTECA) }
-    var isVisible by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         isVisible = true
@@ -98,28 +107,143 @@ fun StartMenuDialog(
                     if (keyEvent.type == KeyEventType.KeyDown) {
                         when (keyEvent.nativeKeyEvent.keyCode) {
                             AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
-                                val tabs = StartMenuTab.values()
-                                val curIdx = tabs.indexOf(selectedTab)
-                                if (curIdx > 0) {
-                                    selectedTab = tabs[curIdx - 1]
-                                    SoundEffectManager.playTabSwitch()
-                                }
-                                true
+                                if (focusArea == StartMenuFocusArea.TABS) {
+                                    val tabs = StartMenuTab.values()
+                                    val curIdx = tabs.indexOf(selectedTab)
+                                    if (curIdx > 0) {
+                                        selectedTab = tabs[curIdx - 1]
+                                        SoundEffectManager.playTabSwitch()
+                                    }
+                                    true
+                                } else false
                             }
                             AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                val tabs = StartMenuTab.values()
-                                val curIdx = tabs.indexOf(selectedTab)
-                                if (curIdx < tabs.size - 1) {
-                                    selectedTab = tabs[curIdx + 1]
-                                    SoundEffectManager.playTabSwitch()
+                                if (focusArea == StartMenuFocusArea.TABS) {
+                                    val tabs = StartMenuTab.values()
+                                    val curIdx = tabs.indexOf(selectedTab)
+                                    if (curIdx < tabs.size - 1) {
+                                        selectedTab = tabs[curIdx + 1]
+                                        SoundEffectManager.playTabSwitch()
+                                    }
+                                    true
+                                } else false
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (focusArea == StartMenuFocusArea.TABS) {
+                                    focusArea = StartMenuFocusArea.CONTENT
+                                    selectedOptionIndex = 0
+                                    SoundEffectManager.playNavMove()
+                                    true
+                                } else {
+                                    val max = when (selectedTab) {
+                                        StartMenuTab.BIBLIOTECA -> 2
+                                        StartMenuTab.APARENCIA -> if (currentBgMode == BackgroundMode.WALLPAPER) 5 else 4
+                                        StartMenuTab.BANCOS_DADOS -> 4
+                                    }
+                                    if (selectedOptionIndex < max - 1) {
+                                        selectedOptionIndex++
+                                        SoundEffectManager.playNavMove()
+                                        true
+                                    } else false
                                 }
-                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> {
+                                if (focusArea == StartMenuFocusArea.CONTENT) {
+                                    if (selectedOptionIndex == 0) {
+                                        focusArea = StartMenuFocusArea.TABS
+                                        SoundEffectManager.playNavMove()
+                                    } else {
+                                        selectedOptionIndex--
+                                        SoundEffectManager.playNavMove()
+                                    }
+                                    true
+                                } else false
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                if (focusArea == StartMenuFocusArea.CONTENT) {
+                                    when (selectedTab) {
+                                        StartMenuTab.BIBLIOTECA -> {
+                                            when (selectedOptionIndex) {
+                                                0 -> { onRescanRoms(); onDismiss(); SoundEffectManager.playConfirm() }
+                                                1 -> { onRequestSetupFolders(); onDismiss(); SoundEffectManager.playConfirm() }
+                                            }
+                                        }
+                                        StartMenuTab.APARENCIA -> {
+                                            when (selectedOptionIndex) {
+                                                0 -> {
+                                                    val activity = context as? android.app.Activity
+                                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && activity != null) {
+                                                        val roleManager = activity.getSystemService(android.app.role.RoleManager::class.java)
+                                                        if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                                                            val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
+                                                            activity.startActivity(intent)
+                                                            onDismiss()
+                                                            return@onPreviewKeyEvent true
+                                                        }
+                                                    }
+                                                    try {
+                                                        val intent = android.content.Intent(android.provider.Settings.ACTION_HOME_SETTINGS)
+                                                        context.startActivity(intent)
+                                                    } catch (_: Exception) {}
+                                                    onDismiss()
+                                                    SoundEffectManager.playConfirm()
+                                                }
+                                                1 -> { onRequestRestartWizard(); onDismiss(); SoundEffectManager.playConfirm() }
+                                                2 -> {
+                                                    val modes = BackgroundMode.values()
+                                                    val nextMode = modes[(modes.indexOf(currentBgMode) + 1) % modes.size]
+                                                    onBgModeSelected(nextMode)
+                                                    SoundEffectManager.playConfirm()
+                                                }
+                                                3 -> {
+                                                    if (currentBgMode == BackgroundMode.WALLPAPER) {
+                                                        onRequestPickWallpaper()
+                                                        SoundEffectManager.playConfirm()
+                                                    } else {
+                                                        val next = !IntroManager.isIntroEnabled(context)
+                                                        IntroManager.setIntroEnabled(context, next)
+                                                        SoundEffectManager.playConfirm()
+                                                    }
+                                                }
+                                                4 -> {
+                                                    val next = !IntroManager.isIntroEnabled(context)
+                                                    IntroManager.setIntroEnabled(context, next)
+                                                    SoundEffectManager.playConfirm()
+                                                }
+                                            }
+                                        }
+                                        StartMenuTab.BANCOS_DADOS -> {
+                                            when (selectedOptionIndex) {
+                                                0 -> {
+                                                    val provs = ArtworkProvider.values()
+                                                    val nextProv = provs[(provs.indexOf(ArtworkProviderManager.getPreferredProvider(context)) + 1) % provs.size]
+                                                    ArtworkProviderManager.setPreferredProvider(context, nextProv)
+                                                    onArtworkProviderSelected(nextProv)
+                                                    SoundEffectManager.playConfirm()
+                                                }
+                                                1 -> { onRequestSteamGridKey(); onDismiss(); SoundEffectManager.playConfirm() }
+                                                2 -> { onRequestIidbKey(); onDismiss(); SoundEffectManager.playConfirm() }
+                                                3 -> { onClearAllMetadata(); onDismiss(); SoundEffectManager.playConfirm() }
+                                            }
+                                        }
+                                    }
+                                    true
+                                } else false
                             }
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
-                                onDismiss()
-                                true
+                                if (focusArea == StartMenuFocusArea.CONTENT) {
+                                    focusArea = StartMenuFocusArea.TABS
+                                    SoundEffectManager.playNavMove()
+                                    true
+                                } else {
+                                    SoundEffectManager.playMenuClose()
+                                    onDismiss()
+                                    true
+                                }
                             }
                             else -> false
                         }
@@ -132,7 +256,7 @@ fun StartMenuDialog(
                 ),
             contentAlignment = Alignment.CenterStart
         ) {
-            // Slide saindo da lateral esquerda para a direita (T3.1 / Requisito do usuario)
+            // Slide saindo da lateral esquerda para a direita
             AnimatedVisibility(
                 visible = isVisible,
                 enter = slideInHorizontally(
@@ -154,14 +278,14 @@ fun StartMenuDialog(
                             indication = null,
                             onClick = {}
                         )
-                        .clip(RoundedCornerShape(26.dp))
+                        .clip(RoundedCornerShape(24.dp))
                         .background(ColorBgDeep)
-                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
-                        .padding(20.dp)
+                        .border(1.dp, CardBorderUnselected, RoundedCornerShape(24.dp))
+                        .padding(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // 1. Topo: Perfil do Jogador centralizado no topo com avatar
                         var isProfileFocused by remember { mutableStateOf(false) }
@@ -171,12 +295,12 @@ fun StartMenuDialog(
                                 .heightIn(min = 52.dp)
                                 .onFocusChanged { isProfileFocused = it.isFocused }
                                 .focusable()
-                                .clip(RoundedCornerShape(18.dp))
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(if (isProfileFocused) NeutralBtnBgFocused else NeutralBtnBg)
                                 .border(
-                                    width = if (isProfileFocused) 2.dp else 1.dp,
+                                    width = if (isProfileFocused) 1.5.dp else 1.dp,
                                     color = if (isProfileFocused) FocusRing else CardBorderUnselected,
-                                    shape = RoundedCornerShape(18.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable { onRequestChangeAvatar() }
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -193,7 +317,7 @@ fun StartMenuDialog(
 
                                 Box(
                                     modifier = Modifier
-                                        .size(42.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(NeutralGlyphBg),
                                     contentAlignment = Alignment.Center
@@ -219,7 +343,7 @@ fun StartMenuDialog(
                             IconButton(
                                 onClick = onDismiss,
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(32.dp)
                                     .clip(CircleShape)
                                     .background(NeutralGlyphBg)
                             ) {
@@ -227,28 +351,32 @@ fun StartMenuDialog(
                             }
                         }
 
-                        // 2. Abas: Botoes quadrados centralizados com cantos arredondados e icones
+                        // 2. Abas: Botões centralizados com cantos arredondados e ícones
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             StartMenuTab.values().forEach { tab ->
                                 val isSelected = selectedTab == tab
+                                val isTabActive = (focusArea == StartMenuFocusArea.TABS && isSelected)
                                 var isTabFocused by remember { mutableStateOf(false) }
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(72.dp)
+                                        .height(68.dp)
                                         .onFocusChanged { isTabFocused = it.isFocused }
                                         .focusable()
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .background(if (isSelected || isTabFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected || isTabFocused || isTabActive) NeutralBtnBgFocused else NeutralBtnBg)
                                         .border(
-                                            width = if (isSelected || isTabFocused) 2.dp else 1.dp,
-                                            color = if (isTabFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
-                                            shape = RoundedCornerShape(18.dp)
+                                            width = if (isTabActive || isTabFocused) 1.8.dp else if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isTabActive || isTabFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
+                                            shape = RoundedCornerShape(12.dp)
                                         )
-                                        .clickable { selectedTab = tab }
+                                        .clickable {
+                                            selectedTab = tab
+                                            focusArea = StartMenuFocusArea.TABS
+                                        }
                                         .padding(6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -274,18 +402,20 @@ fun StartMenuDialog(
                             }
                         }
 
-                        // 3. Conteudo da aba ativa
+                        // 3. Conteúdo da aba ativa
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
                         ) {
+                            val isContentActive = (focusArea == StartMenuFocusArea.CONTENT)
                             when (selectedTab) {
                                 StartMenuTab.BIBLIOTECA -> {
                                     StartMenuTabBiblioteca(
                                         onRescanRoms = onRescanRoms,
                                         onRequestSetupFolders = onRequestSetupFolders,
-                                        onDismiss = onDismiss
+                                        onDismiss = onDismiss,
+                                        selectedOptionIndex = if (isContentActive) selectedOptionIndex else -1
                                     )
                                 }
                                 StartMenuTab.APARENCIA -> {
@@ -302,7 +432,8 @@ fun StartMenuDialog(
                                         currentLaunchTransition = currentLaunchTransition,
                                         onLaunchTransitionSelected = onLaunchTransitionSelected,
                                         onRequestRestartWizard = onRequestRestartWizard,
-                                        onDismiss = onDismiss
+                                        onDismiss = onDismiss,
+                                        selectedOptionIndex = if (isContentActive) selectedOptionIndex else -1
                                     )
                                 }
                                 StartMenuTab.BANCOS_DADOS -> {
@@ -312,7 +443,8 @@ fun StartMenuDialog(
                                         onArtworkProviderSelected = onArtworkProviderSelected,
                                         currentAccentColor = currentAccentColor,
                                         onClearAllMetadata = onClearAllMetadata,
-                                        onDismiss = onDismiss
+                                        onDismiss = onDismiss,
+                                        selectedOptionIndex = if (isContentActive) selectedOptionIndex else -1
                                     )
                                 }
                             }
@@ -328,7 +460,8 @@ fun StartMenuDialog(
 private fun StartMenuTabBiblioteca(
     onRescanRoms: () -> Unit,
     onRequestSetupFolders: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    selectedOptionIndex: Int = -1
 ) {
     Column(
         modifier = Modifier
@@ -343,7 +476,8 @@ private fun StartMenuTabBiblioteca(
             onClick = {
                 onRescanRoms()
                 onDismiss()
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == 0)
         )
 
         StartOptionRow(
@@ -351,7 +485,8 @@ private fun StartMenuTabBiblioteca(
             onClick = {
                 onRequestSetupFolders()
                 onDismiss()
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == 1)
         )
     }
 }
@@ -370,7 +505,8 @@ private fun StartMenuTabAparencia(
     currentLaunchTransition: LaunchTransitionType,
     onLaunchTransitionSelected: (LaunchTransitionType) -> Unit,
     onRequestRestartWizard: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    selectedOptionIndex: Int = -1
 ) {
     val context = LocalContext.current
 
@@ -402,7 +538,8 @@ private fun StartMenuTabAparencia(
                     android.widget.Toast.makeText(context, "Abra Configurações do Android › Apps padrão › Início", android.widget.Toast.LENGTH_LONG).show()
                 }
                 onDismiss()
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == 0)
         )
 
         StartOptionRow(
@@ -410,7 +547,8 @@ private fun StartMenuTabAparencia(
             onClick = {
                 onRequestRestartWizard()
                 onDismiss()
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == 1)
         )
 
         Text("Plano de Fundo", style = MaterialTheme.typography.titleMedium, color = TextWhite)
@@ -421,6 +559,7 @@ private fun StartMenuTabAparencia(
         ) {
             BackgroundMode.values().forEach { mode ->
                 val isSelected = currentBgMode == mode
+                val isModeActive = (selectedOptionIndex == 2 && isSelected)
                 var isModeFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
@@ -429,10 +568,10 @@ private fun StartMenuTabAparencia(
                         .onFocusChanged { isModeFocused = it.isFocused }
                         .focusable()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected || isModeFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                        .background(if (isSelected || isModeFocused || isModeActive) NeutralBtnBgFocused else NeutralBtnBg)
                         .border(
-                            width = if (isSelected || isModeFocused) 2.dp else 1.dp,
-                            color = if (isModeFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
+                            width = if (isModeActive || isModeFocused) 2.5.dp else if (isSelected) 2.dp else 1.dp,
+                            color = if (isModeActive || isModeFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable { onBgModeSelected(mode) },
@@ -443,6 +582,7 @@ private fun StartMenuTabAparencia(
                             BackgroundMode.IMMERSIVE -> "Imersivo"
                             BackgroundMode.WALLPAPER -> "Wallpaper"
                             BackgroundMode.SOLID -> "Sóbrio"
+                            BackgroundMode.OLED -> "OLED"
                         },
                         color = if (isSelected) TextWhite else TextPrimary,
                         style = MaterialTheme.typography.labelMedium
@@ -454,20 +594,23 @@ private fun StartMenuTabAparencia(
         if (currentBgMode == BackgroundMode.WALLPAPER) {
             StartOptionRow(
                 label = if (hasCustomWallpaper) "Wallpaper ativo (Trocar)" else "Escolher Imagem do Dispositivo",
-                onClick = onRequestPickWallpaper
+                onClick = onRequestPickWallpaper,
+                isExternalFocused = (selectedOptionIndex == 3)
             )
         }
 
         Text("Intros de Boot & Transições", style = MaterialTheme.typography.titleMedium, color = TextWhite)
 
         var introsActive by remember { mutableStateOf(IntroManager.isIntroEnabled(context)) }
+        val introIdx = if (currentBgMode == BackgroundMode.WALLPAPER) 4 else 3
         StartOptionRow(
             label = if (introsActive) "Intros de Boot dos Consoles: Ativado" else "Intros de Boot dos Consoles: Desativado",
             onClick = {
                 val next = !introsActive
                 introsActive = next
                 IntroManager.setIntroEnabled(context, next)
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == introIdx)
         )
     }
 }
@@ -479,7 +622,8 @@ private fun StartMenuTabBancosDados(
     onArtworkProviderSelected: (ArtworkProvider) -> Unit,
     currentAccentColor: Long,
     onClearAllMetadata: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    selectedOptionIndex: Int = -1
 ) {
     val context = LocalContext.current
     var preferredProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
@@ -513,6 +657,7 @@ private fun StartMenuTabBancosDados(
         ) {
             ArtworkProvider.values().forEach { provider ->
                 val isSelected = preferredProvider == provider
+                val isProvActive = (selectedOptionIndex == 0 && isSelected)
                 var isProviderFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
@@ -521,10 +666,10 @@ private fun StartMenuTabBancosDados(
                         .onFocusChanged { isProviderFocused = it.isFocused }
                         .focusable()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected || isProviderFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                        .background(if (isSelected || isProviderFocused || isProvActive) NeutralBtnBgFocused else NeutralBtnBg)
                         .border(
-                            width = if (isSelected || isProviderFocused) 2.dp else 1.dp,
-                            color = if (isProviderFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
+                            width = if (isProvActive || isProviderFocused) 2.5.dp else if (isSelected) 2.dp else 1.dp,
+                            color = if (isProvActive || isProviderFocused) FocusRing else if (isSelected) Color.White else CardBorderUnselected,
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable {
@@ -550,7 +695,8 @@ private fun StartMenuTabBancosDados(
             onClick = {
                 onRequestSteamGridKey()
                 onDismiss()
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == 1)
         )
 
         StartOptionRow(
@@ -558,16 +704,23 @@ private fun StartMenuTabBancosDados(
             onClick = {
                 onRequestIidbKey()
                 onDismiss()
-            }
+            },
+            isExternalFocused = (selectedOptionIndex == 2)
         )
 
         Spacer(modifier = Modifier.height(6.dp))
 
+        val isResetActive = (selectedOptionIndex == 3)
         Button(
             onClick = { showConfirmReset = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(48.dp)
+                .border(
+                    width = if (isResetActive) 2.5.dp else 0.dp,
+                    color = if (isResetActive) FocusRing else Color.Transparent,
+                    shape = RoundedCornerShape(16.dp)
+                ),
             colors = ButtonDefaults.buttonColors(
                 containerColor = DangerBtnBg,
                 contentColor = DangerBtnText
@@ -583,20 +736,22 @@ private fun StartMenuTabBancosDados(
 fun StartOptionRow(
     label: String,
     onClick: () -> Unit,
+    isExternalFocused: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val isHighlighted = isFocused || isExternalFocused
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp) // rule-ok: toque minimo 48dp
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (isFocused) NeutralBtnBgFocused else NeutralBtnBg)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isHighlighted) NeutralBtnBgFocused else NeutralBtnBg)
             .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) FocusRing else CardBorderUnselected,
-                shape = RoundedCornerShape(16.dp)
+                width = if (isHighlighted) 1.5.dp else 1.dp,
+                color = if (isHighlighted) FocusRing else CardBorderUnselected,
+                shape = RoundedCornerShape(12.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
@@ -610,7 +765,7 @@ fun StartOptionRow(
         ) {
             Text(
                 text = label,
-                color = if (isFocused) TextWhite else NeutralBtnText,
+                color = if (isHighlighted) TextWhite else NeutralBtnText,
                 style = MaterialTheme.typography.bodyLarge
             )
         }

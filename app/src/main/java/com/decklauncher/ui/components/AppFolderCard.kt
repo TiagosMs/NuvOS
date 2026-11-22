@@ -365,12 +365,12 @@ fun AppFolderCard(
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.5.dp else 1.dp,
+        targetValue = if (isSelected) 1.8.dp else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 200f),
         label = "folder_border"
     )
 
-    val shape = RoundedCornerShape(if (isCompactHeight) 16.dp else 20.dp)
+    val shape = RoundedCornerShape(if (isCompactHeight) 12.dp else 16.dp)
     val cardWidth = if (isCompactHeight) 130.dp else 165.dp
     val cardHeight = if (isCompactHeight) 88.dp else 115.dp
 
@@ -783,19 +783,19 @@ fun ConsoleAppTile(
     val isCompactHeight = configuration.screenHeightDp < 520
 
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 0.94f,
+        targetValue = if (isSelected) 1.05f else 0.96f,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 170f),
         label = "console_tile_scale"
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 3.dp else 1.dp,
+        targetValue = if (isSelected) 1.8.dp else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 200f),
         label = "console_tile_border"
     )
 
     val tileSize = if (isCompactHeight) 80.dp else 105.dp
-    val tileShape = RoundedCornerShape(if (isCompactHeight) 16.dp else 22.dp)
+    val tileShape = RoundedCornerShape(if (isCompactHeight) 12.dp else 16.dp)
 
     Column(
         modifier = modifier

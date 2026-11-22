@@ -54,7 +54,9 @@ fun GameLogo3D(
     logoBitmap: Bitmap?,
     accentColor: Color,
     modifier: Modifier = Modifier,
-    metadataUpdateCounter: Int = 0
+    metadataUpdateCounter: Int = 0,
+    parallaxX: Float = 0f,
+    parallaxY: Float = 0f
 ) {
     if (currentApp == null) return
 
@@ -179,9 +181,10 @@ fun GameLogo3D(
                     modifier = Modifier
                         .graphicsLayer {
                             val p = phase.value
-                            translationY = sin(p) * (if (isCompactHeight) 6.dp.toPx() else 10.dp.toPx())
-                            rotationY = sin(p + 1f) * 9.5f
-                            rotationX = sin(2f * p) * 4.5f
+                            translationY = sin(p) * (if (isCompactHeight) 6.dp.toPx() else 10.dp.toPx()) + parallaxY * (14.dp.toPx())
+                            translationX = parallaxX * (18.dp.toPx())
+                            rotationY = sin(p + 1f) * 9.5f + (parallaxX * 12f)
+                            rotationX = sin(2f * p) * 4.5f - (parallaxY * 8f)
                             rotationZ = sin(3f * p + 2f) * 1.4f
                             cameraDistance = 16f * density
                         }

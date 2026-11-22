@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -34,10 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -164,6 +167,15 @@ fun DeckHomeScreen(
     metadataUpdateCounter: Int = 0,
     onRescanRoms: () -> Unit,
     onRemoveItem: (AppItem) -> Unit,
+    parallaxX: Float = 0f,
+    parallaxY: Float = 0f,
+    showGameHubSheet: Boolean = false,
+    onDismissGameHubSheet: () -> Unit = {},
+    showQuickAccessDrawer: Boolean = false,
+    onDismissQuickAccessDrawer: () -> Unit = {},
+    onJumpToLetter: (Char) -> Unit = {},
+    onRequestOpenDetails: () -> Unit = {},
+    onRequestOpenQuickAccess: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -346,6 +358,13 @@ fun DeckHomeScreen(
                         )
                 )
             }
+            BackgroundMode.OLED -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                )
+            }
             BackgroundMode.IMMERSIVE -> {
                 // Fundo Imersivo otimizado (Fase 4.4):
                 // Crossfade leve com hero pré-renderizado e blurFile reduzido
@@ -355,7 +374,14 @@ fun DeckHomeScreen(
                     label = "hero_bg_fade"
                 ) { file ->
                     if (file != null) {
-                        Box(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    translationX = parallaxX * 10.dp.toPx()
+                                    translationY = parallaxY * 6.dp.toPx()
+                                }
+                        ) {
                             if (blurFile != null) {
                                 AsyncImage(
                                     model = blurFile,
@@ -375,7 +401,6 @@ fun DeckHomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight(0.72f)
-                                    .blur(10.dp) // rule-ok: blur gaussiano de fundo solicitado pelo usuario
                             )
                             Box(
                                 modifier = Modifier
@@ -404,6 +429,39 @@ fun DeckHomeScreen(
                 }
             }
         }
+
+        // Adaptive Aura OLED Lighting (Feature 4 Next-Gen):
+        // Iluminação sutil e suave na atmosfera superior baseada na cor da arte do jogo
+        var auraColor by remember { mutableStateOf<Color>(accentColor) }
+        LaunchedEffect(currentFocusedApp?.id) {
+            val extracted = AdaptiveAuraManager.getAuraColor(context, currentFocusedApp, accentColor)
+            auraColor = extracted
+        }
+        val animatedAuraColor by animateColorAsState(
+            targetValue = auraColor,
+            animationSpec = tween(500),
+            label = "adaptive_aura"
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.35f)
+                .align(Alignment.TopCenter)
+                .drawWithCache {
+                    val brush = Brush.radialGradient(
+                        colors = listOf(
+                            animatedAuraColor.copy(alpha = 0.20f),
+                            animatedAuraColor.copy(alpha = 0.04f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.5f, -size.height * 0.08f),
+                        radius = size.width * 0.65f
+                    )
+                    onDrawBehind {
+                        drawRect(brush)
+                    }
+                }
+        )
 
         Column(
             modifier = Modifier.fillMaxSize()
@@ -514,7 +572,9 @@ fun DeckHomeScreen(
                                         currentApp = currentFocusedApp,
                                         logoBitmap = currentLogoBitmap,
                                         accentColor = accentColor,
-                                        metadataUpdateCounter = metadataUpdateCounter
+                                        metadataUpdateCounter = metadataUpdateCounter,
+                                        parallaxX = parallaxX,
+                                        parallaxY = parallaxY
                                     )
                                 }
 
@@ -685,7 +745,13 @@ fun DeckHomeScreen(
                 onAddGameAction = onRequestAddGameOptions,
                 onBackAction = {
                     if (activeFolder != null) onCloseFolder()
-                }
+                },
+                onOpenDetailsAction = {
+                    if (selectedTab != 2 && currentFocusedApp != null) {
+                        onRequestOpenDetails()
+                    }
+                },
+                onQuickAccessAction = onRequestOpenQuickAccess
             )
         }
 
@@ -870,6 +936,33 @@ fun DeckHomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
+            )
+        }
+
+        // Game Hub Sheet (Feature 2 Next-Gen)
+        if (showGameHubSheet && currentFocusedApp != null) {
+            val app = currentFocusedApp
+            GameHubSheet(
+                app = app,
+                isVisible = showGameHubSheet,
+                onDismiss = onDismissGameHubSheet,
+                onLaunch = { onLaunchApp(app) },
+                onOptions = { onOpenSettings(app) },
+                onManageMetadata = { onRequestManageMetadata(app) },
+                accentColor = accentColor,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        // Quick Access Drawer (Feature 3 Next-Gen)
+        if (showQuickAccessDrawer) {
+            QuickAccessDrawer(
+                isVisible = showQuickAccessDrawer,
+                onDismiss = onDismissQuickAccessDrawer,
+                batteryPct = batteryPct,
+                currentTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date()),
+                onJumpToLetter = onJumpToLetter,
+                modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
     }

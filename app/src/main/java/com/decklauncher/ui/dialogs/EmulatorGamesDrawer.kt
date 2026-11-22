@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -75,15 +76,10 @@ fun EmulatorGamesDrawer(
                     val cover = CoverManager.getCoverPath(context, rom.id)
                     if (cover == null) {
                         try {
-                            val assets = IidbManager.getArtworkForParent(context, rom.id.hashCode().toLong())
-                            if (assets?.boxartUrl != null) {
-                                CoverManager.downloadCover(context, rom.id, assets.boxartUrl)
-                            } else {
-                                val search = IidbManager.searchGames(context, rom.label)
-                                val first = search.firstOrNull()
-                                if (first != null && first.boxartUrl != null) {
-                                    CoverManager.downloadCover(context, rom.id, first.boxartUrl)
-                                }
+                            val search = IidbManager.searchGames(context, rom.label)
+                            val first = search.firstOrNull()
+                            if (first != null && first.boxartUrl != null) {
+                                CoverManager.downloadCover(context, rom.id, first.boxartUrl)
                             }
                         } catch (_: Exception) {}
                     }
@@ -205,14 +201,14 @@ fun EmulatorGamesDrawer(
                             indication = null,
                             onClick = {}
                         )
-                        .clip(RoundedCornerShape(26.dp))
+                        .clip(RoundedCornerShape(24.dp))
                         .background(ColorBgDeep)
-                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
-                        .padding(22.dp)
+                        .border(1.dp, CardBorderUnselected, RoundedCornerShape(24.dp))
+                        .padding(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // Header com ícone do emulador e fechar
                         Row(
@@ -222,7 +218,7 @@ fun EmulatorGamesDrawer(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 val emuIcon = rememberAppIcon(emulatorApp)
                                 if (emuIcon != null) {
@@ -230,14 +226,14 @@ fun EmulatorGamesDrawer(
                                         bitmap = emuIcon,
                                         contentDescription = emulatorApp.label,
                                         modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(RoundedCornerShape(14.dp))
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                     )
                                 } else {
                                     Box(
                                         modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(RoundedCornerShape(14.dp))
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                             .background(NeutralBtnBg),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -249,8 +245,8 @@ fun EmulatorGamesDrawer(
                                     Text(
                                         text = emulatorApp.label,
                                         color = TextWhite,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.SemiBold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -264,8 +260,8 @@ fun EmulatorGamesDrawer(
 
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(14.dp))
+                                    .size(32.dp)
+                                    .clip(CircleShape)
                                     .background(NeutralBtnBg)
                                     .clickable { onDismiss() },
                                 contentAlignment = Alignment.Center
@@ -280,12 +276,12 @@ fun EmulatorGamesDrawer(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 46.dp)
-                                .clip(RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(if (selectedIndex == 0 || isEmuBtnFocused) NeutralBtnBgFocused else NeutralBtnBg)
                                 .border(
-                                    width = if (selectedIndex == 0 || isEmuBtnFocused) 2.dp else 1.dp,
+                                    width = if (selectedIndex == 0 || isEmuBtnFocused) 1.5.dp else 1.dp,
                                     color = if (selectedIndex == 0 || isEmuBtnFocused) FocusRing else CardBorderUnselected,
-                                    shape = RoundedCornerShape(16.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 )
                                 .onFocusChanged { isEmuBtnFocused = it.isFocused }
                                 .clickable(role = Role.Button) {
@@ -376,12 +372,12 @@ fun RomGridCardItem(
             .fillMaxWidth()
             .aspectRatio(1.0f)
             .scale(if (isFocused) 1.04f else 1.0f)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(if (isFocused) NeutralBtnBgFocused else NeutralBtnBg)
             .border(
-                width = if (isFocused) 2.dp else 1.dp,
+                width = if (isFocused) 1.5.dp else 1.dp,
                 color = if (isFocused) FocusRing else CardBorderUnselected,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(12.dp)
             )
             .clickable(
                 role = Role.Button,

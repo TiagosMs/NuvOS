@@ -1,5 +1,7 @@
 package com.decklauncher.ui.dialogs
 
+import com.decklauncher.data.SoundEffectManager
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -385,6 +387,7 @@ fun EditCoverSteamGridDialog(
     ) {
         EnableWindowBlur()
         var isVisible by remember { mutableStateOf(false) }
+        var selectedGridIndex by remember { mutableIntStateOf(0) }
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             isVisible = true
@@ -400,9 +403,49 @@ fun EditCoverSteamGridDialog(
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.type == KeyEventType.KeyDown) {
                         when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
+                                if (results.isNotEmpty()) {
+                                    selectedGridIndex = (selectedGridIndex - 1).coerceAtLeast(0)
+                                    SoundEffectManager.playNavMove()
+                                    true
+                                } else false
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                if (results.isNotEmpty()) {
+                                    selectedGridIndex = (selectedGridIndex + 1).coerceAtMost(results.size - 1)
+                                    SoundEffectManager.playNavMove()
+                                    true
+                                } else false
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> {
+                                if (results.isNotEmpty()) {
+                                    selectedGridIndex = (selectedGridIndex - 2).coerceAtLeast(0)
+                                    SoundEffectManager.playNavMove()
+                                    true
+                                } else false
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (results.isNotEmpty()) {
+                                    selectedGridIndex = (selectedGridIndex + 2).coerceAtMost(results.size - 1)
+                                    SoundEffectManager.playNavMove()
+                                    true
+                                } else false
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                val item = results.getOrNull(selectedGridIndex)
+                                if (item != null) {
+                                    SoundEffectManager.playConfirm()
+                                    onApplyCoverUrl(item.url)
+                                    onDismiss()
+                                    true
+                                } else false
+                            }
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }
@@ -589,22 +632,24 @@ fun EditCoverSteamGridDialog(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                gridItemsIndexed(results) { _, artwork ->
+                                gridItemsIndexed(results) { index, artwork ->
                                     var isCandidateFocused by remember { mutableStateOf(false) }
+                                    val isCandidateActive = isCandidateFocused || (results.indices.contains(selectedGridIndex) && results[selectedGridIndex] == artwork)
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .aspectRatio(1.0f)
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(if (isCandidateFocused) NeutralBtnBgFocused else NeutralBtnBg)
+                                            .background(if (isCandidateActive) NeutralBtnBgFocused else NeutralBtnBg)
                                             .border(
-                                                width = if (isCandidateFocused) 2.5.dp else 1.dp,
-                                                color = if (isCandidateFocused) FocusRing else CardBorderUnselected,
+                                                width = if (isCandidateActive) 2.5.dp else 1.dp,
+                                                color = if (isCandidateActive) FocusRing else CardBorderUnselected,
                                                 shape = RoundedCornerShape(16.dp)
                                             )
                                             .onFocusChanged { isCandidateFocused = it.isFocused }
                                             .focusable()
                                             .clickable {
+                                                selectedGridIndex = index
                                                 onApplyCoverUrl(artwork.url)
                                                 onDismiss()
                                             },
@@ -1448,6 +1493,11 @@ fun SteamGridApiKeyDialog(
 ) {
     val context = LocalContext.current
     var currentKey by remember { mutableStateOf(SteamGridDbManager.getApiKey(context)) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1456,12 +1506,52 @@ fun SteamGridApiKeyDialog(
         EnableWindowBlur()
         Box(
             modifier = Modifier
-                .width(400.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(20.dp)
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
+                                onDismiss()
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                SoundEffectManager.playConfirm()
+                                onSaveKey(currentKey.trim())
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
         ) {
+            Box(
+                modifier = Modifier
+                    .width(400.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(SteamDeckBg)
+                    .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .padding(20.dp)
+            ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "Chave de API SteamGridDB",
@@ -1513,6 +1603,7 @@ fun SteamGridApiKeyDialog(
         }
     }
 }
+}
 
 @Composable
 fun IidbApiKeyDialog(
@@ -1521,6 +1612,11 @@ fun IidbApiKeyDialog(
 ) {
     val context = LocalContext.current
     var currentKey by remember { mutableStateOf(IidbManager.getApiKey(context)) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1529,12 +1625,52 @@ fun IidbApiKeyDialog(
         EnableWindowBlur()
         Box(
             modifier = Modifier
-                .width(420.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(20.dp)
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
+                                onDismiss()
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                SoundEffectManager.playConfirm()
+                                onSaveKey(currentKey.trim())
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
         ) {
+            Box(
+                modifier = Modifier
+                    .width(420.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(SteamDeckBg)
+                    .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .padding(20.dp)
+            ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "Chave de API iiDB (iiSU Network)",
@@ -1586,6 +1722,7 @@ fun IidbApiKeyDialog(
             }
         }
     }
+}
 }
 
 @Composable
@@ -1645,585 +1782,6 @@ fun SteamDeckOptionRow(
 
 
 @Composable
-fun LauncherSettingsDialog(
-    onDismiss: () -> Unit,
-    onRequestChangeAvatar: () -> Unit,
-    onRequestSteamGridKey: () -> Unit,
-    onRequestIidbKey: () -> Unit = {},
-    onArtworkProviderSelected: (ArtworkProvider) -> Unit = {},
-    onRescanRoms: () -> Unit,
-    onRequestReorderMode: () -> Unit,
-    onRequestSetupFolders: () -> Unit = {},
-    profileName: String = "Tiago",
-    avatarId: String = "deck_blue",
-    currentBgMode: BackgroundMode = BackgroundMode.IMMERSIVE,
-    onBgModeSelected: (BackgroundMode) -> Unit = {},
-    onRequestPickWallpaper: () -> Unit = {},
-    hasCustomWallpaper: Boolean = false,
-    currentAccentColor: Long = 0xFF1A73E8,
-    onAccentColorSelected: (Long) -> Unit = {},
-    currentLaunchTransition: LaunchTransitionType = LaunchTransitionType.FADE,
-    onLaunchTransitionSelected: (LaunchTransitionType) -> Unit = {},
-    onClearAllMetadata: () -> Unit = {}
-) {
-    val context = LocalContext.current
-    val activePreset = remember(avatarId) {
-        ProfileManager.PRESET_AVATARS.firstOrNull { it.id == avatarId } ?: ProfileManager.PRESET_AVATARS.first()
-    }
-    var isVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        isVisible = true
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        EnableWindowBlur()
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss
-                ),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = slideInHorizontally(
-                    initialOffsetX = { -it },
-                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f)
-                ) + fadeIn(animationSpec = tween(200)),
-                exit = slideOutHorizontally(
-                    targetOffsetX = { -it },
-                    animationSpec = tween(180)
-                ) + fadeOut(animationSpec = tween(150))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(start = 24.dp, top = 20.dp, bottom = 20.dp)
-                        .width(440.dp)
-                        .fillMaxHeight(0.92f)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {}
-                        )
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(SteamDeckBg)
-                        .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(26.dp))
-                        .padding(22.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                // Seção Perfil
-                Text(
-                    text = "Perfil",
-                    color = Color(0xFFD6D6D6),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                var isProfileFocused by remember { mutableStateOf(false) }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { isProfileFocused = it.isFocused }
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (isProfileFocused) Color(0x45FFFFFF) else SteamDeckCardBg)
-                        .border(
-                            width = if (isProfileFocused) 2.5.dp else 1.dp,
-                            color = if (isProfileFocused) Color.White else Color(0x1AFFFFFF),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .clickable {
-                            onRequestChangeAvatar()
-                        }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        val customAvatar = remember(avatarId, ProfileManager.avatarVersion) {
-                            if (avatarId == ProfileManager.CUSTOM_AVATAR_ID) ProfileManager.loadCustomAvatar(context) else null
-                        }
-
-                        // Avatar circular sem moldura
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .then(
-                                    if (customAvatar == null) {
-                                        Modifier.background(
-                                            Brush.linearGradient(
-                                                listOf(
-                                                    Color(activePreset.primaryColor),
-                                                    Color(activePreset.accentColor)
-                                                )
-                                            )
-                                        )
-                                    } else Modifier
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (customAvatar != null) {
-                                Image(
-                                    bitmap = customAvatar.asImageBitmap(),
-                                    contentDescription = "Foto de Perfil",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                Text(
-                                    text = activePreset.initial,
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                        }
-
-                        Column {
-                            Text(
-                                text = profileName,
-                                color = TextWhite,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "@Without_",
-                                color = Color(0xFFAAAAAA),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = "Trocar",
-                        color = Color(0xFFCCCCCC),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Seção Biblioteca e Navegação
-                Text(
-                    text = "Biblioteca e Navegação",
-                    color = Color(0xFFD6D6D6),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                SteamDeckOptionRow(
-                    label = "Mover e Trocar Ordem dos Itens",
-                    onClick = {
-                        onRequestReorderMode()
-                        onDismiss()
-                    }
-                )
-
-                SteamDeckOptionRow(
-                    label = "Re-escanear ROMs e Emuladores",
-                    onClick = {
-                        onRescanRoms()
-                        onDismiss()
-                    }
-                )
-
-                SteamDeckOptionRow(
-                    label = "Configurar Pastas de ISOs & Inicialização",
-                    onClick = {
-                        onRequestSetupFolders()
-                        onDismiss()
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "APARÊNCIA & PERSONALIZAÇÃO",
-                    color = Color(0xFF6B7D8E),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Modo de Fundo
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Plano de Fundo", color = SteamDeckTextMuted, fontSize = 11.sp)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        BackgroundMode.values().forEach { mode ->
-                            val isSelected = currentBgMode == mode
-                            val accentCol = Color(currentAccentColor)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isSelected) accentCol.copy(alpha = 0.25f) else SteamDeckCardBg)
-                                    .border(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) accentCol else Color(0x22FFFFFF),
-                                        shape = RoundedCornerShape(20.dp)
-                                    )
-                                    .clickable { onBgModeSelected(mode) }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = when (mode) {
-                                        BackgroundMode.IMMERSIVE -> "Imersivo"
-                                        BackgroundMode.WALLPAPER -> "Wallpaper"
-                                        BackgroundMode.SOLID -> "Sóbrio"
-                                    },
-                                    color = if (isSelected) TextWhite else SteamDeckTextMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-
-                    if (currentBgMode == BackgroundMode.WALLPAPER) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(SteamDeckCardBg)
-                                .clickable { onRequestPickWallpaper() }
-                                .padding(horizontal = 14.dp, vertical = 11.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Escolher Imagem do Dispositivo",
-                                    color = TextWhite,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = if (hasCustomWallpaper) "Wallpaper ativo do armazenamento ✓" else "Nenhum arquivo selecionado",
-                                    color = if (hasCustomWallpaper) Color(0xFF10B981) else SteamDeckTextMuted,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Text(
-                                text = "Selecionar",
-                                color = Color(currentAccentColor),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Cor do Tema (Accent Color)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("cor de destaque", color = Color(0xFFD6D6D6), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ThemeManager.COLOR_PRESETS.forEach { preset ->
-                            val isSelected = currentAccentColor == preset.colorValue
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(preset.colorValue))
-                                    .border(
-                                        width = if (isSelected) 2.5.dp else 0.dp,
-                                        color = if (isSelected) Color.White else Color.Transparent,
-                                        shape = CircleShape
-                                    )
-                                    .clickable { onAccentColorSelected(preset.colorValue) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(if (preset.colorValue == 0xFFFFFFFF) Color.Black else Color.White)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Intros dos Consoles ao Iniciar
-                var introsActive by remember { mutableStateOf(IntroManager.isIntroEnabled(context)) }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SteamDeckCardBg)
-                        .clickable {
-                            val newActive = !introsActive
-                            introsActive = newActive
-                            IntroManager.setIntroEnabled(context, newActive)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Intros de Boot dos Consoles",
-                            color = TextWhite,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (introsActive) "Vídeo oficial e áudio ao iniciar o jogo" else "Desativado (início imediato)",
-                            color = if (introsActive) Color(0xFF10B981) else SteamDeckTextMuted,
-                            fontSize = 11.sp
-                        )
-                    }
-                    Text(
-                        text = if (introsActive) "Ativado" else "Desativado",
-                        color = if (introsActive) Color(0xFF10B981) else SteamDeckTextMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Transição ao Abrir Jogos
-                Text(
-                    text = "TRANSIÇÃO AO ABRIR JOGOS",
-                    color = Color(0xFF6B7D8E),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LaunchTransitionType.values().forEach { trans ->
-                        val isSelected = currentLaunchTransition == trans
-                        val accentCol = Color(currentAccentColor)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(if (isSelected) accentCol.copy(alpha = 0.22f) else SteamDeckCardBg)
-                                .border(
-                                    width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) accentCol else Color(0x22FFFFFF),
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                .clickable { onLaunchTransitionSelected(trans) }
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = trans.title,
-                                    color = TextWhite,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = trans.description,
-                                    color = if (isSelected) Color(0xFF93C5FD) else SteamDeckTextMuted,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            if (isSelected) {
-                                Text(
-                                    text = "Ativo",
-                                    color = accentCol,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "DATABASE DE ARTES & SISTEMA",
-                    color = Color(0xFF6B7D8E),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Provedor Padrão de Artes
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Provedor Padrão de Artes", color = SteamDeckTextMuted, fontSize = 11.sp)
-                    var preferredProvider by remember { mutableStateOf(ArtworkProviderManager.getPreferredProvider(context)) }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ArtworkProvider.values().forEach { provider ->
-                            val isSelected = preferredProvider == provider
-                            val accentCol = Color(currentAccentColor)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isSelected) accentCol.copy(alpha = 0.25f) else SteamDeckCardBg)
-                                    .border(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) accentCol else Color(0x22FFFFFF),
-                                        shape = RoundedCornerShape(20.dp)
-                                    )
-                                    .clickable {
-                                        preferredProvider = provider
-                                        ArtworkProviderManager.setPreferredProvider(context, provider)
-                                        onArtworkProviderSelected(provider)
-                                    }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = provider.title,
-                                    color = if (isSelected) TextWhite else SteamDeckTextMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                    Text(
-                        text = when (preferredProvider) {
-                            ArtworkProvider.STEAMGRID_DB -> "SteamGridDB ativo: foco em capas verticais 600x900 da comunidade."
-                            ArtworkProvider.IIDB -> "iiDB ativo: banco oficial com capas, banners 16:9, logos 3D e áudios tema."
-                        },
-                        color = Color(0xFF93C5FD),
-                        fontSize = 11.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                SteamDeckOptionRow(
-                    label = "Configurar Chave de API SteamGridDB",
-                    onClick = {
-                        onRequestSteamGridKey()
-                        onDismiss()
-                    }
-                )
-
-                SteamDeckOptionRow(
-                    label = "Configurar Chave iiDB (iiSU Network)",
-                    onClick = {
-                        onRequestIidbKey()
-                        onDismiss()
-                    }
-                )
-
-                var musicActive by remember { mutableStateOf(IidbManager.isThemeMusicEnabled(context)) }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SteamDeckCardBg)
-                        .clickable {
-                            val newActive = !musicActive
-                            musicActive = newActive
-                            IidbManager.setThemeMusicEnabled(context, newActive)
-                            if (!newActive) {
-                                ThemeMusicManager.stopTheme()
-                            }
-                        }
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Música Tema ao Focar Jogo (iiDB)",
-                            color = TextWhite,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (musicActive) "Toca áudio oficial do jogo no carrossel" else "Desativado",
-                            color = if (musicActive) Color(0xFF10B981) else SteamDeckTextMuted,
-                            fontSize = 11.sp
-                        )
-                    }
-                    Text(
-                        text = if (musicActive) "Ativado" else "Desativado",
-                        color = if (musicActive) Color(0xFF10B981) else SteamDeckTextMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-
-                var isClearAllFocused by remember { mutableStateOf(false) }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFFDC2626).copy(alpha = 0.2f))
-                        .border(
-                            width = if (isClearAllFocused) 2.dp else 1.dp,
-                            color = if (isClearAllFocused) Color.White else Color(0xFFDC2626),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .onFocusChanged { isClearAllFocused = it.isFocused }
-                        .focusable()
-                        .clickable {
-                            onClearAllMetadata()
-                            onDismiss()
-                        }
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Excluir Todos os Metadados (Resetar Capas/Logos/Sons)",
-                        color = Color(0xFFFCA5A5),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                var isCloseFocused by remember { mutableStateOf(false) }
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = if (isCloseFocused) Color(0xFF384353) else Color(0xFF27303D)),
-                    shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(if (isCloseFocused) 2.5.dp else 0.dp, Color.White),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { isCloseFocused = it.isFocused }
-                ) {
-                    Text("Fechar", color = TextWhite, fontSize = 13.sp, fontWeight = if (isCloseFocused) FontWeight.Bold else FontWeight.Normal)
-                }
-            }
-        }
-            }
-        }
-    }
-}
-
-@Composable
 fun ChangeAvatarDialog(
     onDismiss: () -> Unit,
     onAvatarSelected: (String) -> Unit,
@@ -2233,6 +1791,14 @@ fun ChangeAvatarDialog(
     val coroutineScope = rememberCoroutineScope()
     var currentName by remember { mutableStateOf(ProfileManager.getProfileName(context)) }
     var currentAvatarId by remember { mutableStateOf(ProfileManager.getAvatarId(context)) }
+    var selectedPresetIndex by remember {
+        mutableIntStateOf(ProfileManager.PRESET_AVATARS.indexOfFirst { it.id == currentAvatarId }.coerceAtLeast(0))
+    }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -2263,12 +1829,75 @@ fun ChangeAvatarDialog(
         EnableWindowBlur()
         Box(
             modifier = Modifier
-                .width(420.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SteamDeckBg)
-                .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
-                .padding(20.dp)
+                .fillMaxSize()
+                .background(ScrimColor) // rule-ok: scrim escurecido padrao
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
+                                val presets = ProfileManager.PRESET_AVATARS
+                                if (selectedPresetIndex > 0) {
+                                    selectedPresetIndex--
+                                    val preset = presets[selectedPresetIndex]
+                                    currentAvatarId = preset.id
+                                    ProfileManager.setAvatarId(context, preset.id)
+                                    onAvatarSelected(preset.id)
+                                    SoundEffectManager.playNavMove()
+                                }
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                val presets = ProfileManager.PRESET_AVATARS
+                                if (selectedPresetIndex < presets.size - 1) {
+                                    selectedPresetIndex++
+                                    val preset = presets[selectedPresetIndex]
+                                    currentAvatarId = preset.id
+                                    ProfileManager.setAvatarId(context, preset.id)
+                                    onAvatarSelected(preset.id)
+                                    SoundEffectManager.playNavMove()
+                                }
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_A,
+                            AndroidKeyEvent.KEYCODE_ENTER,
+                            AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                SoundEffectManager.playConfirm()
+                                onDismiss()
+                                true
+                            }
+                            AndroidKeyEvent.KEYCODE_BUTTON_B,
+                            AndroidKeyEvent.KEYCODE_BACK,
+                            AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
         ) {
+            Box(
+                modifier = Modifier
+                    .width(420.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(SteamDeckBg)
+                    .border(1.2.dp, Brush.verticalGradient(listOf(Color(0x55FFFFFF), Color(0x18FFFFFF))), RoundedCornerShape(28.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .padding(20.dp)
+            ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -2364,14 +1993,14 @@ fun ChangeAvatarDialog(
                     }
                 }
 
-                Text("Ou use um Ícone Predefinido:", color = SteamDeckTextMuted, fontSize = 11.sp)
+                Text("Ou use um Ícone Predefinido (Use D-Pad):", color = SteamDeckTextMuted, fontSize = 11.sp)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    ProfileManager.PRESET_AVATARS.forEach { preset ->
-                        val isSelected = currentAvatarId == preset.id
+                    ProfileManager.PRESET_AVATARS.forEachIndexed { index, preset ->
+                        val isSelected = currentAvatarId == preset.id || selectedPresetIndex == index
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
@@ -2385,11 +2014,12 @@ fun ChangeAvatarDialog(
                                     )
                                 )
                                 .border(
-                                    width = if (isSelected) 2.5.dp else 1.dp,
+                                    width = if (isSelected) 3.dp else 1.dp,
                                     color = if (isSelected) Color.White else Color(0x33FFFFFF),
                                     shape = CircleShape
                                 )
                                 .clickable {
+                                    selectedPresetIndex = index
                                     currentAvatarId = preset.id
                                     ProfileManager.setAvatarId(context, preset.id)
                                     onAvatarSelected(preset.id)
@@ -2419,6 +2049,7 @@ fun ChangeAvatarDialog(
             }
         }
     }
+}
 }
 
 @Composable
@@ -2532,6 +2163,7 @@ fun SteamGridHeroSelectDialog(
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }
@@ -2857,6 +2489,7 @@ fun SteamGridLogoSelectDialog(
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }
@@ -3268,6 +2901,7 @@ fun SelectConsoleIntroDialog(
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }
@@ -3465,6 +3099,7 @@ fun GameMetadataDialog(
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }
@@ -3967,6 +3602,7 @@ fun SelectMusicDialog(
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }

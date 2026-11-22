@@ -78,6 +78,13 @@ class MainActivity : ComponentActivity() {
     private var metadataUpdateCounter = mutableIntStateOf(0)
     private var buttonALongPressJob: Job? = null
     private var isButtonALongPressed = false
+    private var showGameHubSheetState = mutableStateOf(false)
+    private var showQuickAccessDrawerState = mutableStateOf(false)
+    private var tiltXState = mutableFloatStateOf(0f)
+    private var tiltYState = mutableFloatStateOf(0f)
+    private var sensorManager: android.hardware.SensorManager? = null
+    private var rotationSensor: android.hardware.Sensor? = null
+    private var sensorListener: android.hardware.SensorEventListener? = null
 
     private val isAnyDialogOpen: Boolean
         get() = showOptionsDialogState.value || showGameMetadataDialogState.value ||
@@ -88,7 +95,7 @@ class MainActivity : ComponentActivity() {
             showAddGameOptionsDialogState.value || showSteamGridDialogState.value ||
             showLauncherSettingsDialogState.value ||
             showChangeAvatarDialogState.value || showEmulatorGamesDialogState.value ||
-            showIidbKeyDialogState.value
+            showIidbKeyDialogState.value || showGameHubSheetState.value || showQuickAccessDrawerState.value
 
     private fun closeAllDialogs() {
         showOptionsDialogState.value = false
@@ -105,6 +112,8 @@ class MainActivity : ComponentActivity() {
         showLauncherSettingsDialogState.value = false
         showChangeAvatarDialogState.value = false
         showEmulatorGamesDialogState.value = false
+        showGameHubSheetState.value = false
+        showQuickAccessDrawerState.value = false
         activeEmulatorAppState.value = null
         activeDialogAppState.value = null
     }
@@ -264,8 +273,17 @@ class MainActivity : ComponentActivity() {
         requestHighestRefreshRate()
         SoundEffectManager.init(this)
 
-        // Migração v1.1: limpar preferência legada de pacote de ícones
-        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
+        // Sensor de Giroscópio / Gravidade para Paralaxe Vivo (Feature 1 Next-Gen)
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as? android.hardware.SensorManager
+        rotationSensor = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
+            ?: sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_GRAVITY)
+
+        // Migração v1.1: limpar preferência legada de pacote de ícones uma única vez
+        val cleanupPrefs = getSharedPreferences("nuvos_app_prefs", Context.MODE_PRIVATE)
+        if (!cleanupPrefs.getBoolean("legacy_icons_cleaned", false)) {
+            getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
+            cleanupPrefs.edit().putBoolean("legacy_icons_cleaned", true).apply()
+        }
 
         setContent {
             DeckLauncherTheme {
@@ -616,6 +634,23 @@ class MainActivity : ComponentActivity() {
                             loadInstalledApps()
                             Toast.makeText(this, "${item.label} removido da Tela Inicial", Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    parallaxX = tiltXState.floatValue,
+                    parallaxY = tiltYState.floatValue,
+                    showGameHubSheet = showGameHubSheetState.value,
+                    onDismissGameHubSheet = { showGameHubSheetState.value = false },
+                    showQuickAccessDrawer = showQuickAccessDrawerState.value,
+                    onDismissQuickAccessDrawer = { showQuickAccessDrawerState.value = false },
+                    onJumpToLetter = { char -> jumpToLetter(char) },
+                    onRequestOpenDetails = {
+                        showGameHubSheetState.value = true
+                        triggerHaptic()
+                        SoundEffectManager.playMenuOpen()
+                    },
+                    onRequestOpenQuickAccess = {
+                        showQuickAccessDrawerState.value = true
+                        triggerHaptic()
+                        SoundEffectManager.playMenuOpen()
                     }
                 )
                 }
@@ -637,6 +672,12 @@ class MainActivity : ComponentActivity() {
             }
             registerReceiver(packageReceiver, pkgFilter)
             registerReceiver(screenStateReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            androidx.core.content.ContextCompat.registerReceiver(
+                this,
+                steamGridBroadcastReceiver,
+                IntentFilter("com.decklauncher.SET_STEAMGRID_KEY"),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         } catch (_: Exception) {}
     }
 
@@ -648,9 +689,34 @@ class MainActivity : ComponentActivity() {
         requestHighestRefreshRate()
         SoundEffectManager.init(this)
 
-        // Migração v1.1: limpar preferência legada de pacote de ícones
-        getSharedPreferences("iconpack_prefs", Context.MODE_PRIVATE).edit().clear().apply() // rule-ok: limpeza de migracao legada
+        // Registra sensor para paralaxe vivo do giroscópio
+        rotationSensor?.let { sensor ->
+            sensorListener = object : android.hardware.SensorEventListener {
+                override fun onSensorChanged(event: android.hardware.SensorEvent?) {
+                    if (event == null) return
+                    val rawX = (-event.values[0] * 1.5f).coerceIn(-1f, 1f)
+                    val rawY = (event.values[1] * 1.5f).coerceIn(-1f, 1f)
+                    tiltXState.floatValue = tiltXState.floatValue * 0.82f + rawX * 0.18f
+                    tiltYState.floatValue = tiltYState.floatValue * 0.82f + rawY * 0.18f
+                }
+                override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+            }
+            sensorManager?.registerListener(sensorListener, sensor, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+
         ThemeMusicManager.resumeTheme()
+    }
+
+    private fun jumpToLetter(letter: Char) {
+        val filtered = getFilteredApps()
+        val idx = filtered.indexOfFirst { it.label.startsWith(letter, ignoreCase = true) }
+        if (idx >= 0) {
+            selectedIndexState.intValue = idx
+            focusAreaState.value = FocusArea.CAROUSEL
+            SoundEffectManager.playConfirm()
+        } else {
+            Toast.makeText(this, "Nenhum jogo com a letra '$letter'", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -667,6 +733,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        sensorListener?.let {
+            sensorManager?.unregisterListener(it)
+            sensorListener = null
+        }
         joyRepeatJob?.cancel()
         currentJoyDir = JoystickDir.NONE
         ThemeMusicManager.pauseTheme()
@@ -680,6 +750,7 @@ class MainActivity : ComponentActivity() {
             unregisterReceiver(batteryReceiver)
             unregisterReceiver(packageReceiver)
             unregisterReceiver(screenStateReceiver)
+            unregisterReceiver(steamGridBroadcastReceiver)
         } catch (_: Exception) {}
     }
 
@@ -715,6 +786,18 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {}
     }
 
+    private var cachedGroupedFolders: List<AppFolder> = emptyList()
+    private var lastGroupedAppsList: List<AppItem>? = null
+
+    private fun getGroupedFolders(): List<AppFolder> {
+        val currentApps = appsListState.value
+        if (lastGroupedAppsList !== currentApps) {
+            cachedGroupedFolders = CategoryManager.groupIntoFolders(currentApps)
+            lastGroupedAppsList = currentApps
+        }
+        return cachedGroupedFolders
+    }
+
     private fun getFilteredApps(): List<AppItem> {
         val all = appsListState.value
         val cat = when (selectedTabState.intValue) {
@@ -722,8 +805,7 @@ class MainActivity : ComponentActivity() {
             1 -> AppCategory.EMULADORES
             else -> AppCategory.APPS
         }
-        val filtered = all.filter { it.category == cat }
-        return if (filtered.isEmpty() && cat != AppCategory.APPS) all else filtered
+        return all.filter { it.category == cat }
     }
 
     private fun loadInstalledApps() {
@@ -945,6 +1027,7 @@ class MainActivity : ComponentActivity() {
 
     private fun launchItem(item: AppItem) {
         SoundEffectManager.playGameLaunch()
+        OrderManager.recordAppLaunch(this, item.id)
         val bundle = getLaunchBundle()
         when (item.itemType) {
             ItemType.CLOUD -> {
@@ -1145,18 +1228,15 @@ class MainActivity : ComponentActivity() {
     // --- Suporte Total a Controles Físicos / Gamepads ---
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Se uma intro de boot estiver em execução, qualquer botão de ação ou retorno pula a intro
+        // Se uma intro de boot estiver em execução, apenas botões intencionais de menu/skip pulam a intro
         if (activeIntroPlayingState.value != null && event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
-                KeyEvent.KEYCODE_BUTTON_A,
+                KeyEvent.KEYCODE_BUTTON_START,
+                KeyEvent.KEYCODE_BUTTON_SELECT,
+                KeyEvent.KEYCODE_MENU,
                 KeyEvent.KEYCODE_BUTTON_B,
-                KeyEvent.KEYCODE_BUTTON_X,
-                KeyEvent.KEYCODE_BUTTON_Y,
                 KeyEvent.KEYCODE_BACK,
-                KeyEvent.KEYCODE_ESCAPE,
-                KeyEvent.KEYCODE_ENTER,
-                KeyEvent.KEYCODE_NUMPAD_ENTER,
-                KeyEvent.KEYCODE_DPAD_CENTER -> {
+                KeyEvent.KEYCODE_ESCAPE -> {
                     val item = pendingLaunchAppState.value
                     pendingLaunchAppState.value = null
                     isLaunchingFadeState.value = true
@@ -1251,7 +1331,7 @@ class MainActivity : ComponentActivity() {
             return super.dispatchKeyEvent(event)
         }
 
-        val folders = CategoryManager.groupIntoFolders(appsListState.value)
+        val folders = getGroupedFolders()
         val filtered = getFilteredApps()
 
         when (event.keyCode) {
@@ -1317,6 +1397,15 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
+            // Botão R3 (Right Thumb click) ou Botão WINDOW: Abre Quick Access Drawer (Feature 3 Next-Gen)
+            KeyEvent.KEYCODE_BUTTON_THUMBR,
+            KeyEvent.KEYCODE_WINDOW -> {
+                showQuickAccessDrawerState.value = !showQuickAccessDrawerState.value
+                triggerHaptic()
+                if (showQuickAccessDrawerState.value) SoundEffectManager.playMenuOpen() else SoundEffectManager.playMenuClose()
+                return true
+            }
+
             // Botão SELECT / X / MENU: Abre Opções do app/jogo focado
             KeyEvent.KEYCODE_BUTTON_X,
             KeyEvent.KEYCODE_X,
@@ -1356,6 +1445,12 @@ class MainActivity : ComponentActivity() {
                 return true
             }
             KeyEvent.KEYCODE_DPAD_UP -> {
+                if (showGameHubSheetState.value) {
+                    showGameHubSheetState.value = false
+                    triggerHaptic()
+                    SoundEffectManager.playMenuClose()
+                    return true
+                }
                 if (focusAreaState.value == FocusArea.CAROUSEL) {
                     focusAreaState.value = FocusArea.TOP_BAR
                     topBarIndexState.intValue = 0
@@ -1369,6 +1464,15 @@ class MainActivity : ComponentActivity() {
                     focusAreaState.value = FocusArea.CAROUSEL
                     triggerHaptic()
                     return true
+                }
+                // No carrossel de jogos/emuladores, D-PAD DOWN abre o Game Hub Sheet (Feature 2 Next-Gen)
+                if (focusAreaState.value == FocusArea.CAROUSEL && (selectedTabState.intValue == 0 || selectedTabState.intValue == 1)) {
+                    if (!showGameHubSheetState.value) {
+                        showGameHubSheetState.value = true
+                        triggerHaptic()
+                        SoundEffectManager.playMenuOpen()
+                        return true
+                    }
                 }
                 executeNavigation(JoystickDir.DOWN)
                 return true
@@ -1387,6 +1491,18 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_BUTTON_B,
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE -> {
+                if (showGameHubSheetState.value) {
+                    showGameHubSheetState.value = false
+                    triggerHaptic()
+                    SoundEffectManager.playMenuClose()
+                    return true
+                }
+                if (showQuickAccessDrawerState.value) {
+                    showQuickAccessDrawerState.value = false
+                    triggerHaptic()
+                    SoundEffectManager.playMenuClose()
+                    return true
+                }
                 if (focusAreaState.value == FocusArea.TOP_BAR) {
                     focusAreaState.value = FocusArea.CAROUSEL
                     triggerHaptic()
@@ -1410,6 +1526,17 @@ class MainActivity : ComponentActivity() {
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (event.source and InputDevice.SOURCE_JOYSTICK != InputDevice.SOURCE_JOYSTICK ||
             event.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(event)
+
+        // Right Stick Parallax (Feature 1 Next-Gen)
+        val rAxisX = event.getAxisValue(MotionEvent.AXIS_Z).takeIf { kotlin.math.abs(it) > 0.08f }
+            ?: event.getAxisValue(MotionEvent.AXIS_RX).takeIf { kotlin.math.abs(it) > 0.08f } ?: 0f
+        val rAxisY = event.getAxisValue(MotionEvent.AXIS_RZ).takeIf { kotlin.math.abs(it) > 0.08f }
+            ?: event.getAxisValue(MotionEvent.AXIS_RY).takeIf { kotlin.math.abs(it) > 0.08f } ?: 0f
+
+        if (kotlin.math.abs(rAxisX) > 0.05f || kotlin.math.abs(rAxisY) > 0.05f) {
+            tiltXState.floatValue = rAxisX.coerceIn(-1f, 1f)
+            tiltYState.floatValue = rAxisY.coerceIn(-1f, 1f)
+        }
 
         val axisX = event.getAxisValue(MotionEvent.AXIS_X).takeIf { it != 0f }
             ?: event.getAxisValue(MotionEvent.AXIS_HAT_X)
@@ -1500,7 +1627,7 @@ class MainActivity : ComponentActivity() {
 
         val isAppsTab = selectedTabState.intValue == 2
         val isInsideFolder = isAppsTab && activeFolderState.value != null
-        val folders = CategoryManager.groupIntoFolders(appsListState.value)
+        val folders = getGroupedFolders()
 
         val count = when {
             isInsideFolder -> activeFolderState.value?.apps?.size ?: 0
@@ -1571,7 +1698,7 @@ class MainActivity : ComponentActivity() {
             SoundEffectManager.playConfirm()
             return
         }
-        val folders = CategoryManager.groupIntoFolders(appsListState.value)
+        val folders = getGroupedFolders()
         val filtered = getFilteredApps()
         if (selectedTabState.intValue == 2) {
             // Aba Apps

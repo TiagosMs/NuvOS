@@ -53,12 +53,12 @@ fun AppGridCard(
     )
 
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 3.dp else 1.dp,
+        targetValue = if (isSelected) 1.8.dp else 1.dp,
         animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
         label = "grid_border"
     )
 
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(16.dp)
 
     Column(
         modifier = modifier

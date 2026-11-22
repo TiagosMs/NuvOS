@@ -13,7 +13,8 @@ import java.io.FileOutputStream
 enum class BackgroundMode(val id: String, val label: String) {
     IMMERSIVE("immersive", "Imersivo (Arte do Jogo)"),
     WALLPAPER("wallpaper", "Papel de Parede Estático"),
-    SOLID("solid", "Sóbrio (SteamOS Escuro)")
+    SOLID("solid", "Sóbrio (SteamOS Escuro)"),
+    OLED("oled", "Preto Puro OLED")
 }
 
 data class ThemeColorPreset(

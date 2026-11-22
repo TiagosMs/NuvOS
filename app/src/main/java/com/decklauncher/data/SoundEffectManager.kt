@@ -56,15 +56,37 @@ object SoundEffectManager {
         soundPool = pool
     }
 
-    private fun play(soundId: Int, volume: Float = 0.95f) {
+    private var lastNavMoveTime: Long = 0L
+    private var rapidStreak: Int = 0
+
+    private fun play(soundId: Int, volume: Float = 0.95f, rate: Float = 1.0f) {
         val pool = soundPool ?: return
         if (soundId != 0) {
-            pool.play(soundId, volume, volume, 1, 0, 1.0f)
+            pool.play(soundId, volume, volume, 1, 0, rate)
         }
     }
 
-    fun playNavMove() = play(soundNavMove, 0.75f)
-    fun playTabSwitch() = play(soundTabSwitch, 0.85f)
+    /**
+     * Navegação com modulação dinâmica de tom estilo Nintendo Switch (Feature 5 Next-Gen):
+     * Ao navegar rápido consecutivamente, o tom sobe harmonicamente de 1.0x até 1.28x.
+     */
+    fun playNavMove() {
+        val now = System.currentTimeMillis()
+        if (now - lastNavMoveTime < 240L) {
+            rapidStreak = (rapidStreak + 1).coerceAtMost(8)
+        } else {
+            rapidStreak = 0
+        }
+        lastNavMoveTime = now
+
+        val pitchRate = (1.0f + (rapidStreak * 0.035f)).coerceIn(1.0f, 1.28f)
+        play(soundNavMove, 0.75f, pitchRate)
+    }
+
+    fun playTabSwitch() {
+        rapidStreak = 0
+        play(soundTabSwitch, 0.85f)
+    }
     fun playBoundary() = play(soundNavBoundary, 0.75f)
     fun playConfirm() = play(soundConfirm, 0.9f)
     fun playCancelBack() = play(soundCancelBack, 0.85f)

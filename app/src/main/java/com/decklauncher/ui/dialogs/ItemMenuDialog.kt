@@ -1,5 +1,7 @@
 package com.decklauncher.ui.dialogs
 
+import com.decklauncher.data.SoundEffectManager
+
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.spring
@@ -149,21 +151,25 @@ fun ItemMenuDialog(
                         when (keyEvent.nativeKeyEvent.keyCode) {
                             AndroidKeyEvent.KEYCODE_DPAD_UP -> {
                                 selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                SoundEffectManager.playNavMove()
                                 true
                             }
                             AndroidKeyEvent.KEYCODE_DPAD_DOWN -> {
                                 selectedIndex = (selectedIndex + 1).coerceAtMost(actions.size - 1)
+                                SoundEffectManager.playNavMove()
                                 true
                             }
                             AndroidKeyEvent.KEYCODE_BUTTON_A,
                             AndroidKeyEvent.KEYCODE_ENTER,
                             AndroidKeyEvent.KEYCODE_DPAD_CENTER -> {
+                                SoundEffectManager.playConfirm()
                                 actions.getOrNull(selectedIndex)?.onClick?.invoke()
                                 true
                             }
                             AndroidKeyEvent.KEYCODE_BUTTON_B,
                             AndroidKeyEvent.KEYCODE_BACK,
                             AndroidKeyEvent.KEYCODE_ESCAPE -> {
+                                SoundEffectManager.playMenuClose()
                                 onDismiss()
                                 true
                             }
@@ -193,10 +199,10 @@ fun ItemMenuDialog(
                             indication = null,
                             onClick = {}
                         )
-                        .clip(RoundedCornerShape(26.dp))
+                        .clip(RoundedCornerShape(24.dp))
                         .background(ColorBgDeep)
-                        .border(1.2.dp, CardBorderUnselected, RoundedCornerShape(26.dp))
-                        .padding(20.dp)
+                        .border(1.dp, CardBorderUnselected, RoundedCornerShape(24.dp))
+                        .padding(16.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -220,7 +226,7 @@ fun ItemMenuDialog(
                             color = TextPrimary
                         )
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         actions.forEachIndexed { index, action ->
                             val isFocused = selectedIndex == index
@@ -228,7 +234,7 @@ fun ItemMenuDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(min = 48.dp) // rule-ok: toque minimo 48dp
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         if (action.isDestructive) {
                                             if (isFocused) DangerBtnBg else NeutralBtnBg
@@ -237,9 +243,9 @@ fun ItemMenuDialog(
                                         }
                                     )
                                     .border(
-                                        width = if (isFocused) 2.dp else 1.dp,
+                                        width = if (isFocused) 1.5.dp else 1.dp,
                                         color = if (isFocused) FocusRing else CardBorderUnselected,
-                                        shape = RoundedCornerShape(16.dp)
+                                        shape = RoundedCornerShape(12.dp)
                                     )
                                     .clickable(role = Role.Button) {
                                         action.onClick()

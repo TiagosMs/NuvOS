@@ -1,12 +1,10 @@
 package com.decklauncher.ui.components
 
-import android.graphics.Paint
-import android.graphics.Typeface
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +28,8 @@ fun BottomBar(
     onOptionsAction: () -> Unit = {},
     onAddGameAction: () -> Unit = {},
     onBackAction: () -> Unit = {},
+    onOpenDetailsAction: () -> Unit = {},
+    onQuickAccessAction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -41,21 +40,21 @@ fun BottomBar(
             .fillMaxWidth()
             .padding(
                 horizontal = if (isCompactHeight) 20.dp else 32.dp,
-                vertical = if (isCompactHeight) 6.dp else 18.dp
+                vertical = if (isCompactHeight) 6.dp else 16.dp
             ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         if (isReorderMode) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 14.dp else 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 12.dp else 20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Mover Itens",
                     color = TextWhite,
                     fontSize = if (isCompactHeight) 11.sp else 12.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Medium
                 )
                 ControllerActionPrompt(
                     actionLabel = "Fixar / Salvar",
@@ -68,15 +67,23 @@ fun BottomBar(
             }
         } else {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 14.dp else 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 10.dp else 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ControllerActionPrompt(
                     buttonLetter = "A",
-                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir" else if (isEmulatorsTab) "Ver Jogos" else "Jogar",
+                    actionLabel = if (isAppsTab && !isInsideFolder) "Abrir" else if (isEmulatorsTab) "Iniciar" else "Jogar",
                     isCompactHeight = isCompactHeight,
                     onClick = onPrimaryAction
                 )
+                if (!isAppsTab) {
+                    ControllerActionPrompt(
+                        buttonLetter = "▼",
+                        actionLabel = "Detalhes",
+                        isCompactHeight = isCompactHeight,
+                        onClick = onOpenDetailsAction
+                    )
+                }
                 ControllerActionPrompt(
                     buttonLetter = "SELECT",
                     actionLabel = "Opções",
@@ -86,7 +93,7 @@ fun BottomBar(
                 if (!isAppsTab) {
                     ControllerActionPrompt(
                         buttonLetter = "Y",
-                        actionLabel = "Adicionar Jogos",
+                        actionLabel = "Adicionar",
                         isCompactHeight = isCompactHeight,
                         onClick = onAddGameAction
                     )
@@ -100,6 +107,14 @@ fun BottomBar(
                     )
                 }
             }
+
+            // Acesso Rápido no canto direito da barra inferior
+            ControllerActionPrompt(
+                buttonLetter = "R3",
+                actionLabel = "Menu Rápido",
+                isCompactHeight = isCompactHeight,
+                onClick = onQuickAccessAction
+            )
         }
     }
 }
@@ -125,23 +140,41 @@ fun ControllerActionPrompt(
     ) {
         if (!buttonLetter.isNullOrBlank()) {
             val isSelect = buttonLetter.equals("SELECT", ignoreCase = true)
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(if (isSelect) 8.dp else 12.dp))
-                    .background(Color(0xFF2A3240))
-                    .border(1.dp, Color(0xFF4A5568), RoundedCornerShape(if (isSelect) 8.dp else 12.dp))
-                    .padding(
-                        horizontal = if (isSelect) 6.dp else 5.dp,
-                        vertical = 2.dp
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = buttonLetter,
-                    color = TextWhite,
-                    fontSize = if (isCompactHeight) (if (isSelect) 8.sp else 9.5.sp) else (if (isSelect) 9.sp else 11.sp),
-                    fontWeight = FontWeight.Bold
-                )
+            val badgeHeight = if (isCompactHeight) 18.dp else 20.dp
+
+            if (isSelect) {
+                Box(
+                    modifier = Modifier
+                        .height(badgeHeight)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0x22FFFFFF))
+                        .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = buttonLetter,
+                        color = TextWhite,
+                        fontSize = if (isCompactHeight) 8.sp else 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(badgeHeight)
+                        .clip(CircleShape)
+                        .background(Color(0x22FFFFFF))
+                        .border(1.dp, Color(0x35FFFFFF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = buttonLetter,
+                        color = TextWhite,
+                        fontSize = if (isCompactHeight) 9.sp else 10.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
@@ -149,7 +182,7 @@ fun ControllerActionPrompt(
             text = actionLabel,
             color = TextPrimary,
             fontSize = if (isCompactHeight) 11.sp else 13.sp,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Normal
         )
     }
 }

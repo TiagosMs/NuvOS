@@ -43,6 +43,7 @@ import com.decklauncher.data.rememberAppIcon
 import com.decklauncher.model.AppItem
 import com.decklauncher.ui.theme.Motion
 import com.decklauncher.ui.theme.NeutralBtnBgFocused
+import com.decklauncher.ui.theme.NeutralHigh
 import com.decklauncher.ui.theme.StatusPlaying
 import com.decklauncher.ui.theme.TextPrimary
 import com.decklauncher.ui.theme.TextWhite
@@ -72,11 +73,11 @@ fun GameCard(
 
     val cardWidth = if (isCompactHeight) 118.dp else 175.dp
     val cardHeight = if (isCompactHeight) 168.dp else 250.dp
-    val cornerRadiusDp = if (isCompactHeight) 16.dp else 22.dp
+    val cornerRadiusDp = if (isCompactHeight) 12.dp else 16.dp
     val fallbackIconSize = if (isCompactHeight) 48.dp else 72.dp
-    val labelFontSize = if (isCompactHeight) 10.sp else 13.sp
+    val labelFontSize = if (isCompactHeight) 10.sp else 12.sp
 
-    // Progresso único 0->1 de foco com Spring Console (Fase 4.5)
+    // Progresso único 0->1 de foco com Spring Console (Fase 4.5 & Unslop v1.1)
     val sel = animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
         animationSpec = Motion.SelectSpring,
@@ -98,28 +99,12 @@ fun GameCard(
                 .height(cardHeight)
                 .graphicsLayer {
                     val s = if (isReorderMode) {
-                        0.94f + 0.15f * sel.value
+                        0.96f + 0.08f * sel.value
                     } else {
-                        0.94f + 0.14f * sel.value
+                        0.96f + 0.07f * sel.value
                     }
                     scaleX = s
                     scaleY = s
-                }
-                .drawBehind {
-                    val a = sel.value.coerceIn(0f, 1f)
-                    if (a > 0.01f) {
-                        val glowColor = if (isReorderMode) Color(0xFFF59E0B) else accentColor
-                        val baseRadius = cornerRadiusDp.toPx()
-                        repeat(3) { i ->
-                            val grow = (4 + i * 5).dp.toPx()
-                            drawRoundRect(
-                                color = glowColor.copy(alpha = (0.22f * a / (i + 1)).coerceIn(0f, 1f)),
-                                topLeft = Offset(-grow, -grow),
-                                size = Size(size.width + grow * 2, size.height + grow * 2),
-                                cornerRadius = CornerRadius(baseRadius + grow)
-                            )
-                        }
-                    }
                 }
                 .clip(shape)
                 .drawWithContent {
@@ -127,7 +112,7 @@ fun GameCard(
                     val a = sel.value.coerceIn(0f, 1f)
                     if (a > 0.01f) {
                         val strokeColor = if (isReorderMode) Color(0xFFF59E0B) else Color.White
-                        val strokeWidth = if (isCompactHeight) 2.8.dp.toPx() else 3.5.dp.toPx()
+                        val strokeWidth = if (isCompactHeight) 1.5.dp.toPx() else 1.8.dp.toPx()
                         drawRoundRect(
                             color = strokeColor.copy(alpha = a),
                             cornerRadius = CornerRadius(cornerRadiusDp.toPx()),
@@ -228,23 +213,23 @@ fun GameCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(4.dp))
                         .background(NeutralBtnBgFocused)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "MOVER",
+                        text = "Mover",
                         color = TextWhite,
                         fontSize = 9.sp,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             } else {
                 Text(
                     text = app.label,
-                    color = TextPrimary,
+                    color = NeutralHigh,
                     fontSize = labelFontSize,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,

@@ -46,7 +46,7 @@ fun BootIntroPlayer(
     val coroutineScope = rememberCoroutineScope()
 
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
-    var isFinished by remember { mutableStateOf(false) }
+    val isFinished = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     var isHoldingToSkip by remember { mutableStateOf(false) }
     var holdProgress by remember { mutableFloatStateOf(0f) }
 
@@ -54,8 +54,7 @@ fun BootIntroPlayer(
     val fadeAnim = remember { Animatable(1f) }
 
     fun triggerFinishWithFade() {
-        if (isFinished) return
-        isFinished = true
+        if (!isFinished.compareAndSet(false, true)) return
         coroutineScope.launch {
             // Fade suave de vídeo e áudio em 350ms (sem corte seco)
             launch {

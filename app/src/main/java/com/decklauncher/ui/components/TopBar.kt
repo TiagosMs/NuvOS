@@ -83,50 +83,50 @@ fun TopBar(
     val configuration = LocalConfiguration.current
     val isCompactHeight = configuration.screenHeightDp < 520
 
-    // Animações de cursor e foco para TopBar
+    // Animações de cursor e foco para TopBar (Unslop v1.1)
     val isProfileFocused = isTopBarFocused && topBarIndex == 0
-    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.06f else 1.0f, label = "profile_scale")
-    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 2.dp else 1.dp, label = "profile_border")
-    val profileBorderColor by animateColorAsState(targetValue = if (isProfileFocused) Color.White else Color(0x35FFFFFF), label = "profile_border_color")
-    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x40FFFFFF) else Color(0x1AFFFFFF), label = "profile_bg")
+    val profileScale by animateFloatAsState(targetValue = if (isProfileFocused) 1.02f else 1.0f, label = "profile_scale")
+    val profileBorderWidth by animateDpAsState(targetValue = if (isProfileFocused) 1.5.dp else 1.dp, label = "profile_border")
+    val profileBorderColor by animateColorAsState(targetValue = if (isProfileFocused) Color.White else Color(0x25FFFFFF), label = "profile_border_color")
+    val profileBg by animateColorAsState(targetValue = if (isProfileFocused) Color(0x28FFFFFF) else Color(0x12FFFFFF), label = "profile_bg")
 
     val isAddFocused = isTopBarFocused && topBarIndex == 1
-    val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.15f else 1.0f, label = "add_scale")
-    val addBorderWidth by animateDpAsState(targetValue = if (isAddFocused) 2.5.dp else 1.dp, label = "add_border")
+    val addScale by animateFloatAsState(targetValue = if (isAddFocused) 1.08f else 1.0f, label = "add_scale")
+    val addBorderWidth by animateDpAsState(targetValue = if (isAddFocused) 1.5.dp else 1.dp, label = "add_border")
 
     val isSettingsFocused = isTopBarFocused && topBarIndex == 2
-    val settingsScale by animateFloatAsState(targetValue = if (isSettingsFocused) 1.15f else 1.0f, label = "settings_scale")
-    val settingsBorderWidth by animateDpAsState(targetValue = if (isSettingsFocused) 2.5.dp else 1.dp, label = "settings_border")
+    val settingsScale by animateFloatAsState(targetValue = if (isSettingsFocused) 1.08f else 1.0f, label = "settings_scale")
+    val settingsBorderWidth by animateDpAsState(targetValue = if (isSettingsFocused) 1.5.dp else 1.dp, label = "settings_border")
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(
                 horizontal = if (isCompactHeight) 20.dp else 32.dp,
-                vertical = if (isCompactHeight) 6.dp else 20.dp
+                vertical = if (isCompactHeight) 6.dp else 18.dp
             ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Canto superior esquerdo: Pílula de Perfil com moldura (sem tracinhos do select e sem aro sobre o avatar)
+        // Canto superior esquerdo: Pílula de Perfil silenciosa (Quiet Chrome)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isCompactHeight) 6.dp else 8.dp),
             modifier = Modifier
                 .scale(profileScale)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(profileBg)
-                .border(profileBorderWidth, profileBorderColor, RoundedCornerShape(20.dp))
+                .border(profileBorderWidth, profileBorderColor, RoundedCornerShape(16.dp))
                 .clickable { onOpenProfileSettings() }
                 .padding(
                     vertical = if (isCompactHeight) 3.dp else 5.dp,
                     horizontal = if (isCompactHeight) 8.dp else 12.dp
                 )
         ) {
-            // Avatar Circular sem aro sobreposto
+            // Avatar Circular proporcional
             Box(
                 modifier = Modifier
-                    .size(if (isCompactHeight) 24.dp else 30.dp)
+                    .size(if (isCompactHeight) 24.dp else 28.dp)
                     .clip(CircleShape)
                     .then(
                         if (customAvatar == null) {
@@ -153,8 +153,8 @@ fun TopBar(
                     Text(
                         text = activePreset.initial,
                         color = Color.White,
-                        fontSize = if (isCompactHeight) 12.sp else 15.sp,
-                        fontWeight = FontWeight.Black
+                        fontSize = if (isCompactHeight) 12.sp else 14.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -163,7 +163,7 @@ fun TopBar(
                 text = profileName,
                 color = TextPrimary,
                 fontSize = if (isCompactHeight) 11.sp else 13.sp,
-                fontWeight = if (isProfileFocused) FontWeight.ExtraBold else FontWeight.Bold
+                fontWeight = if (isProfileFocused) FontWeight.SemiBold else FontWeight.Medium
             )
         }
 
@@ -172,19 +172,20 @@ fun TopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // [LB] Shoulder Button Pill
+            // [LB] Shoulder Button Micro-Badge
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(LbRbPillBg)
-                    .padding(horizontal = if (isCompactHeight) 5.dp else 7.dp, vertical = 2.dp),
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0x22FFFFFF))
+                    .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(4.dp))
+                    .padding(horizontal = if (isCompactHeight) 5.dp else 6.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "LB",
-                    color = LbRbPillText,
+                    color = TextPrimary.copy(alpha = 0.8f),
                     fontSize = if (isCompactHeight) 8.sp else 9.sp,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
@@ -199,12 +200,12 @@ fun TopBar(
 
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(tabBg)
                         .border(
                             width = if (isSelected) 1.dp else 0.dp,
                             color = if (isSelected) Color(0x33FFFFFF) else Color.Transparent,
-                            shape = RoundedCornerShape(20.dp)
+                            shape = RoundedCornerShape(16.dp)
                         )
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -218,26 +219,27 @@ fun TopBar(
                 ) {
                     Text(
                         text = title,
-                        color = if (isSelected) TextWhite else TextPrimary.copy(alpha = 0.65f),
+                        color = if (isSelected) TextWhite else TextPrimary.copy(alpha = 0.60f),
                         fontSize = if (isCompactHeight) 11.sp else 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
             }
 
-            // [RB] Shoulder Button Pill
+            // [RB] Shoulder Button Micro-Badge
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(LbRbPillBg)
-                    .padding(horizontal = if (isCompactHeight) 5.dp else 7.dp, vertical = 2.dp),
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0x22FFFFFF))
+                    .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(4.dp))
+                    .padding(horizontal = if (isCompactHeight) 5.dp else 6.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "RB",
-                    color = LbRbPillText,
+                    color = TextPrimary.copy(alpha = 0.8f),
                     fontSize = if (isCompactHeight) 8.sp else 9.sp,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -255,10 +257,9 @@ fun TopBar(
                         if (selectedTab == 0) {
                             Modifier
                                 .scale(addScale)
-                                .shadow(if (isAddFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
                                 .clip(CircleShape)
-                                .background(if (isAddFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
-                                .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x33FFFFFF), CircleShape)
+                                .background(if (isAddFocused) Color(0x30FFFFFF) else Color(0x15FFFFFF))
+                                .border(addBorderWidth, if (isAddFocused) Color.White else Color(0x25FFFFFF), CircleShape)
                                 .clickable { onOpenAddGame() }
                         } else {
                             Modifier // invisivel mantendo o espaco exato para layout fixo
@@ -282,10 +283,9 @@ fun TopBar(
                 modifier = Modifier
                     .size(if (isCompactHeight) 26.dp else 34.dp)
                     .scale(settingsScale)
-                    .shadow(if (isSettingsFocused) 14.dp else 0.dp, CircleShape, spotColor = Color.White)
                     .clip(CircleShape)
-                    .background(if (isSettingsFocused) Color(0x55FFFFFF) else Color(0x22FFFFFF))
-                    .border(settingsBorderWidth, if (isSettingsFocused) Color.White else Color(0x33FFFFFF), CircleShape)
+                    .background(if (isSettingsFocused) Color(0x30FFFFFF) else Color(0x15FFFFFF))
+                    .border(settingsBorderWidth, if (isSettingsFocused) Color.White else Color(0x25FFFFFF), CircleShape)
                     .clickable { onOpenStartMenu() },
                 contentAlignment = Alignment.Center
             ) {
