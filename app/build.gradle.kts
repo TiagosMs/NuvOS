@@ -18,8 +18,8 @@ android {
         applicationId = "com.decklauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         buildConfigField("String", "SGDB_API_KEY", "\"${localProps.getProperty("sgdb.apiKey", "")}\"")
 
