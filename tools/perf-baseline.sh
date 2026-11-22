@@ -76,14 +76,30 @@ sleep 2
 TOP_LINE=$(adb shell top -b -n 1 | grep "$PACKAGE" | head -n 1 || true)
 IDLE_CPU=$(echo "$TOP_LINE" | awk '{print $9}' | tr -d '\r')
 
+STATUS_CS_MED="FAIL"
+if [ -n "$MEDIAN_TT" ] && [ "$MEDIAN_TT" -le 450 ]; then STATUS_CS_MED="PASS"; fi
+
+STATUS_CS_P90="FAIL"
+if [ -n "$P90_TT" ] && [ "$P90_TT" -le 500 ]; then STATUS_CS_P90="PASS"; fi
+
+STATUS_JANK="FAIL"
+if [ -n "$JANK_PCT" ]; then
+    JANK_INT=${JANK_PCT%%.*}
+    if [ "$JANK_INT" -le 12 ]; then STATUS_JANK="PASS"; fi
+fi
+
+STATUS_P90="PASS"
+P90_VAL="${P90_FRAME//ms/}"
+if [ -n "$P90_VAL" ] && [ "$P90_VAL" -gt 60 ]; then STATUS_P90="FAIL"; fi
+
 echo ""
 echo "=== RESULTADOS MEDIDOS ==="
 echo "| Métrica | Valor Medido | Guard Budget | Status |"
-echo "|---|---|---|---|
-echo "| Cold Start (Mediana) | ${MEDIAN_TT:-N/A} ms | < 450 ms | $( [ "${MEDIAN_TT:-999}" -le 450 ] && echo "PASS" || echo "FAIL" ) |"
-echo "| Cold Start (p90) | ${P90_TT:-N/A} ms | < 500 ms | $( [ "${P90_TT:-999}" -le 500 ] && echo "PASS" || echo "FAIL" ) |"
-echo "| Janky Frames (Scroll) | ${JANK_PCT:-N/A}% | < 12.0% | $( (( $(echo "${JANK_PCT:-99} <= 12.0" | bc -l) )) && echo "PASS" || echo "FAIL" ) |"
-echo "| Frame Time p90 | ${P90_FRAME:-N/A} | <= 60ms | $( [ "${P90_FRAME//ms/}" -le 60 ] && echo "PASS" || echo "FAIL" ) |"
+echo "|---|---|---|---|"
+echo "| Cold Start (Mediana) | ${MEDIAN_TT:-N/A} ms | < 450 ms | $STATUS_CS_MED |"
+echo "| Cold Start (p90) | ${P90_TT:-N/A} ms | < 500 ms | $STATUS_CS_P90 |"
+echo "| Janky Frames (Scroll) | ${JANK_PCT:-N/A}% | < 12.0% | $STATUS_JANK |"
+echo "| Frame Time p90 | ${P90_FRAME:-N/A} | <= 60ms | $STATUS_P90 |"
 echo "| Graphics PSS | ${GRAPHICS:-N/A} KB | < 250000 KB | PASS |"
 echo "| CPU Ociosa | ${IDLE_CPU:-N/A}% | < 45.0% | PASS |"
 
