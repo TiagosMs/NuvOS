@@ -49,6 +49,21 @@ import com.decklauncher.ui.theme.TextPrimary
 import com.decklauncher.ui.theme.TextWhite
 import java.io.File
 
+@Composable
+private fun rememberSpecularBreath(): Float {
+    val infiniteTransition = rememberInfiniteTransition(label = "specular_breath")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.84f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breath_alpha"
+    )
+    return alpha
+}
+
 /**
  * Card vertical de Jogo no carrossel horizontal estilo Console (Fase 4.5):
  * - Progresso único de seleção (0->1) lido estritamente em drawBehind e graphicsLayer.
@@ -77,17 +92,8 @@ fun GameCard(
     val fallbackIconSize = if (isCompactHeight) 48.dp else 72.dp
     val labelFontSize = if (isCompactHeight) 10.sp else 12.sp
 
-    // Living Specular Breath (Console focus pulse)
-    val infiniteTransition = rememberInfiniteTransition(label = "specular_breath")
-    val breathAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.84f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "breath_alpha"
-    )
+    // Living Specular Breath (Console focus pulse): ativo estritamente no card selecionado (PERF-01)
+    val breathAlpha = if (isSelected) rememberSpecularBreath() else 1.0f
 
     // Progresso único 0->1 de foco com Harmonic Console Spring (v1.1)
     val sel = animateFloatAsState(
