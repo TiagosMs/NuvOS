@@ -2,6 +2,7 @@ package com.decklauncher
 
 import android.app.ActivityOptions
 import android.content.BroadcastReceiver
+import android.content.ComponentCallbacks2
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -686,6 +687,22 @@ class MainActivity : ComponentActivity() {
         SoundEffectManager.init(this)
 
         ThemeMusicManager.resumeTheme()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        when (level) {
+            ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE,
+            ComponentCallbacks2.TRIM_MEMORY_MODERATE -> {
+                IconCache.clear()
+                try {
+                    coil.Coil.imageLoader(this).memoryCache?.clear()
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun jumpToLetter(letter: Char) {
