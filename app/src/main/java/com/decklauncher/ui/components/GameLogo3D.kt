@@ -119,60 +119,6 @@ fun GameLogo3D(
                         vertical = if (isCompactHeight) 6.dp else 14.dp
                     )
             ) {
-                val shadowWidthDp = if (isCompactHeight) 160.dp else 250.dp
-                val shadowHeightDp = if (isCompactHeight) 14.dp else 20.dp
-                val shadowOffsetYDp = if (isCompactHeight) 36.dp else 64.dp
-
-                // Sombra do piso calculada via drawBehind com alpha derivado da phase (Fase 4.3 Passo C)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .offset(y = shadowOffsetYDp)
-                        .width(shadowWidthDp)
-                        .height(shadowHeightDp)
-                        .drawBehind {
-                            val p = phase.value
-                            val normSine = (sin(p) * 0.5f + 0.5f)
-                            val sAlpha = (0.32f + 0.16f * normSine).coerceIn(0f, 1f)
-                            val scaleW = 0.92f + 0.16f * normSine
-
-                            val sw = size.width * scaleW
-                            val sh = size.height * scaleW
-                            val left = (size.width - sw) * 0.5f
-                            val top = (size.height - sh) * 0.5f
-
-                            // Glow ambiente de destaque
-                            drawOval(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        accentColor.copy(alpha = (0.40f * sAlpha).coerceIn(0f, 1f)),
-                                        accentColor.copy(alpha = (0.10f * sAlpha).coerceIn(0f, 1f)),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(size.width * 0.5f, size.height * 0.5f),
-                                    radius = sw * 0.55f
-                                ),
-                                topLeft = Offset(left, top),
-                                size = Size(sw, sh)
-                            )
-
-                            // Sombra escura de oclusão
-                            drawOval(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color.Black.copy(alpha = sAlpha),
-                                        Color.Black.copy(alpha = (sAlpha * 0.35f).coerceIn(0f, 1f)),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(size.width * 0.5f, size.height * 0.5f),
-                                    radius = sw * 0.48f
-                                ),
-                                topLeft = Offset(left, top),
-                                size = Size(sw, sh * 0.85f)
-                            )
-                        }
-                )
-
                 // Palco do Logo 3D: valores animados lidos estritamente dentro da fase de draw do graphicsLayer
                 Box(
                     contentAlignment = Alignment.Center,

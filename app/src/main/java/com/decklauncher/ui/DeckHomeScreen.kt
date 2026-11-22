@@ -392,9 +392,7 @@ fun DeckHomeScreen(
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 alignment = Alignment.TopCenter,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(0.72f)
+                                modifier = Modifier.fillMaxSize()
                             )
                             Box(
                                 modifier = Modifier
@@ -402,10 +400,11 @@ fun DeckHomeScreen(
                                     .drawWithCache {
                                         val brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
-                                                0.00f to Color(0xCC111418),
-                                                0.15f to Color(0x66111418),
-                                                0.45f to Color(0x33111418),
-                                                0.70f to Color(0xEE111418),
+                                                0.00f to Color(0x80111418),
+                                                0.25f to Color(0x55111418),
+                                                0.50f to Color(0x75111418),
+                                                0.68f to Color(0xAA111418),
+                                                0.82f to Color(0xDD111418),
                                                 1.00f to Color(0xFF111418)
                                             )
                                         )
@@ -438,9 +437,7 @@ fun DeckHomeScreen(
         )
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.35f)
-                .align(Alignment.TopCenter)
+                .fillMaxSize()
                 .drawWithCache {
                     val brush = Brush.radialGradient(
                         colors = listOf(
