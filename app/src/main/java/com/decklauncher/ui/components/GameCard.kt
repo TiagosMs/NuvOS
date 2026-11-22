@@ -1,6 +1,6 @@
 package com.decklauncher.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -71,16 +71,28 @@ fun GameCard(
     val configuration = LocalConfiguration.current
     val isCompactHeight = configuration.screenHeightDp < 520
 
-    val cardWidth = if (isCompactHeight) 118.dp else 175.dp
-    val cardHeight = if (isCompactHeight) 168.dp else 250.dp
+    val cardWidth = if (isCompactHeight) 130.dp else 180.dp
+    val cardHeight = if (isCompactHeight) 195.dp else 270.dp
     val cornerRadiusDp = if (isCompactHeight) 12.dp else 16.dp
     val fallbackIconSize = if (isCompactHeight) 48.dp else 72.dp
     val labelFontSize = if (isCompactHeight) 10.sp else 12.sp
 
-    // Progresso único 0->1 de foco com Spring Console (Fase 4.5 & Unslop v1.1)
+    // Living Specular Breath (Console focus pulse)
+    val infiniteTransition = rememberInfiniteTransition(label = "specular_breath")
+    val breathAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.84f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breath_alpha"
+    )
+
+    // Progresso único 0->1 de foco com Harmonic Console Spring (v1.1)
     val sel = animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
-        animationSpec = Motion.SelectSpring,
+        animationSpec = Motion.ConsoleFocusSpring,
         label = "game_card_sel"
     )
 
@@ -99,12 +111,14 @@ fun GameCard(
                 .height(cardHeight)
                 .graphicsLayer {
                     val s = if (isReorderMode) {
-                        0.96f + 0.08f * sel.value
+                        0.95f + 0.11f * sel.value
                     } else {
-                        0.96f + 0.07f * sel.value
+                        0.95f + 0.11f * sel.value
                     }
                     scaleX = s
                     scaleY = s
+                    translationY = -8.dp.toPx() * sel.value
+                    alpha = 0.72f + 0.28f * sel.value
                 }
                 .clip(shape)
                 .drawWithContent {
@@ -113,8 +127,9 @@ fun GameCard(
                     if (a > 0.01f) {
                         val strokeColor = if (isReorderMode) Color(0xFFF59E0B) else Color.White
                         val strokeWidth = if (isCompactHeight) 1.5.dp.toPx() else 1.8.dp.toPx()
+                        val dynamicAlpha = a * (if (isSelected) breathAlpha else 1f)
                         drawRoundRect(
-                            color = strokeColor.copy(alpha = a),
+                            color = strokeColor.copy(alpha = dynamicAlpha),
                             cornerRadius = CornerRadius(cornerRadiusDp.toPx()),
                             style = Stroke(strokeWidth)
                         )
@@ -146,7 +161,7 @@ fun GameCard(
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(coverFile)
-                            .size(350, 500)
+                            .size(360, 540)
                             .memoryCacheKey(coverKey)
                             .diskCacheKey(coverKey)
                             .crossfade(false)

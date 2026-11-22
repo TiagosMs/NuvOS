@@ -1,6 +1,7 @@
 package com.decklauncher.ui.components
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,16 +70,22 @@ fun GameHubSheet(
         getPlatformName(app)
     }
 
+    val entryProgress by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 320, easing = Motion.EmphasizedDecelerate),
+        label = "hub_stagger"
+    )
+
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(
             initialOffsetY = { it },
-            animationSpec = tween(Motion.Base)
-        ) + fadeIn(tween(Motion.Fast)),
+            animationSpec = tween(durationMillis = 280, easing = Motion.EmphasizedDecelerate)
+        ) + fadeIn(tween(durationMillis = 180, easing = Motion.EmphasizedDecelerate)),
         exit = slideOutVertically(
             targetOffsetY = { it },
-            animationSpec = tween(Motion.Fast)
-        ) + fadeOut(tween(Motion.Fast)),
+            animationSpec = tween(durationMillis = 160)
+        ) + fadeOut(tween(durationMillis = 120)),
         modifier = modifier
     ) {
         Box(
@@ -157,7 +165,12 @@ fun GameHubSheet(
                 )
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = (entryProgress * 1.2f).coerceIn(0f, 1f)
+                            translationY = (1f - entryProgress) * 14.dp.toPx()
+                        },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -228,7 +241,12 @@ fun GameHubSheet(
 
                 // Linha de Ações Rápidas do Hub
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = (entryProgress * 1.5f - 0.5f).coerceIn(0f, 1f)
+                            translationY = (1f - entryProgress) * 10.dp.toPx()
+                        },
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

@@ -83,12 +83,12 @@ fun QuickAccessDrawer(
         visible = isVisible,
         enter = slideInHorizontally(
             initialOffsetX = { it },
-            animationSpec = tween(Motion.Base)
-        ) + fadeIn(tween(Motion.Fast)),
+            animationSpec = tween(durationMillis = 280, easing = Motion.EmphasizedDecelerate)
+        ) + fadeIn(tween(durationMillis = 180, easing = Motion.EmphasizedDecelerate)),
         exit = slideOutHorizontally(
             targetOffsetX = { it },
-            animationSpec = tween(Motion.Fast)
-        ) + fadeOut(tween(Motion.Fast)),
+            animationSpec = tween(durationMillis = 160)
+        ) + fadeOut(tween(durationMillis = 120)),
         modifier = modifier
     ) {
         Box(
@@ -217,7 +217,8 @@ fun QuickAccessDrawer(
                         Text(
                             text = "Bateria $batteryPct% • $currentTime",
                             color = TextPrimary.copy(alpha = 0.7f),
-                            fontSize = 11.sp
+                            fontSize = 11.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         )
                     }
 
@@ -231,6 +232,7 @@ fun QuickAccessDrawer(
                             text = if (is120Hz) "120 HZ" else "60 HZ",
                             color = if (is120Hz) Color(0xFF10B981) else NeutralHigh,
                             fontSize = 10.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
                         )
                     }

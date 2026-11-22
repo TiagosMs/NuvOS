@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -456,8 +457,25 @@ fun DeckHomeScreen(
                 }
         )
 
+        // Depth Recede Animation quando Quick Access Drawer está aberto
+        val contentScale by animateFloatAsState(
+            targetValue = if (showQuickAccessDrawer) 0.965f else 1.0f,
+            animationSpec = Motion.ConsoleDrawerSpring,
+            label = "home_content_scale"
+        )
+        val contentDimAlpha by animateFloatAsState(
+            targetValue = if (showQuickAccessDrawer) 0.35f else 0.0f,
+            animationSpec = tween(Motion.Base),
+            label = "home_dim_alpha"
+        )
+
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = contentScale
+                    scaleY = contentScale
+                }
         ) {
             // 1. Top Bar: [LB] Jogos Emuladores Apps [RB] + Perfil (canto superior esquerdo) + Signal Battery Clock
             TopBar(
@@ -927,6 +945,19 @@ fun DeckHomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
+            )
+        }
+
+        // Scrim escurecedor com profundidade ao abrir gaveta de acesso rápido
+        if (contentDimAlpha > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = contentDimAlpha))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onDismissQuickAccessDrawer() }
             )
         }
 

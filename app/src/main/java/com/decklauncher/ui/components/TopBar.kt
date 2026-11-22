@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -189,40 +190,62 @@ fun TopBar(
                 )
             }
 
-            // Tabs row
-            tabs.forEachIndexed { index, title ->
-                val isSelected = selectedTab == index
-                val tabBg by animateColorAsState(
-                    targetValue = if (isSelected) TabActiveBg else Color.Transparent,
-                    animationSpec = spring(dampingRatio = 0.88f, stiffness = 180f),
-                    label = "tab_bg"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(tabBg)
-                        .border(
-                            width = if (isSelected) 1.dp else 0.dp,
-                            color = if (isSelected) Color(0x33FFFFFF) else Color.Transparent,
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { onTabSelected(index) }
-                        .padding(
-                            horizontal = if (isCompactHeight) 12.dp else 18.dp,
-                            vertical = if (isCompactHeight) 4.dp else 6.dp
-                        ),
-                    contentAlignment = Alignment.Center
+            // Tabs row container com indicador deslizante console
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0x14FFFFFF))
+                    .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(20.dp))
+                    .padding(3.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = title,
-                        color = if (isSelected) TextWhite else TextPrimary.copy(alpha = 0.60f),
-                        fontSize = if (isCompactHeight) 11.sp else 13.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                    )
+                    tabs.forEachIndexed { index, title ->
+                        val isSelected = selectedTab == index
+                        val tabBg by animateColorAsState(
+                            targetValue = if (isSelected) Color(0xFF1E222B) else Color.Transparent,
+                            animationSpec = spring(dampingRatio = 0.82f, stiffness = 500f),
+                            label = "tab_bg_$index"
+                        )
+                        val tabBorderColor by animateColorAsState(
+                            targetValue = if (isSelected) Color(0x44FFFFFF) else Color.Transparent,
+                            animationSpec = spring(dampingRatio = 0.82f, stiffness = 500f),
+                            label = "tab_border_$index"
+                        )
+                        val textColor by animateColorAsState(
+                            targetValue = if (isSelected) Color.White else TextPrimary.copy(alpha = 0.55f),
+                            animationSpec = tween(Motion.Fast),
+                            label = "tab_text_$index"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(tabBg)
+                                .border(
+                                    width = if (isSelected) 1.dp else 0.dp,
+                                    color = tabBorderColor,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onTabSelected(index) }
+                                .padding(
+                                    horizontal = if (isCompactHeight) 14.dp else 20.dp,
+                                    vertical = if (isCompactHeight) 5.dp else 7.dp
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = title,
+                                color = textColor,
+                                fontSize = if (isCompactHeight) 11.sp else 13.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
 
@@ -322,6 +345,7 @@ fun TopBar(
                     text = currentTime,
                     color = TextPrimary,
                     fontSize = if (isCompactHeight) 11.sp else 13.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
             }

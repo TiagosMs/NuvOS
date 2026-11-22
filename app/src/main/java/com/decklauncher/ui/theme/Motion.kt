@@ -10,6 +10,13 @@ object Motion {
     const val Slow = 420      // troca de fundo/hero
 
     val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)          // entrar: rápido e suave no fim
+    val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.70f, 0.10f, 1.00f) // Console ease out
+
     val SelectSpring = spring<Float>(dampingRatio = 0.92f, stiffness = Spring.StiffnessMedium)
     val SoftSpring   = spring<Float>(dampingRatio = 0.95f, stiffness = Spring.StiffnessLow)
+
+    // Console Springs de Próxima Geração (v1.1)
+    val ConsoleFocusSpring = spring<Float>(dampingRatio = 0.76f, stiffness = 420f)
+    val ConsoleDrawerSpring = spring<Float>(dampingRatio = 0.85f, stiffness = 480f)
+    val ConsoleTabSpring = spring<Float>(dampingRatio = 0.82f, stiffness = 500f)
 }
